@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Design tokens. Both themes are defined here so components only ever use the
+   semantic Tailwind utilities (bg-surface, text-ink, border-line, ...).
+   The theme follows the OS preference; a `.dark` / `.light` class on <html>
+   can override it for a manual toggle later.
+--------------------------------------------------------------------------- */
+:root {
+  --bg: #e6e8ea;
+  --surface: #f4f5f6;
+  --surface-2: #fbfbfc;
+  --paper: #ffffff;
+  --ink: #1c2226;
+  --muted: #6c757d;
+  --faint: #9aa2a9;
+  --line: #d5d9dd;
+  --line-strong: #c3c9ce;
+  --accent: #37596b;
+  --accent-ink: #2a4653;
+  --accent-soft: #e4ecef;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15181b;
+    --surface: #1d2124;
+    --surface-2: #22272b;
+    --paper: #f8f7f4;
+    --ink: #e7e9eb;
+    --muted: #98a0a8;
+    --faint: #6d767e;
+    --line: #2a3035;
+    --line-strong: #363d43;
+    --accent: #7fa9bd;
+    --accent-ink: #a6c7d6;
+    --accent-soft: #26333b;
+  }
+}
+
+:root.light {
+  --bg: #e6e8ea;
+  --surface: #f4f5f6;
+  --surface-2: #fbfbfc;
+  --paper: #ffffff;
+  --ink: #1c2226;
+  --muted: #6c757d;
+  --faint: #9aa2a9;
+  --line: #d5d9dd;
+  --line-strong: #c3c9ce;
+  --accent: #37596b;
+  --accent-ink: #2a4653;
+  --accent-soft: #e4ecef;
+}
+
+:root.dark {
+  --bg: #15181b;
+  --surface: #1d2124;
+  --surface-2: #22272b;
+  --paper: #f8f7f4;
+  --ink: #e7e9eb;
+  --muted: #98a0a8;
+  --faint: #6d767e;
+  --line: #2a3035;
+  --line-strong: #363d43;
+  --accent: #7fa9bd;
+  --accent-ink: #a6c7d6;
+  --accent-soft: #26333b;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The printed "paper" is rendered by measuring pixels, so a few structural
+   rules live here rather than as utilities. Everything else is Tailwind. */
+.paper-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 9px,
+    rgba(0, 0, 0, 0.012) 9px,
+    rgba(0, 0, 0, 0.012) 10px
+  );
+}
+
+/* Keep the album preview clean: only hint "Add a caption" when hovering the
+   photo or while editing, never on every photo at rest. */
+.group:hover .caption[data-empty="true"]:not(:focus)::before,
+.caption[data-empty="true"]:focus::before {
+  content: "Add a caption";
+  color: var(--faint);
+}
+.caption:focus {
+  background: rgba(55, 89, 107, 0.1);
+}
