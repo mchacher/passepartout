@@ -1,5 +1,9 @@
 # Overview
 
+A gentle intro to how Passepartout is built. For the essentials-only, kept-current
+architecture reference (module map, engine, extension points), see
+[architecture.md](architecture.md).
+
 ## The one rule
 
 A photo's aspect ratio is never changed and the photo is never clipped. The layout

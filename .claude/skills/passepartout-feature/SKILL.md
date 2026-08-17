@@ -32,7 +32,8 @@ Before starting, read these IN ORDER:
 | Document                | Purpose                                              |
 | ----------------------- | ---------------------------------------------------- |
 | `CLAUDE.md`             | Entry point — the one rule, stack, structure, conventions |
-| `docs/overview.md`      | Data model, reactive flow, the layout engine         |
+| `docs/architecture.md`  | The essentials: module map, data model, engine, extension points |
+| `docs/overview.md`      | Gentle intro — data model, reactive flow, the layout engine |
 | `src/types.ts`          | `Photo`, `AlbumPage`, `PageFormat`, constants        |
 | `src/store.ts`          | All state and mutations (Zustand)                    |
 | `src/lib/layout.ts`     | The pure layout engine and its invariant             |
@@ -239,7 +240,13 @@ Fix every blocking finding. If code changed, **re-run Phase 4** (and Phase 5 if 
 ### 6.2 Update the spec + docs
 
 - Mark acceptance criteria `[x]` in `specs/XXX/spec.md`, tasks `[x]` in `plan.md`.
-- If behavior, the data model, or the engine changed, update `CLAUDE.md` and/or `docs/overview.md`, and the `README.md` feature list if user-facing.
+- **Keep `docs/architecture.md` current.** It is the essentials-only, always-true
+  architecture reference. If this feature changed the data model, the engine, the
+  module map, a boundary, or an extension point, fold the **essential** change into
+  it now — a line or two, not a changelog. The detail belongs in `specs/XXX/`; only
+  the durable shape belongs here. If nothing architectural changed, leave it.
+- If behavior or the data model changed, also update `docs/overview.md` and the
+  `README.md` feature list if user-facing. `CLAUDE.md` for stack/convention shifts.
 
 ### 6.3 Commit
 
@@ -258,7 +265,7 @@ Scopes: `engine`, `store`, `ui`, `types`, `export`, `import`, `exif`, `docs`, `b
 > **GATE 6** — verify ALL:
 >
 > - [ ] 6.1 Done — diff reviewed against the spec; blocking findings fixed; Phase 4/5 re-run if code changed
-> - [ ] 6.2 Done — spec checkboxes updated; docs/README updated if applicable
+> - [ ] 6.2 Done — spec checkboxes updated; `docs/architecture.md` folded the essential change (or nothing architectural changed); docs/README updated if applicable
 > - [ ] 6.3 Done — committed on the feature branch (conventional, no Co-Authored-By)
 
 ---

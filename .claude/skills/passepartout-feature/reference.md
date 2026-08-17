@@ -7,7 +7,9 @@ Quick reference for the `passepartout-feature` skill. Full workflow: [SKILL.md](
 | Topic                    | File                          |
 | ------------------------ | ----------------------------- |
 | **Entry point / rules**  | `CLAUDE.md`                   |
+| **Architecture (essentials)** | `docs/architecture.md`   |
 | **Overview / flow**      | `docs/overview.md`            |
+| **Layout catalog**       | `src/lib/layouts.ts`          |
 | **Types**                | `src/types.ts`                |
 | **Store (state + actions)** | `src/store.ts`             |
 | **Layout engine (pure)** | `src/lib/layout.ts`           |
