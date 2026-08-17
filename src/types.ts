@@ -17,7 +17,20 @@ export interface AlbumPage {
   id: string;
   title: string;
   photoIds: string[];
+  whitespace: number; // per-page whitespace level, 1 (least white) .. WHITESPACE_LEVELS (most)
+  layoutId: string; // which arrangement template (see src/lib/layouts.ts) is applied
 }
+
+// Whitespace is chosen in discrete levels: 1 = least white (photos fill their
+// region), WHITESPACE_LEVELS = most white. The engine works in a continuous
+// density (see whitespaceToDensity in src/lib/layout.ts).
+export const WHITESPACE_LEVELS = 8;
+
+// Whitespace level a fresh page starts with.
+export const DEFAULT_WHITESPACE = 4;
+
+// The layout a page falls back to before any photos land on it (a single slot).
+export const DEFAULT_LAYOUT_ID = "single";
 
 export type PageFormat = "square" | "landscape" | "portrait";
 

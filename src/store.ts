@@ -1,15 +1,41 @@
 import { create } from "zustand";
-import type { AlbumPage, PageFormat, Photo } from "./types";
+import {
+  DEFAULT_WHITESPACE,
+  DEFAULT_LAYOUT_ID,
+  type AlbumPage,
+  type PageFormat,
+  type Photo,
+} from "./types";
 import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
+import { defaultLayoutId, getLayout } from "./lib/layouts";
 
 const DEFAULT_PER_PAGE = 3;
+
+function newPage(): AlbumPage {
+  return {
+    id: crypto.randomUUID(),
+    title: "",
+    photoIds: [],
+    whitespace: DEFAULT_WHITESPACE,
+    layoutId: DEFAULT_LAYOUT_ID,
+  };
+}
+
+// Keep a page's layout consistent with its photo count. The chosen template stays
+// when it still fits the count; otherwise it resets to that count's default.
+function syncLayout(page: AlbumPage): void {
+  const count = page.photoIds.length;
+  const tpl = getLayout(page.layoutId);
+  if (!tpl || tpl.count !== count) {
+    page.layoutId = defaultLayoutId(count);
+  }
+}
 
 interface AlbumState {
   photos: Photo[];
   pages: AlbumPage[];
   format: PageFormat;
-  density: number;
 
   importFiles: (files: FileList | File[]) => Promise<void>;
   loadDemo: () => void;
@@ -22,10 +48,11 @@ interface AlbumState {
   addPage: () => void;
   deletePage: (pageId: string) => void;
   setPageTitle: (pageId: string, title: string) => void;
+  setPageWhitespace: (pageId: string, whitespace: number) => void;
+  setPageLayout: (pageId: string, layoutId: string) => void;
   setCaption: (photoId: string, caption: string) => void;
 
   setFormat: (format: PageFormat) => void;
-  setDensity: (density: number) => void;
   reset: () => void;
 }
 
@@ -34,15 +61,16 @@ function distribute(photos: Photo[]): AlbumPage[] {
   let cur: AlbumPage | null = null;
   photos.forEach((p, i) => {
     if (i % DEFAULT_PER_PAGE === 0) {
-      cur = { id: crypto.randomUUID(), title: "", photoIds: [] };
+      cur = newPage();
       pages.push(cur);
     }
     cur!.photoIds.push(p.id);
     p.pageId = cur!.id;
   });
   if (pages.length === 0) {
-    pages.push({ id: crypto.randomUUID(), title: "", photoIds: [] });
+    pages.push(newPage());
   }
+  pages.forEach(syncLayout);
   return pages;
 }
 
@@ -80,7 +108,6 @@ export const useAlbum = create<AlbumState>((set, get) => ({
   photos: [],
   pages: [],
   format: "square",
-  density: 46,
 
   importFiles: async (files) => {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -120,6 +147,7 @@ export const useAlbum = create<AlbumState>((set, get) => ({
       }
       target.photoIds.push(photoId);
       photo.pageId = pageId;
+      pages.forEach(syncLayout);
       return { photos, pages };
     }),
 
@@ -132,6 +160,7 @@ export const useAlbum = create<AlbumState>((set, get) => ({
       const pg = pages.find((x) => x.id === photo.pageId);
       if (pg) pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
       photo.pageId = null;
+      pages.forEach(syncLayout);
       return { photos, pages };
     }),
 
@@ -154,13 +183,11 @@ export const useAlbum = create<AlbumState>((set, get) => ({
         target.photoIds.push(p.id);
         p.pageId = target.id;
       }
+      syncLayout(target);
       return { photos, pages };
     }),
 
-  addPage: () =>
-    set((s) => ({
-      pages: [...s.pages, { id: crypto.randomUUID(), title: "", photoIds: [] }],
-    })),
+  addPage: () => set((s) => ({ pages: [...s.pages, newPage()] })),
 
   deletePage: (pageId) =>
     set((s) => {
@@ -169,7 +196,7 @@ export const useAlbum = create<AlbumState>((set, get) => ({
       );
       let pages = s.pages.filter((pg) => pg.id !== pageId);
       if (pages.length === 0) {
-        pages = [{ id: crypto.randomUUID(), title: "", photoIds: [] }];
+        pages = [newPage()];
       }
       return { photos, pages };
     }),
@@ -179,12 +206,21 @@ export const useAlbum = create<AlbumState>((set, get) => ({
       pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, title } : pg)),
     })),
 
+  setPageWhitespace: (pageId, whitespace) =>
+    set((s) => ({
+      pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, whitespace } : pg)),
+    })),
+
+  setPageLayout: (pageId, layoutId) =>
+    set((s) => ({
+      pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId } : pg)),
+    })),
+
   setCaption: (photoId, caption) =>
     set((s) => ({
       photos: s.photos.map((p) => (p.id === photoId ? { ...p, caption } : p)),
     })),
 
   setFormat: (format) => set({ format }),
-  setDensity: (density) => set({ density }),
   reset: () => set({ photos: [], pages: [] }),
 }));

@@ -10,8 +10,7 @@ const FORMATS: Array<{ id: PageFormat; label: string }> = [
 
 export function TopBar() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const { format, density, setFormat, setDensity, importFiles, autoDistribute, photos } =
-    useAlbum();
+  const { format, setFormat, importFiles, autoDistribute, photos } = useAlbum();
 
   return (
     <header className="flex flex-wrap items-center gap-6 border-b border-line bg-surface px-5 py-3">
@@ -41,18 +40,6 @@ export function TopBar() {
           ))}
         </div>
       </div>
-
-      <label className="flex items-center gap-2.5 text-xs text-muted">
-        <span>Whitespace</span>
-        <input
-          type="range"
-          min={18}
-          max={82}
-          value={density}
-          onChange={(e) => setDensity(Number(e.target.value))}
-          className="w-32 accent-[color:var(--accent)]"
-        />
-      </label>
 
       <button
         onClick={autoDistribute}

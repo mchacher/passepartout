@@ -1,7 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { PAGE_ASPECT, type AlbumPage, type Photo } from "../types";
-import { computeLayout, type LayoutRow } from "../lib/layout";
+import { computeLayout, whitespaceToDensity, type PlacedCell } from "../lib/layout";
+import { resolveNode } from "../lib/layouts";
 import { PHOTO_DND_TYPE } from "./dnd";
 
 interface PaperProps {
@@ -9,12 +10,14 @@ interface PaperProps {
 }
 
 // The printable page. Photos are laid out by measuring the actual content box in
-// pixels, then asking the pure engine for row/size numbers. Nothing is cropped.
+// pixels, then asking the pure engine to place each one inside a fixed region of
+// the chosen layout. Nothing is cropped: each photo is contain-fit in its region.
 export function Paper({ page }: PaperProps) {
-  const { photos, format, density, placeOnPage, removeFromPage, setCaption } = useAlbum();
+  const { photos, format, placeOnPage, removeFromPage, setCaption } = useAlbum();
+  const density = whitespaceToDensity(page.whitespace);
+  const layoutId = page.layoutId;
   const innerRef = useRef<HTMLDivElement>(null);
-  const [rows, setRows] = useState<LayoutRow<Photo>[]>([]);
-  const [gap, setGap] = useState(12);
+  const [cells, setCells] = useState<PlacedCell<Photo>[]>([]);
   const [hot, setHot] = useState(false);
 
   const hasTitle = page.title.trim().length > 0;
@@ -30,12 +33,12 @@ export function Paper({ page }: PaperProps) {
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
-    const res = computeLayout(items, cw, ch, { density });
-    setRows(res.rows);
-    setGap(res.gap);
-    // items and density are the real inputs; recomputed via the effect below.
+    const node = resolveNode(layoutId, items.length);
+    const res = computeLayout(items, cw, ch, node, { density });
+    setCells(res.cells);
+    // items, density and layout are the real inputs; recomputed via the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [density, page.photoIds.join(","), format]);
+  }, [density, layoutId, page.photoIds.join(","), format]);
 
   useLayoutEffect(() => {
     measure();
@@ -79,28 +82,31 @@ export function Paper({ page }: PaperProps) {
 
         <div
           ref={innerRef}
-          className="absolute inset-0 flex flex-col items-center justify-center"
-          style={{ padding: "7%", paddingTop: hasTitle ? "13%" : "7%", gap: `${gap}px` }}
+          className="absolute inset-0"
+          style={{ padding: "7%", paddingTop: hasTitle ? "13%" : "7%" }}
         >
           {items.length === 0 ? (
             <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">
               Empty page. Drag photos here, or pick a number above.
             </div>
           ) : (
-            rows.map((row, ri) => (
-              <div key={ri} className="flex items-start justify-center" style={{ gap: `${gap}px` }}>
-                {row.cells.map((cell) => (
+            <div className="relative h-full w-full">
+              {cells.map((cell) => (
+                <div
+                  key={cell.item.id}
+                  className="absolute flex flex-col items-center justify-center"
+                  style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
+                >
                   <Cell
-                    key={cell.item.id}
                     photo={cell.item}
                     w={cell.w}
                     h={cell.h}
                     onRemove={() => removeFromPage(cell.item.id)}
                     onCaption={(text) => setCaption(cell.item.id, text)}
                   />
-                ))}
-              </div>
-            ))
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

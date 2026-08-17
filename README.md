@@ -2,19 +2,20 @@
 
 A local-first photo album layout tool that **never crops your photos**.
 
-Import a set of photos, then decide page by page how many go on each page and which ones. The layout engine arranges them into airy, centered rows that keep every photo's original aspect ratio. There is no crop tool, by design: your framing is respected exactly.
+Import a set of photos, then decide page by page how many go on each page, which ones, and which layout (rows and grids). The layout engine places each photo inside its region and keeps its original aspect ratio, surrounded by whitespace. There is no crop tool, by design: your framing is respected exactly.
 
 > A _passe-partout_ is the white mat around a framed photo. This app makes that whitespace the point.
 
 ## Why
 
-Most album software starts from fixed template slots and forces each photo to fill its slot, which crops it. Passepartout inverts that: the layout adapts to the photos, never the other way around. The only things the engine controls are size and whitespace.
+Most album software starts from fixed template slots and forces each photo to fill its slot, which crops it. Passepartout inverts that: you pick a layout, but each photo is only ever *contained* inside its region (fit and centered), never stretched to fill it. The only things the engine controls are size and whitespace.
 
 ## Features
 
 - **Per-page control**: choose 1 to 4 photos per page and exactly which photos, by drag and drop.
+- **Layouts**: pick an explicit arrangement per page (rows and grids); whitespace only scales the photos inside it, it never re-groups them.
 - **No cropping, ever**: aspect ratios are preserved to the pixel; a portrait stays portrait, a panorama stays panorama.
-- **Assumed whitespace**: a density slider tunes how much white surrounds the photos.
+- **Assumed whitespace**: eight whitespace levels per page tune how much white surrounds the photos, from a full-region fill to airy.
 - **Free text**: a title per page and a caption under each photo.
 - **Chronological by default**: photos order themselves by EXIF capture time (falling back to file date).
 - **Formats**: square, landscape, portrait.

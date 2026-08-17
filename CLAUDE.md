@@ -4,7 +4,7 @@ Guidance for Claude Code (and any AI agent) working on **Passepartout**. First f
 
 ## Project in one paragraph
 
-Passepartout is a **local-first photo album layout tool that never crops your photos**. You import a set of photos (a holiday, a trip), and page by page you decide how many photos go on the page and which ones. A layout engine arranges them into centered rows that keep each photo's native aspect ratio and surround it with generous whitespace ("blancs assumes"). The only degrees of freedom are size and gap: there is deliberately **no crop tool**, so a photo is never clipped or distorted. Everything runs in the browser, photos never leave the machine, and the app builds to static files. The end goal is a print-ready export (300 DPI + bleed) for services like CEWE / Blurb / Saal Digital.
+Passepartout is a **local-first photo album layout tool that never crops your photos**. You import a set of photos (a holiday, a trip), and page by page you decide how many photos go on the page, which ones, and which **layout** (an explicit arrangement: rows and grids). A layout engine places each photo inside a fixed region that keeps its native aspect ratio and surrounds it with generous whitespace ("blancs assumes"); a per-page whitespace level (1-8) only scales the photos inside that frozen layout, it never re-groups them. The only degrees of freedom are size and gap: there is deliberately **no crop tool**, so a photo is never clipped or distorted. Everything runs in the browser, photos never leave the machine, and the app builds to static files. The end goal is a print-ready export (300 DPI + bleed) for services like CEWE / Blurb / Saal Digital.
 
 ## Guiding principle
 
@@ -32,12 +32,15 @@ passepartout/
 │   ├── lib/
 │   │   ├── layout.ts       # PURE layout engine (the heart) + its invariants
 │   │   ├── layout.test.ts  # Ratio-preservation + fit tests
+│   │   ├── layouts.ts      # Layout template catalog (nested split trees) + helpers
+│   │   ├── layouts.test.ts # Catalog invariants (leaf counts, defaults, auto)
 │   │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   │   └── demo.ts         # Canvas-generated sample photos
 │   └── components/
-│       ├── TopBar.tsx      # Import, format, whitespace, auto-arrange
+│       ├── TopBar.tsx      # Import, format, auto-arrange
 │       ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
-│       ├── PageCard.tsx    # Per-page header: title, count 1-4, delete
+│       ├── PageCard.tsx    # Per-page header: title, count 1-4, layout picker, whitespace, delete
+│       ├── LayoutThumb.tsx # Tiny SVG preview of a layout template
 │       ├── Paper.tsx       # Measured page render (calls the engine)
 │       └── dnd.ts          # Shared drag-and-drop payload key
 └── docs/
@@ -72,6 +75,14 @@ npm run validate   # typecheck + lint + test
 3. **Full-bleed / spread templates** (one photo across a double page) while still never cropping.
 4. **Reorder pages**, drag to reorder photos within a page.
 5. **Persistence** of a project (save/reopen) via the File System Access API or a downloadable project file.
+
+## Skills
+
+Claude Code skills live under `.claude/skills/`:
+
+| Skill                  | When to use                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `passepartout-feature` | Implementing a feature. Phase 1-7 workflow with gates: spec, branch, implement, validate, verify in-app, review, integrate. |
 
 ## When in doubt
 

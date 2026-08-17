@@ -1,13 +1,22 @@
 // The layout engine.
 //
-// Contract: given a set of photos (by aspect ratio only) and the printable area
-// of a page, arrange them into centered rows that keep every photo's native
-// ratio and leave generous, symmetric whitespace ("blancs assumes"). The only
-// degrees of freedom are size and gap. There is deliberately NO crop parameter:
-// a photo is never resized non-proportionally and never clipped.
+// Contract: given a set of photos (by aspect ratio only), the printable area of a
+// page, and an explicit layout template, place each photo inside a fixed region of
+// the page. A photo is contain-fit and centered inside its region, keeping its
+// native ratio, surrounded by generous whitespace ("blancs assumes"). The only
+// degrees of freedom are size and gap. There is deliberately NO crop parameter: a
+// photo is never resized non-proportionally and never clipped.
 //
-// This module is pure and framework-agnostic so it can be unit tested and,
-// later, reused to paint a print-resolution PDF page from the same numbers.
+// The region structure comes entirely from the template and is INDEPENDENT of
+// density. Density (the whitespace slider) only scales how much of its region each
+// photo occupies. So dragging the slider makes photos breathe; it never re-groups
+// them - that is the whole point of explicit layouts.
+//
+// This module is pure and framework-agnostic so it can be unit tested and, later,
+// reused to paint a print-resolution PDF page from the same numbers.
+
+import { WHITESPACE_LEVELS } from "../types";
+import type { LayoutNode } from "./layouts";
 
 export interface LayoutItem {
   ratio: number; // width / height
@@ -15,17 +24,18 @@ export interface LayoutItem {
 
 export interface PlacedCell<T extends LayoutItem> {
   item: T;
-  w: number; // pixels
-  h: number; // pixels
-}
-
-export interface LayoutRow<T extends LayoutItem> {
-  cells: PlacedCell<T>[];
+  // The fixed region this photo lives in (template-derived, density-independent).
+  rx: number;
+  ry: number;
+  rw: number;
+  rh: number;
+  // The photo box, contain-fit and scaled by density. Always w / h === item.ratio.
+  w: number;
+  h: number;
 }
 
 export interface LayoutResult<T extends LayoutItem> {
-  rows: LayoutRow<T>[];
-  gap: number; // gap between cells and between rows, pixels
+  cells: PlacedCell<T>[];
 }
 
 export interface LayoutOptions {
@@ -36,66 +46,89 @@ export interface LayoutOptions {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
- * Arrange items in a content box of `contentW` x `contentH` pixels.
- * Rows are packed greedily by width, then the whole block is scaled down to fit
- * so nothing overflows the page. Rows are centered, not justified to full width,
- * which is what produces the airy, gallery look.
+ * Map a discrete whitespace level (1 .. WHITESPACE_LEVELS) to the engine's density
+ * (0 .. 100). Level 1 = least whitespace (density 100, photos fill their region);
+ * the top level = most whitespace (density 0). The UI picks levels; the engine and
+ * the future PDF painter stay on a continuous density.
+ */
+export function whitespaceToDensity(level: number, levels = WHITESPACE_LEVELS): number {
+  const l = clamp(level, 1, levels);
+  return ((levels - l) / (levels - 1)) * 100;
+}
+
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Walk the template tree over `box`, collecting one region rect per leaf in order.
+ * Siblings are separated by a fixed structural `gap` and sized by optional weights
+ * (equal when omitted). The structure does not depend on density.
+ */
+function collectRegions(node: LayoutNode, box: Rect, gap: number, out: Rect[]): void {
+  if (node.kind === "slot") {
+    out.push(box);
+    return;
+  }
+  const n = node.children.length;
+  const weights = node.weights ?? node.children.map(() => 1);
+  const totalWeight = weights.reduce((a, w) => a + w, 0);
+  const along = node.axis === "h" ? box.w : box.h;
+  const free = Math.max(0, along - gap * (n - 1));
+
+  let offset = node.axis === "h" ? box.x : box.y;
+  for (let i = 0; i < n; i++) {
+    const size = free * (weights[i] / totalWeight);
+    const childBox: Rect =
+      node.axis === "h"
+        ? { x: offset, y: box.y, w: size, h: box.h }
+        : { x: box.x, y: offset, w: box.w, h: size };
+    collectRegions(node.children[i], childBox, gap, out);
+    offset += size + gap;
+  }
+}
+
+/**
+ * Arrange `items` inside a `contentW` x `contentH` content box following `node`.
+ * Each item gets a fixed region; its photo box is contain-fit inside the region,
+ * scaled by a density-driven fill fraction, and centered. Nothing overflows.
  */
 export function computeLayout<T extends LayoutItem>(
   items: T[],
   contentW: number,
   contentH: number,
+  node: LayoutNode,
   opts: LayoutOptions,
 ): LayoutResult<T> {
   if (items.length === 0 || contentW <= 0 || contentH <= 0) {
-    return { rows: [], gap: 0 };
+    return { cells: [] };
   }
 
   const density = clamp(opts.density, 0, 100);
-  // Target row height as a fraction of the page height: more whitespace -> smaller.
-  const targetH = contentH * (0.2 + (density / 100) * 0.62);
-  // Gaps shrink as density rises (less white).
-  const gap = Math.max(8, contentW * (0.015 + ((100 - density) / 100) * 0.03));
+  // Fill fraction: how much of its region the photo occupies. Higher density = more
+  // fill (less white). At the top end the photo fills its region's constraining
+  // dimension (fill = 1); it is never scaled above the contain fit, so the ratio is
+  // kept and the fixed gap between regions is the guaranteed minimum whitespace.
+  const fill = 0.5 + 0.5 * (density / 100);
+  // A small, density-independent gap between sibling regions keeps the structure airy.
+  const gap = Math.max(6, Math.min(contentW, contentH) * 0.03);
 
-  // Greedy row packing at the target height.
-  const rows: LayoutRow<T>[] = [];
-  let cur: PlacedCell<T>[] = [];
-  let curW = 0;
-  for (const item of items) {
-    const w = targetH * item.ratio;
-    if (cur.length > 0 && curW + gap + w > contentW) {
-      rows.push({ cells: cur });
-      cur = [];
-      curW = 0;
-    }
-    cur.push({ item, w, h: targetH });
-    curW += (cur.length > 1 ? gap : 0) + w;
-  }
-  if (cur.length > 0) rows.push({ cells: cur });
+  const regions: Rect[] = [];
+  collectRegions(node, { x: 0, y: 0, w: contentW, h: contentH }, gap, regions);
 
-  // Fit: scale the whole block down if the widest row overflows the width or the
-  // stacked rows overflow the height. We never scale up (whitespace is a feature).
-  let maxRowW = 0;
-  for (const row of rows) {
-    const rowW =
-      row.cells.reduce((a, c) => a + c.w, 0) + gap * (row.cells.length - 1);
-    if (rowW > maxRowW) maxRowW = rowW;
-  }
-  const blockH = rows.length * targetH + gap * (rows.length - 1);
-  const scale = Math.min(
-    1,
-    maxRowW > 0 ? contentW / maxRowW : 1,
-    blockH > 0 ? contentH / blockH : 1,
-  );
-
-  if (scale < 1) {
-    for (const row of rows) {
-      for (const c of row.cells) {
-        c.w *= scale;
-        c.h *= scale;
-      }
-    }
+  const cells: PlacedCell<T>[] = [];
+  const n = Math.min(items.length, regions.length);
+  for (let i = 0; i < n; i++) {
+    const item = items[i];
+    const r = regions[i];
+    // Contain-fit the ratio inside the region, then scale by the fill fraction.
+    const boxH = Math.min(r.h, r.w / item.ratio) * fill;
+    const boxW = boxH * item.ratio;
+    cells.push({ item, rx: r.x, ry: r.y, rw: r.w, rh: r.h, w: boxW, h: boxH });
   }
 
-  return { rows, gap: gap * scale };
+  return { cells };
 }

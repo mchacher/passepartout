@@ -1,17 +1,23 @@
 import { useAlbum } from "../store";
-import type { AlbumPage } from "../types";
+import { WHITESPACE_LEVELS, type AlbumPage } from "../types";
+import { layoutsForCount } from "../lib/layouts";
 import { Paper } from "./Paper";
+import { LayoutThumb } from "./LayoutThumb";
 
 interface PageCardProps {
   page: AlbumPage;
   index: number;
 }
 
-// One album page: the control header (title, photo count, delete) plus the
-// rendered paper below it.
+const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
+
+// One album page: the control header (title, photo count, delete), a controls row
+// (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageCount, deletePage } = useAlbum();
+  const { setPageTitle, setPageCount, setPageWhitespace, setPageLayout, deletePage } =
+    useAlbum();
   const count = page.photoIds.length;
+  const layouts = layoutsForCount(count);
 
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface-2 shadow-soft">
@@ -55,6 +61,61 @@ export function PageCard({ page, index }: PageCardProps) {
             <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" />
           </svg>
         </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-3 py-2">
+        {layouts.length > 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted">Layout</span>
+            <div className="flex flex-wrap items-center gap-1">
+              {layouts.map((tpl) => {
+                const active = page.layoutId === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    onClick={() => setPageLayout(page.id, tpl.id)}
+                    aria-pressed={active}
+                    title={tpl.label}
+                    className={`flex h-[30px] w-[30px] items-center justify-center rounded-md border ${
+                      active
+                        ? "border-accent bg-accent text-white"
+                        : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
+                    }`}
+                  >
+                    <LayoutThumb node={tpl.node} active={active} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Per-page whitespace, a slider snapped to discrete levels: 1 = least white
+            (photos fill their region), WHITESPACE_LEVELS = most white. */}
+        <label
+          className="ml-auto flex items-center gap-2 text-[11px] text-muted"
+          title={`Whitespace level ${page.whitespace} of ${WHITESPACE_LEVELS}`}
+        >
+          <span>Whitespace</span>
+          <input
+            type="range"
+            min={1}
+            max={WHITESPACE_LEVELS}
+            step={1}
+            value={page.whitespace}
+            onChange={(e) => setPageWhitespace(page.id, Number(e.target.value))}
+            list={`ws-ticks-${page.id}`}
+            className="w-24 accent-[color:var(--accent)]"
+          />
+          <datalist id={`ws-ticks-${page.id}`}>
+            {LEVELS.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+          <span className="w-7 font-mono tabular-nums">
+            {page.whitespace}/{WHITESPACE_LEVELS}
+          </span>
+        </label>
       </div>
 
       <Paper page={page} />
