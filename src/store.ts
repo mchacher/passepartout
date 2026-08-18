@@ -80,7 +80,6 @@ interface AlbumState {
 
   importFiles: (files: FileList | File[]) => Promise<void>;
   loadDemo: () => Promise<void>;
-  autoDistribute: () => void;
 
   placeOnPage: (photoId: string, pageId: string) => void;
   removeFromPage: (photoId: string) => void;
@@ -403,13 +402,6 @@ export const useAlbum = create<AlbumState>((set, get) => {
       scheduleSave();
     },
 
-    autoDistribute: () => {
-      const photos = [...get().photos].sort((a, b) => a.time - b.time);
-      photos.forEach((p) => (p.pageId = null));
-      set({ photos, pages: distribute(photos) });
-      scheduleSave();
-    },
-
     placeOnPage: (photoId, pageId) => {
       set((s) => {
         const photos = s.photos.map((p) => ({ ...p }));
@@ -448,22 +440,38 @@ export const useAlbum = create<AlbumState>((set, get) => {
       set((s) => {
         const photos = s.photos.map((p) => ({ ...p }));
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
-        const target = pages.find((pg) => pg.id === pageId);
-        if (!target) return {};
+        const targetIdx = pages.findIndex((pg) => pg.id === pageId);
+        if (targetIdx === -1) return {};
+        const target = pages[targetIdx];
+        const byId = (id: string) => photos.find((p) => p.id === id);
         // Shrink: return the last photos to the library.
         while (target.photoIds.length > n) {
           const id = target.photoIds.pop()!;
-          const p = photos.find((x) => x.id === id);
+          const p = byId(id);
           if (p) p.pageId = null;
         }
-        // Grow: pull the next unplaced photos (chronological order preserved).
-        const pool = photos.filter((p) => p.pageId === null);
-        while (target.photoIds.length < n && pool.length > 0) {
-          const p = pool.shift()!;
+        // Grow: pull the next photos in order, first from the library (unplaced),
+        // then by borrowing from the following pages, so raising the count always
+        // works even after every photo has been distributed.
+        const laterPageIds = new Set(pages.slice(targetIdx + 1).map((pg) => pg.id));
+        const candidates = [
+          ...photos.filter((p) => p.pageId === null),
+          ...pages
+            .slice(targetIdx + 1)
+            .flatMap((pg) => pg.photoIds.map(byId).filter((p): p is Photo => !!p)),
+        ];
+        let ci = 0;
+        while (target.photoIds.length < n && ci < candidates.length) {
+          const p = candidates[ci++];
+          if (p.pageId && laterPageIds.has(p.pageId)) {
+            const old = pages.find((pg) => pg.id === p.pageId);
+            if (old) old.photoIds = old.photoIds.filter((id) => id !== p.id);
+          }
           target.photoIds.push(p.id);
           p.pageId = target.id;
         }
-        syncLayout(target);
+        // Counts on the target and any borrowed-from pages changed: re-sync all.
+        pages.forEach(syncLayout);
         return { photos, pages };
       });
       scheduleSave();

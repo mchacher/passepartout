@@ -30,10 +30,10 @@ src/
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 └── components/
-    ├── TopBar.tsx      # Global controls: project switcher, format, import, auto-arrange
+    ├── TopBar.tsx      # Global controls: project switcher, format, import
     ├── ProjectMenu.tsx # Project switcher: new / open / rename / duplicate / delete
     ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
-    ├── PageCard.tsx    # Per-page controls: title, count 1-4, layout picker, whitespace
+    ├── PageCard.tsx    # Per-page controls: title, count 1-6, layout picker, whitespace
     ├── LayoutThumb.tsx # Tiny SVG miniature of a layout template
     ├── Paper.tsx       # Measures the page box, calls the engine, renders region cells
     └── dnd.ts          # Shared drag-and-drop payload key
@@ -62,7 +62,7 @@ Three hard boundaries:
   (`h` = side-by-side columns, `v` = stacked rows) into weighted children. Leaves
   are visited in order and mapped to the page's photos in order. The catalog is pure
   data versioned with the app; a page persists only the `layoutId` that references it
-  (unknown ids and counts outside 1-4 resolve to a balanced `autoTemplate`).
+  (unknown ids and counts outside 1-6 resolve to a balanced `autoTemplate`).
 - **Project** (`src/lib/project.ts`): one album. `ProjectDoc` = meta (`id`, `name`,
   `createdAt`, `updatedAt`) + `format` + `pages` + `StoredPhoto[]` (`Photo` minus the
   runtime `url`). Persisted in IndexedDB; a photo's image bytes live in a separate
@@ -78,7 +78,7 @@ root.** Match the right altitude when adding a field.
 Import / demo
   -> store.photos (sorted by capture time)
     -> store.pages (auto-distributed, DEFAULT_PER_PAGE per page)
-      -> PageCard controls: title, count 1-4, layout picker, whitespace 1-8
+      -> PageCard controls: title, count 1-6, layout picker, whitespace 1-8
         -> Paper measures its content box in pixels (ResizeObserver)
           -> computeLayout(items, w, h, node, { density })   [PURE]
             -> one fixed region per slot, each photo contained + centered, no overflow

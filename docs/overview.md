@@ -39,7 +39,7 @@ project through `src/persistence.ts` (the only IndexedDB module).
 Import / demo
   -> store.photos (sorted by capture time)
     -> store.pages (auto-distributed, DEFAULT_PER_PAGE per page)
-      -> PageCard controls (title, count 1-4, layout picker, whitespace, delete)
+      -> PageCard controls (title, count 1-6, layout picker, whitespace, delete)
         -> Paper measures its content box in pixels
           -> computeLayout(items, w, h, node, { density })  [pure]
             -> one fixed region per slot, each photo contained + centered
@@ -60,7 +60,7 @@ Import / demo
 So the **layout picker** chooses the arrangement, and the **whitespace level** only
 makes the photos breathe inside that frozen arrangement - it never re-groups them.
 Templates that are pure rows (row of 3, column of 3) and grids (2x2, 1 beside 2) are
-all the same split tree; the engine treats them uniformly. Counts outside 1-4 (from
+all the same split tree; the engine treats them uniformly. Counts outside 1-6 (from
 dragging many photos onto one page) fall back to a balanced auto template.
 
 Because the engine is pure and returns plain numbers, the same function will later
@@ -70,8 +70,9 @@ paint a 300 DPI PDF page: same math, different canvas.
 
 - **Drag** a photo from the Library onto a page to place it; drag it back to the
   Library (or use the hover `×`) to remove it.
-- **Count buttons (1-4)** grow the page by pulling the next unplaced photos in
-  chronological order, or shrink it by returning the last ones to the Library.
+- **Count buttons (1-6)** grow the page by pulling the next photos in chronological
+  order (first from the Library, then borrowing from the following pages when the
+  Library is empty), or shrink it by returning the last ones to the Library.
   Changing the count resets the page to that count's default layout.
 - **Layout picker** offers the arrangements available for the current count (rows and
   grids); picking one reshapes the page without touching the photos' framing.

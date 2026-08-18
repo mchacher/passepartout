@@ -101,11 +101,72 @@ export const CATALOG: LayoutTemplate[] = [
     count: 4,
     node: split("h", [slot, split("v", [slot, slot, slot])], [HERO, 1]),
   },
+
+  {
+    id: "five-2-3",
+    label: "2 over 3",
+    count: 5,
+    node: split("v", [split("h", [slot, slot]), split("h", [slot, slot, slot])]),
+  },
+  {
+    id: "five-3-2",
+    label: "3 over 2",
+    count: 5,
+    node: split("v", [split("h", [slot, slot, slot]), split("h", [slot, slot])]),
+  },
+  {
+    id: "five-1-4",
+    label: "1 over 4",
+    count: 5,
+    node: split("v", [slot, split("h", [slot, slot, slot, slot])]),
+  },
+  { id: "five-row", label: "Row of 5", count: 5, node: split("h", [slot, slot, slot, slot, slot]) },
+  {
+    id: "five-beside",
+    label: "1 beside 4",
+    count: 5,
+    node: split("h", [slot, split("v", [slot, slot, slot, slot])], [HERO, 1]),
+  },
+
+  {
+    id: "six-3x2",
+    label: "3 x 2 grid",
+    count: 6,
+    node: split("v", [split("h", [slot, slot, slot]), split("h", [slot, slot, slot])]),
+  },
+  {
+    id: "six-2x3",
+    label: "2 x 3 grid",
+    count: 6,
+    node: split("v", [
+      split("h", [slot, slot]),
+      split("h", [slot, slot]),
+      split("h", [slot, slot]),
+    ]),
+  },
+  {
+    id: "six-2-4",
+    label: "2 over 4",
+    count: 6,
+    node: split("v", [split("h", [slot, slot]), split("h", [slot, slot, slot, slot])]),
+  },
+  {
+    id: "six-1-5",
+    label: "1 over 5",
+    count: 6,
+    node: split("v", [slot, split("h", [slot, slot, slot, slot, slot])]),
+  },
+  {
+    id: "six-beside",
+    label: "1 beside 5",
+    count: 6,
+    node: split("h", [slot, split("v", [slot, slot, slot, slot, slot])], [HERO, 1]),
+  },
 ];
 
 const BY_ID = new Map(CATALOG.map((t) => [t.id, t]));
 
-/** All templates offered for a given photo count (empty when out of the 1-4 range). */
+/** All templates offered for a given photo count (empty when out of the 1-6 range). */
 export function layoutsForCount(count: number): LayoutTemplate[] {
   return CATALOG.filter((t) => t.count === count);
 }
@@ -117,7 +178,7 @@ export function getLayout(id: string): LayoutTemplate | undefined {
 
 /**
  * The default layout id for a photo count: the first catalog template of that
- * count. Counts outside 1-4 have no catalog entry and use an auto template at
+ * count. Counts outside 1-6 have no catalog entry and use an auto template at
  * render time, so we return a synthetic "auto" id here.
  */
 export function defaultLayoutId(count: number): string {
@@ -126,7 +187,7 @@ export function defaultLayoutId(count: number): string {
 
 /**
  * A balanced template for any photo count, used when no catalog entry exists
- * (0 photos, or more than 4 dropped on a page by drag). Rows of up to 3, stacked.
+ * (0 photos, or more than 6 dropped on a page by drag). Rows of up to 3, stacked.
  */
 export function autoTemplate(count: number): LayoutNode {
   if (count <= 1) return slot;

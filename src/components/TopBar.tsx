@@ -11,7 +11,7 @@ const FORMATS: Array<{ id: PageFormat; label: string }> = [
 
 export function TopBar() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const { format, setFormat, importFiles, autoDistribute, photos } = useAlbum();
+  const { format, setFormat, importFiles } = useAlbum();
 
   return (
     <header className="flex flex-wrap items-center gap-6 border-b border-line bg-surface px-5 py-3">
@@ -45,15 +45,6 @@ export function TopBar() {
           ))}
         </div>
       </div>
-
-      <button
-        onClick={autoDistribute}
-        disabled={photos.length === 0}
-        className="inline-flex items-center gap-2 rounded-lg px-3 py-[7px] text-[12.5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
-        title="Redistribute every photo in chronological order"
-      >
-        Auto-arrange
-      </button>
 
       <button
         onClick={() => fileRef.current?.click()}

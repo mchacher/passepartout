@@ -36,7 +36,7 @@ export function PageCard({ page, index }: PageCardProps) {
 
         <div className="flex items-center gap-[3px]">
           <span className="mr-1 text-[11px] text-muted">Photos</span>
-          {[1, 2, 3, 4].map((n) => (
+          {[1, 2, 3, 4, 5, 6].map((n) => (
             <button
               key={n}
               onClick={() => setPageCount(page.id, n)}

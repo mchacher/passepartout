@@ -51,6 +51,28 @@ describe("store layout sync", () => {
     expect(layoutOf("pg")).toBe("four-row"); // defaultLayoutId(4)
   });
 
+  it("setPageCount borrows from later pages when the library pool is empty", () => {
+    useAlbum.setState({
+      photos: [
+        photo("a", "p1"),
+        photo("b", "p1"),
+        photo("c", "p1"),
+        photo("d", "p2"),
+        photo("e", "p2"),
+        photo("f", "p2"),
+      ],
+      pages: [
+        page("p1", ["a", "b", "c"], "three-row"),
+        page("p2", ["d", "e", "f"], "three-row"),
+      ],
+    });
+    useAlbum.getState().setPageCount("p1", 5);
+    const s = useAlbum.getState();
+    expect(s.pages.find((p) => p.id === "p1")!.photoIds).toEqual(["a", "b", "c", "d", "e"]);
+    expect(s.pages.find((p) => p.id === "p2")!.photoIds).toEqual(["f"]);
+    expect(s.pages.find((p) => p.id === "p1")!.layoutId).toBe("five-2-3"); // default for 5
+  });
+
   it("setPageCount keeps a custom layout when the count is unchanged", () => {
     useAlbum.setState({
       photos: [photo("a", "pg"), photo("b", "pg"), photo("c", "pg")],

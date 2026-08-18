@@ -39,10 +39,10 @@ passepartout/
 │   │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   │   └── demo.ts         # Canvas-generated sample photos (with blobs)
 │   └── components/
-│       ├── TopBar.tsx      # Project switcher, format, import, auto-arrange
+│       ├── TopBar.tsx      # Project switcher, format, import
 │       ├── ProjectMenu.tsx # Project switcher dropdown (new/open/rename/duplicate/delete)
 │       ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
-│       ├── PageCard.tsx    # Per-page header: title, count 1-4, layout picker, whitespace, delete
+│       ├── PageCard.tsx    # Per-page header: title, count 1-6, layout picker, whitespace, delete
 │       ├── LayoutThumb.tsx # Tiny SVG preview of a layout template
 │       ├── Paper.tsx       # Measured page render (calls the engine)
 │       └── dnd.ts          # Shared drag-and-drop payload key

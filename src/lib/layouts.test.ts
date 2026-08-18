@@ -20,20 +20,20 @@ describe("layout catalog", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("offers at least one template for each count 1..4", () => {
-    for (let n = 1; n <= 4; n++) {
+  it("offers at least one template for each count 1..6", () => {
+    for (let n = 1; n <= 6; n++) {
       expect(layoutsForCount(n).length).toBeGreaterThan(0);
     }
   });
 
-  it("defaultLayoutId(n) returns a template of that count for 1..4", () => {
-    for (let n = 1; n <= 4; n++) {
+  it("defaultLayoutId(n) returns a template of that count for 1..6", () => {
+    for (let n = 1; n <= 6; n++) {
       const tpl = getLayout(defaultLayoutId(n));
       expect(tpl?.count).toBe(n);
     }
   });
 
-  it("defaultLayoutId falls back to 'auto' outside 1..4", () => {
+  it("defaultLayoutId falls back to 'auto' outside 1..6", () => {
     expect(defaultLayoutId(0)).toBe("auto");
     expect(defaultLayoutId(7)).toBe("auto");
     expect(getLayout("auto")).toBeUndefined();

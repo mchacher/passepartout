@@ -12,7 +12,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 
 ## Features
 
-- **Per-page control**: choose 1 to 4 photos per page and exactly which photos, by drag and drop.
+- **Per-page control**: choose 1 to 6 photos per page and exactly which photos, by drag and drop.
 - **Layouts**: pick an explicit arrangement per page (rows and grids); whitespace only scales the photos inside it, it never re-groups them.
 - **No cropping, ever**: aspect ratios are preserved to the pixel; a portrait stays portrait, a panorama stays panorama.
 - **Assumed whitespace**: eight whitespace levels per page tune how much white surrounds the photos, from a full-region fill to airy.
