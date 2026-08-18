@@ -1,7 +1,9 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { useAlbum } from "./store";
-import { clearAll, loadProjectDoc } from "./persistence";
+import { clearAll, loadProjectDoc, saveProjectDoc } from "./persistence";
+import { newCover, newProjectDoc } from "./lib/project";
+import type { ProjectDoc } from "./lib/project";
 import type { AlbumPage, Photo } from "./types";
 
 // syncLayout is the load-bearing rule: a page's layoutId must always match a
@@ -214,5 +216,44 @@ describe("store project management", () => {
     await useAlbum.getState().createProject("B");
     const aDoc = await loadProjectDoc(aId);
     expect(aDoc?.pages.find((p) => p.id === pageId)?.title).toBe("kept edit");
+  });
+
+  it("updateCover changes only the target cover face", async () => {
+    await useAlbum.getState().createProject("X");
+    useAlbum.getState().updateCover("front", { title: "Front title" });
+    useAlbum.getState().updateCover("insideFront", { title: "Dedication" });
+    useAlbum.getState().updateCover("back", { subtitle: "Back note" });
+    const s = useAlbum.getState();
+    expect(s.frontCover.title).toBe("Front title");
+    expect(s.insideFrontCover.title).toBe("Dedication");
+    expect(s.insideBackCover.title).toBe(""); // untouched
+    expect(s.backCover.subtitle).toBe("Back note");
+    expect(s.frontCover.subtitle).toBe(""); // untouched
+  });
+
+  it("persists covers with the project", async () => {
+    await useAlbum.getState().createProject("Cov");
+    const id = useAlbum.getState().activeId!;
+    useAlbum.getState().updateCover("front", { title: "Hello", subtitle: "2026" });
+    await useAlbum.getState().createProject("Other"); // flushes Cov on switch
+    const doc = await loadProjectDoc(id);
+    expect(doc?.frontCover).toMatchObject({ title: "Hello", subtitle: "2026" });
+  });
+
+  it("defaults covers when opening a project saved before covers existed", async () => {
+    const legacy = newProjectDoc("Legacy", 1);
+    legacy.id = "legacy";
+    // Simulate an old document that predates the cover fields (all four).
+    delete (legacy as Partial<ProjectDoc>).frontCover;
+    delete (legacy as Partial<ProjectDoc>).insideFrontCover;
+    delete (legacy as Partial<ProjectDoc>).insideBackCover;
+    delete (legacy as Partial<ProjectDoc>).backCover;
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy");
+    const s = useAlbum.getState();
+    expect(s.frontCover).toEqual(newCover());
+    expect(s.insideFrontCover).toEqual(newCover());
+    expect(s.insideBackCover).toEqual(newCover());
+    expect(s.backCover).toEqual(newCover());
   });
 });

@@ -41,6 +41,7 @@ passepartout/
 │   └── components/
 │       ├── TopBar.tsx      # Project switcher, format, import
 │       ├── ProjectMenu.tsx # Project switcher dropdown (new/open/rename/duplicate/delete)
+│       ├── CoverCard.tsx   # Cover face (front/inside-front/inside-back/back): title + subtitle + optional photo
 │       ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
 │       ├── PageCard.tsx    # Per-page header: title, count 1-6, layout picker, whitespace, delete
 │       ├── LayoutThumb.tsx # Tiny SVG preview of a layout template

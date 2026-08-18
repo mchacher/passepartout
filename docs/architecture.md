@@ -32,6 +32,7 @@ src/
 └── components/
     ├── TopBar.tsx      # Global controls: project switcher, format, import
     ├── ProjectMenu.tsx # Project switcher: new / open / rename / duplicate / delete
+    ├── CoverCard.tsx   # Front / back cover: title + subtitle + optional contained photo
     ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
     ├── PageCard.tsx    # Per-page controls: title, count 1-6, layout picker, whitespace
     ├── LayoutThumb.tsx # Tiny SVG miniature of a layout template
@@ -65,9 +66,16 @@ Three hard boundaries:
   (unknown ids and counts outside 1-6 resolve to a balanced `autoTemplate`).
 - **Project** (`src/lib/project.ts`): one album. `ProjectDoc` = meta (`id`, `name`,
   `createdAt`, `updatedAt`) + `format` + `pages` + `StoredPhoto[]` (`Photo` minus the
-  runtime `url`). Persisted in IndexedDB; a photo's image bytes live in a separate
-  `images` blob store keyed by photo id. The ephemeral object `url` is never persisted:
-  `serializeProject` strips it and `hydratePhotos` re-attaches a fresh one from the blob.
+  runtime `url`) + the four covers (`frontCover`, `insideFrontCover`, `insideBackCover`,
+  `backCover`). Persisted in IndexedDB; a photo's
+  image bytes live in a separate `images` blob store keyed by photo id. The ephemeral
+  object `url` is never persisted: `serializeProject` strips it and `hydratePhotos`
+  re-attaches a fresh one from the blob.
+- **Cover** (`Cover` in `src/types.ts`): one booklet cover face = `title` + `subtitle`
+  + an optional `photoId` (a library photo, contained never cropped) + `whitespace`. A
+  cover sheet has **four faces** (`CoverFace`): `front`, `insideFront`, `insideBack`,
+  `back`. `coverOrDefault` keeps pre-cover documents loadable; `cleanCover` nulls a
+  `photoId` whose photo is gone.
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store
 root.** Match the right altitude when adding a field.
@@ -88,6 +96,12 @@ State flows one way: a control calls a store action, the store produces a new
 `pages`/`photos` array, subscribed components re-render, and `Paper` re-measures and
 re-lays-out. `syncLayout` runs inside every mutation that changes a page's photo
 count (`setPageCount`, `placeOnPage`, `removeFromPage`) to keep `layoutId` valid.
+
+`App` renders the four cover faces in booklet order: **front cover** then **inside
+front cover**, the pages, then **inside back cover** then **back cover**, so a project
+reads as a complete booklet. A cover's photo goes through the same engine with a single
+slot (`computeLayout([{ratio}], w, h, autoTemplate(1), ...)`), so it is contained
+exactly like a page photo, never cropped.
 
 ## Persistence and projects
 

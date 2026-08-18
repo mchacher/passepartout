@@ -24,10 +24,13 @@ grid slot a photo is *contained* (fit + centered), never stretched to fill.
 - **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
   box (`slot`, or a `split` along an axis into weighted children). The catalog is pure
   data versioned with the app; a page persists only the `layoutId` that references it.
-- **Project** (`src/lib/project.ts`): one album (pages + photos + format). The active
-  project is auto-saved to IndexedDB (image bytes as blobs, metadata as a JSON doc) so
-  a refresh restores it, and several named projects can coexist. See the persistence
-  section in [architecture.md](architecture.md).
+- **Project** (`src/lib/project.ts`): one album (pages + photos + format + four
+  **cover** faces). The active project is auto-saved to IndexedDB (image bytes as blobs,
+  metadata as a JSON doc) so a refresh restores it, and several named projects can
+  coexist. See the persistence section in [architecture.md](architecture.md).
+- **Cover**: the four faces of the booklet cover (front, inside front, inside back,
+  back), each a title + subtitle + an optional photo dragged from the library
+  (contained, never cropped). They render front, inside front, pages, inside back, back.
 
 All state and every mutation live in the Zustand store (`src/store.ts`). Components
 never mutate state directly; they call store actions. The store persists the active

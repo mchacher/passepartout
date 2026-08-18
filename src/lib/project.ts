@@ -9,7 +9,7 @@
 // session, so it is NEVER persisted. `serializeProject` strips it and `hydratePhotos`
 // re-attaches a fresh one from the stored blob.
 
-import type { AlbumPage, PageFormat, Photo } from "../types";
+import { DEFAULT_WHITESPACE, type AlbumPage, type Cover, type PageFormat, type Photo } from "../types";
 
 export interface ProjectMeta {
   id: string;
@@ -26,6 +26,10 @@ export interface ProjectDoc extends ProjectMeta {
   format: PageFormat;
   photos: StoredPhoto[];
   pages: AlbumPage[];
+  frontCover: Cover;
+  insideFrontCover: Cover;
+  insideBackCover: Cover;
+  backCover: Cover;
 }
 
 /** The slice of live album state a project is serialized from. */
@@ -36,6 +40,30 @@ export interface ProjectState {
   format: PageFormat;
   photos: Photo[];
   pages: AlbumPage[];
+  frontCover: Cover;
+  insideFrontCover: Cover;
+  insideBackCover: Cover;
+  backCover: Cover;
+}
+
+/** A fresh, empty cover (no text, no photo). */
+export function newCover(): Cover {
+  return { title: "", subtitle: "", photoId: null, whitespace: DEFAULT_WHITESPACE };
+}
+
+/** A cover, defaulted when a document predates covers (backward compatibility). */
+export function coverOrDefault(cover: Cover | undefined | null): Cover {
+  // Coalesce photoId after the spread so an explicit `undefined` never leaks past
+  // the declared `string | null`.
+  return cover ? { ...newCover(), ...cover, photoId: cover.photoId ?? null } : newCover();
+}
+
+/** Clear a cover's photo reference when its photo is no longer present. */
+export function cleanCover(cover: Cover, existingPhotoIds: Set<string>): Cover {
+  if (cover.photoId && !existingPhotoIds.has(cover.photoId)) {
+    return { ...cover, photoId: null };
+  }
+  return cover;
 }
 
 /**
@@ -52,6 +80,10 @@ export function newProjectDoc(name: string, now: number): ProjectDoc {
     format: "square",
     photos: [],
     pages: [],
+    frontCover: newCover(),
+    insideFrontCover: newCover(),
+    insideBackCover: newCover(),
+    backCover: newCover(),
   };
 }
 
@@ -66,6 +98,10 @@ export function serializeProject(state: ProjectState, now: number): ProjectDoc {
     // Strip the runtime object URL; keep native size, ratio, caption, placement.
     photos: state.photos.map(({ url: _url, ...rest }) => rest),
     pages: state.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] })),
+    frontCover: { ...state.frontCover },
+    insideFrontCover: { ...state.insideFrontCover },
+    insideBackCover: { ...state.insideBackCover },
+    backCover: { ...state.backCover },
   };
 }
 
@@ -102,6 +138,10 @@ export function duplicateDoc(
   opts: { id: string; name: string; now: number; photoIdMap: Map<string, string> },
 ): ProjectDoc {
   const remap = (id: string) => opts.photoIdMap.get(id) ?? id;
+  const remapCover = (c: Cover): Cover => ({
+    ...c,
+    photoId: c.photoId ? remap(c.photoId) : null,
+  });
   return {
     id: opts.id,
     name: opts.name,
@@ -110,5 +150,9 @@ export function duplicateDoc(
     format: doc.format,
     photos: doc.photos.map((p) => ({ ...p, id: remap(p.id) })),
     pages: doc.pages.map((pg) => ({ ...pg, photoIds: pg.photoIds.map(remap) })),
+    frontCover: remapCover(coverOrDefault(doc.frontCover)),
+    insideFrontCover: remapCover(coverOrDefault(doc.insideFrontCover)),
+    insideBackCover: remapCover(coverOrDefault(doc.insideBackCover)),
+    backCover: remapCover(coverOrDefault(doc.backCover)),
   };
 }

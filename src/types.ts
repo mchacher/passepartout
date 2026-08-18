@@ -21,6 +21,23 @@ export interface AlbumPage {
   layoutId: string; // which arrangement template (see src/lib/layouts.ts) is applied
 }
 
+// A booklet cover face: text plus one optional photo chosen from the library. The
+// photo is contained (never cropped), like everything else. A book cover is a folded
+// sheet with four faces (outside + inside, front and back); each is a Cover.
+export interface Cover {
+  title: string;
+  subtitle: string;
+  photoId: string | null; // references a library Photo, or null for a text-only cover
+  whitespace: number; // whitespace level 1 .. WHITESPACE_LEVELS for the cover photo
+}
+
+// The four cover faces, in booklet order:
+//   front         = outside of the front cover
+//   insideFront   = inside of the front cover (faces the first page)
+//   insideBack    = inside of the back cover (faces the last page)
+//   back          = outside of the back cover
+export type CoverFace = "front" | "insideFront" | "insideBack" | "back";
+
 // Whitespace is chosen in discrete levels: 1 = least white (photos fill their
 // region), WHITESPACE_LEVELS = most white. The engine works in a continuous
 // density (see whitespaceToDensity in src/lib/layout.ts).

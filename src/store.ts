@@ -4,6 +4,8 @@ import {
   DEFAULT_LAYOUT_ID,
   DEFAULT_PROJECT_NAME,
   type AlbumPage,
+  type Cover,
+  type CoverFace,
   type PageFormat,
   type Photo,
 } from "./types";
@@ -11,9 +13,12 @@ import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
 import { defaultLayoutId, getLayout } from "./lib/layouts";
 import {
+  cleanCover,
+  coverOrDefault,
   duplicateDoc,
   hydratePhotos,
   metaOf,
+  newCover,
   newProjectDoc,
   serializeProject,
   type ProjectMeta,
@@ -22,6 +27,17 @@ import * as db from "./persistence";
 
 const DEFAULT_PER_PAGE = 3;
 const SAVE_DEBOUNCE_MS = 400;
+
+// Map a cover face to its state / document field.
+const COVER_KEY: Record<
+  CoverFace,
+  "frontCover" | "insideFrontCover" | "insideBackCover" | "backCover"
+> = {
+  front: "frontCover",
+  insideFront: "insideFrontCover",
+  insideBack: "insideBackCover",
+  back: "backCover",
+};
 
 function newPage(): AlbumPage {
   return {
@@ -62,6 +78,13 @@ interface AlbumState {
   photos: Photo[];
   pages: AlbumPage[];
   format: PageFormat;
+
+  // The four cover faces of the active project (see CoverFace)
+  frontCover: Cover;
+  insideFrontCover: Cover;
+  insideBackCover: Cover;
+  backCover: Cover;
+  updateCover: (which: CoverFace, patch: Partial<Cover>) => void;
 
   // Projects
   projects: ProjectMeta[];
@@ -165,6 +188,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
         format: s.format,
         photos: s.photos,
         pages: s.pages,
+        frontCover: s.frontCover,
+        insideFrontCover: s.insideFrontCover,
+        insideBackCover: s.insideBackCover,
+        backCover: s.backCover,
       },
       Date.now(),
     );
@@ -216,6 +243,17 @@ export const useAlbum = create<AlbumState>((set, get) => {
     pages: [],
     format: "square",
 
+    frontCover: newCover(),
+    insideFrontCover: newCover(),
+    insideBackCover: newCover(),
+    backCover: newCover(),
+
+    updateCover: (which, patch) => {
+      const key = COVER_KEY[which];
+      set((s) => ({ [key]: { ...s[key], ...patch } }));
+      scheduleSave();
+    },
+
     projects: [],
     activeId: null,
     activeName: DEFAULT_PROJECT_NAME,
@@ -265,6 +303,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
         photos: [],
         pages: doc.pages,
         format: doc.format,
+        frontCover: doc.frontCover,
+        insideFrontCover: doc.insideFrontCover,
+        insideBackCover: doc.insideBackCover,
+        backCover: doc.backCover,
       }));
       db.setLastActiveId(doc.id);
     },
@@ -298,6 +340,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
         format: doc.format,
         photos,
         pages,
+        frontCover: cleanCover(coverOrDefault(doc.frontCover), existing),
+        insideFrontCover: cleanCover(coverOrDefault(doc.insideFrontCover), existing),
+        insideBackCover: cleanCover(coverOrDefault(doc.insideBackCover), existing),
+        backCover: cleanCover(coverOrDefault(doc.backCover), existing),
       });
       db.setLastActiveId(doc.id);
     },

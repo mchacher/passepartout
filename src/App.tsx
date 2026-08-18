@@ -3,6 +3,7 @@ import { useAlbum } from "./store";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
 import { PageCard } from "./components/PageCard";
+import { CoverCard } from "./components/CoverCard";
 
 export function App() {
   const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent } =
@@ -38,6 +39,8 @@ export function App() {
         <main className="min-h-0 overflow-y-auto px-8 pb-24 pt-8">
           {hasPhotos ? (
             <div className="mx-auto flex max-w-[620px] flex-col gap-8">
+              <CoverCard which="front" />
+              <CoverCard which="insideFront" />
               {pages.map((page, i) => (
                 <PageCard key={page.id} page={page} index={i} />
               ))}
@@ -50,6 +53,8 @@ export function App() {
                 </svg>
                 Add page
               </button>
+              <CoverCard which="insideBack" />
+              <CoverCard which="back" />
             </div>
           ) : (
             <div className="mx-auto mt-[8vh] max-w-[460px] text-center text-muted">

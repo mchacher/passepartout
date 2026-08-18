@@ -1,14 +1,17 @@
 import { describe, it, expect } from "vitest";
 import {
+  cleanCover,
+  coverOrDefault,
   duplicateDoc,
   hydratePhotos,
   metaOf,
+  newCover,
   newProjectDoc,
   serializeProject,
   type ProjectDoc,
   type ProjectState,
 } from "./project";
-import type { Photo } from "../types";
+import type { Cover, Photo } from "../types";
 
 const photo = (id: string, ratio: number, pageId: string | null = null): Photo => ({
   id,
@@ -31,6 +34,10 @@ const state = (): ProjectState => ({
   pages: [
     { id: "pg", title: "Day 1", photoIds: ["a", "b"], whitespace: 4, layoutId: "two-row" },
   ],
+  frontCover: { title: "Our Trip", subtitle: "2026", photoId: "a", whitespace: 4 },
+  insideFrontCover: { title: "For everyone", subtitle: "", photoId: "b", whitespace: 4 },
+  insideBackCover: { title: "", subtitle: "", photoId: null, whitespace: 4 },
+  backCover: { title: "The end", subtitle: "", photoId: null, whitespace: 4 },
 });
 
 describe("serializeProject", () => {
@@ -113,5 +120,58 @@ describe("metaOf", () => {
   it("returns only the meta fields", () => {
     const doc = serializeProject(state(), 2000);
     expect(metaOf(doc)).toEqual({ id: "proj-1", name: "Trip", createdAt: 1000, updatedAt: 2000 });
+  });
+});
+
+describe("covers", () => {
+  it("newProjectDoc starts with four empty covers", () => {
+    const doc = newProjectDoc("Fresh", 500);
+    expect(doc.frontCover).toEqual(newCover());
+    expect(doc.insideFrontCover).toEqual(newCover());
+    expect(doc.insideBackCover).toEqual(newCover());
+    expect(doc.backCover).toEqual(newCover());
+    expect(newCover().photoId).toBeNull();
+  });
+
+  it("serializeProject carries all four covers through", () => {
+    const doc = serializeProject(state(), 2000);
+    expect(doc.frontCover).toEqual({ title: "Our Trip", subtitle: "2026", photoId: "a", whitespace: 4 });
+    expect(doc.insideFrontCover).toEqual({ title: "For everyone", subtitle: "", photoId: "b", whitespace: 4 });
+    expect(doc.backCover).toEqual({ title: "The end", subtitle: "", photoId: null, whitespace: 4 });
+  });
+
+  it("serializeProject does not alias the source covers", () => {
+    const s = state();
+    const doc = serializeProject(s, 2000);
+    doc.frontCover.title = "changed";
+    expect(s.frontCover.title).toBe("Our Trip");
+  });
+
+  it("duplicateDoc remaps cover photo ids through the map", () => {
+    const src: ProjectDoc = serializeProject(state(), 2000);
+    const map = new Map([
+      ["a", "a2"],
+      ["b", "b2"],
+    ]);
+    const dup = duplicateDoc(src, { id: "p2", name: "copy", now: 3000, photoIdMap: map });
+    expect(dup.frontCover.photoId).toBe("a2"); // was "a"
+    expect(dup.insideFrontCover.photoId).toBe("b2"); // was "b"
+    expect(dup.backCover.photoId).toBeNull(); // stays null
+  });
+
+  it("coverOrDefault fills a missing cover (backward compat)", () => {
+    expect(coverOrDefault(undefined)).toEqual(newCover());
+    expect(coverOrDefault(null)).toEqual(newCover());
+    const partial = { title: "Hi" } as unknown as Cover;
+    expect(coverOrDefault(partial)).toEqual({ ...newCover(), title: "Hi" });
+  });
+
+  it("cleanCover nulls a photoId whose photo is gone, keeping text", () => {
+    const cover: Cover = { title: "T", subtitle: "S", photoId: "gone", whitespace: 4 };
+    const cleaned = cleanCover(cover, new Set(["a", "b"]));
+    expect(cleaned.photoId).toBeNull();
+    expect(cleaned.title).toBe("T");
+    const kept = cleanCover({ ...cover, photoId: "a" }, new Set(["a"]));
+    expect(kept.photoId).toBe("a");
   });
 });
