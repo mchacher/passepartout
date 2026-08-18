@@ -25,6 +25,7 @@ const photo = (id: string, pageId: string | null = null): Photo => ({
 const page = (id: string, photoIds: string[], layoutId: string): AlbumPage => ({
   id,
   title: "",
+  subtitle: "",
   photoIds,
   whitespace: 4,
   layoutId,
@@ -238,6 +239,114 @@ describe("store project management", () => {
     await useAlbum.getState().createProject("Other"); // flushes Cov on switch
     const doc = await loadProjectDoc(id);
     expect(doc?.frontCover).toMatchObject({ title: "Hello", subtitle: "2026" });
+  });
+
+  it("setFontTheme and setColorTheme change only their own field", async () => {
+    await useAlbum.getState().createProject("Styled");
+    useAlbum.getState().setFontTheme("rounded");
+    useAlbum.getState().setColorTheme("slate");
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("rounded");
+    expect(s.colorTheme).toBe("slate");
+    expect(s.format).toBe("square"); // untouched
+  });
+
+  it("createProject resets the theme to the defaults", async () => {
+    await useAlbum.getState().createProject("A");
+    useAlbum.getState().setFontTheme("typewriter");
+    useAlbum.getState().setColorTheme("sage");
+    await useAlbum.getState().createProject("B");
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("serif");
+    expect(s.colorTheme).toBe("classic");
+  });
+
+  it("persists the theme with the project and restores it on open", async () => {
+    await useAlbum.getState().createProject("Themed");
+    const id = useAlbum.getState().activeId!;
+    useAlbum.getState().setFontTheme("humanist");
+    useAlbum.getState().setColorTheme("warm");
+    await useAlbum.getState().createProject("Other"); // flush Themed on switch
+    await useAlbum.getState().openProject(id);
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("humanist");
+    expect(s.colorTheme).toBe("warm");
+  });
+
+  it("defaults the theme when opening a project saved before it existed", async () => {
+    const legacy = newProjectDoc("LegacyTheme", 1);
+    legacy.id = "legacy-theme";
+    delete (legacy as Partial<ProjectDoc>).fontTheme;
+    delete (legacy as Partial<ProjectDoc>).colorTheme;
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy-theme");
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("serif");
+    expect(s.colorTheme).toBe("classic");
+  });
+
+  const ALL_MD = {
+    coverTitle: "md",
+    coverSubtitle: "md",
+    pageTitle: "md",
+    pageSubtitle: "md",
+    caption: "md",
+  } as const;
+
+  it("setTextSize changes only the target role", async () => {
+    await useAlbum.getState().createProject("Sized");
+    useAlbum.getState().setTextSize("coverTitle", "xl");
+    useAlbum.getState().setTextSize("caption", "sm");
+    const s = useAlbum.getState();
+    expect(s.textSizes).toEqual({ ...ALL_MD, coverTitle: "xl", caption: "sm" });
+  });
+
+  it("createProject resets the text sizes to the defaults", async () => {
+    await useAlbum.getState().createProject("A");
+    useAlbum.getState().setTextSize("pageTitle", "xl");
+    await useAlbum.getState().createProject("B");
+    expect(useAlbum.getState().textSizes).toEqual(ALL_MD);
+  });
+
+  it("persists the text sizes and restores them on open", async () => {
+    await useAlbum.getState().createProject("Sized");
+    const id = useAlbum.getState().activeId!;
+    useAlbum.getState().setTextSize("pageSubtitle", "lg");
+    await useAlbum.getState().createProject("Other"); // flush on switch
+    await useAlbum.getState().openProject(id);
+    expect(useAlbum.getState().textSizes.pageSubtitle).toBe("lg");
+  });
+
+  it("defaults the text sizes (and drops old 005 keys) for a legacy project", async () => {
+    const legacy = newProjectDoc("LegacySizes", 1);
+    legacy.id = "legacy-sizes";
+    // Simulate spec 005's old shape, which has none of the new role keys.
+    (legacy as unknown as { textSizes: unknown }).textSizes = { title: "lg", subtitle: "lg", caption: "xl" };
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy-sizes");
+    expect(useAlbum.getState().textSizes).toEqual({ ...ALL_MD, caption: "xl" });
+  });
+
+  it("setPageSubtitle changes only the target page", async () => {
+    useAlbum.setState({
+      photos: [],
+      pages: [page("p1", [], "single"), page("p2", [], "single")],
+    });
+    useAlbum.getState().setPageSubtitle("p1", "a note");
+    const pages = useAlbum.getState().pages;
+    expect(pages.find((p) => p.id === "p1")!.subtitle).toBe("a note");
+    expect(pages.find((p) => p.id === "p2")!.subtitle).toBe("");
+  });
+
+  it("normalizes a page saved before subtitles existed to an empty subtitle", async () => {
+    const legacy = newProjectDoc("LegacyPage", 1);
+    legacy.id = "legacy-page";
+    legacy.pages = [
+      { id: "old", title: "Old", photoIds: [], whitespace: 4, layoutId: "single" } as unknown as AlbumPage,
+    ];
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy-page");
+    expect(useAlbum.getState().pages[0].subtitle).toBe("");
   });
 
   it("defaults covers when opening a project saved before covers existed", async () => {

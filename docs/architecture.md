@@ -27,11 +27,16 @@ src/
 │   ├── layout.ts       # PURE engine: template -> regions -> contain-fit cells; whitespaceToDensity
 │   ├── layouts.ts      # PURE layout template catalog (nested split trees) + helpers
 │   ├── project.ts      # PURE project helpers: ProjectDoc, serialize/hydrate/duplicate
+│   ├── themes.ts       # PURE album-theme catalog (fonts + color palettes) + coercion
+│   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
+│   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
+├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
 └── components/
-    ├── TopBar.tsx      # Global controls: project switcher, format, import
+    ├── TopBar.tsx      # Global controls: project switcher, style (theme), format, import
     ├── ProjectMenu.tsx # Project switcher: new / open / rename / duplicate / delete
+    ├── ThemeMenu.tsx   # Album style picker: font + color palette (project-level)
     ├── CoverCard.tsx   # Front / back cover: title + subtitle + optional contained photo
     ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
     ├── PageCard.tsx    # Per-page controls: title, count 1-6, layout picker, whitespace
@@ -55,7 +60,8 @@ Three hard boundaries:
 
 - **Photo**: one imported image. Native size, `ratio` (the sacred value), `caption`,
   capture `time`, and `pageId` (`null` while still in the library).
-- **AlbumPage**: ordered `photoIds`, optional `title`, a `whitespace` level
+- **AlbumPage**: ordered `photoIds`, optional `title` and `subtitle` (both rendered on
+  the paper, contained in whitespace, never on a photo), a `whitespace` level
   (`1 .. WHITESPACE_LEVELS`, currently 8), and a `layoutId`.
 - **PageFormat**: `square | landscape | portrait`, mapped to a page aspect ratio.
 - **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
@@ -65,9 +71,9 @@ Three hard boundaries:
   data versioned with the app; a page persists only the `layoutId` that references it
   (unknown ids and counts outside 1-6 resolve to a balanced `autoTemplate`).
 - **Project** (`src/lib/project.ts`): one album. `ProjectDoc` = meta (`id`, `name`,
-  `createdAt`, `updatedAt`) + `format` + `pages` + `StoredPhoto[]` (`Photo` minus the
-  runtime `url`) + the four covers (`frontCover`, `insideFrontCover`, `insideBackCover`,
-  `backCover`). Persisted in IndexedDB; a photo's
+  `createdAt`, `updatedAt`) + `format` + `fontTheme` + `colorTheme` + `pages` +
+  `StoredPhoto[]` (`Photo` minus the runtime `url`) + the four covers (`frontCover`,
+  `insideFrontCover`, `insideBackCover`, `backCover`). Persisted in IndexedDB; a photo's
   image bytes live in a separate `images` blob store keyed by photo id. The ephemeral
   object `url` is never persisted: `serializeProject` strips it and `hydratePhotos`
   re-attaches a fresh one from the blob.
@@ -76,6 +82,25 @@ Three hard boundaries:
   cover sheet has **four faces** (`CoverFace`): `front`, `insideFront`, `insideBack`,
   `back`. `coverOrDefault` keeps pre-cover documents loadable; `cleanCover` nulls a
   `photoId` whose photo is gone.
+- **Album theme** (`src/lib/themes.ts`): two project-level choices, `fontTheme` and
+  `colorTheme`, each an id into a small curated catalog (like the layout catalog). A
+  `FontTheme` is a system-font stack (offline, no downloads) applied to album text; a
+  `ColorTheme` carries the album's fixed print colors (`paper`, `ink`, `inkSoft`) plus
+  an `accent` (light/dark pair) that also recolors the app chrome. `fontThemeOrDefault`
+  / `colorThemeOrDefault` default an unknown or pre-theme id, exactly like
+  `coverOrDefault`. The choice is applied as CSS custom properties by `useApplyTheme`
+  (impure) from the pure map in `theme-vars.ts`; album print colors stay fixed across
+  OS light/dark while the accent variant follows it.
+- **Text size** (`src/lib/text-sizes.ts`): a third project-level album-style axis,
+  `textSizes` = one level (`sm | md | lg | xl`) per text **role**. Five roles keep the
+  cover and page text distinct: `coverTitle`, `coverSubtitle`, `pageTitle`,
+  `pageSubtitle`, `caption`. Each level is a multiplier (`md` = 1, so defaults are
+  unchanged) emitted by `textScaleVars` as `--cover-title-scale` /
+  `--cover-subtitle-scale` / `--page-title-scale` / `--page-subtitle-scale` /
+  `--caption-scale`; the album text sites multiply their base `fontSize` by the role var
+  (`calc(... * var(--page-title-scale))`). `textSizesOrDefault` coerces a missing object
+  or an unknown per-role value to `md`. `useApplyTheme` writes these vars too. No engine
+  involvement: only text size changes, photo geometry is the engine's alone.
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store
 root.** Match the right altitude when adding a field.
@@ -165,6 +190,12 @@ Dragging whitespace never re-groups photos.
 - **A new page control**: add the field to `AlbumPage` (`src/types.ts`), a store
   action, and a control in `PageCard.tsx`. Keep it per-page unless it is truly global.
 - **A new page format**: add it to `PageFormat` and `PAGE_ASPECT` in `src/types.ts`.
+- **A new album font or color palette**: add a `FontTheme` / `ColorTheme` (with a stable
+  new id) to the catalog in `src/lib/themes.ts`. `ThemeMenu`, `theme-vars.ts` and
+  `useApplyTheme` pick it up for free; no engine or store change.
+- **A new text role or size level**: extend `TEXT_ROLES` / `TEXT_SIZE_LEVELS` in
+  `src/lib/text-sizes.ts` and add the matching `--<role>-scale` var to the text site.
+  `ThemeMenu` renders the new row/level automatically.
 - **A new persisted field**: add it to `ProjectDoc` (via `AlbumPage`/`Photo` or the doc
   itself) in `src/lib/project.ts`; `serializeProject`/`hydratePhotos` carry it and the
   IndexedDB adapter stores it with no change. Bump the DB version in `persistence.ts`

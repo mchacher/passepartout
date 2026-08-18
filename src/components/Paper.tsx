@@ -21,6 +21,8 @@ export function Paper({ page }: PaperProps) {
   const [hot, setHot] = useState(false);
 
   const hasTitle = page.title.trim().length > 0;
+  const hasSubtitle = (page.subtitle ?? "").trim().length > 0;
+  const hasHeader = hasTitle || hasSubtitle;
   const items = page.photoIds
     .map((id) => photos.find((p) => p.id === id))
     .filter((p): p is Photo => p !== undefined);
@@ -71,19 +73,31 @@ export function Paper({ page }: PaperProps) {
           if (id) placeOnPage(id, page.id);
         }}
       >
-        {hasTitle && (
-          <div
-            className="pointer-events-none absolute inset-x-[7%] top-[5.4%] z-10 text-center font-display tracking-wide"
-            style={{ fontSize: "clamp(13px, 3.1cqw, 19px)", color: "#1C2226" }}
-          >
-            {page.title.trim()}
+        {hasHeader && (
+          <div className="pointer-events-none absolute inset-x-[7%] top-[5.4%] z-10 text-center">
+            {hasTitle && (
+              <div
+                className="font-album tracking-wide"
+                style={{ fontSize: "calc(clamp(13px, 3.1cqw, 19px) * var(--page-title-scale))", color: "var(--album-ink)" }}
+              >
+                {page.title.trim()}
+              </div>
+            )}
+            {hasSubtitle && (
+              <div
+                className="mt-[1%] font-album"
+                style={{ fontSize: "calc(clamp(10px, 2.2cqw, 14px) * var(--page-subtitle-scale))", color: "var(--album-ink-soft)" }}
+              >
+                {page.subtitle.trim()}
+              </div>
+            )}
           </div>
         )}
 
         <div
           ref={innerRef}
           className="absolute inset-0"
-          style={{ padding: "7%", paddingTop: hasTitle ? "13%" : "7%" }}
+          style={{ padding: "7%", paddingTop: hasSubtitle ? "16%" : hasTitle ? "13%" : "7%" }}
         >
           {items.length === 0 ? (
             <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">
@@ -153,8 +167,8 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
       />
       <div
         ref={capRef}
-        className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center text-[10.5px] leading-tight outline-none"
-        style={{ width: `${w}px`, color: "#4A5157" }}
+        className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center font-album leading-tight outline-none"
+        style={{ width: `${w}px`, fontSize: "calc(10.5px * var(--caption-scale))", color: "var(--album-ink-soft)" }}
         contentEditable
         suppressContentEditableWarning
         spellCheck={false}

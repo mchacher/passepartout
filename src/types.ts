@@ -16,6 +16,7 @@ export interface Photo {
 export interface AlbumPage {
   id: string;
   title: string;
+  subtitle: string; // optional line under the title, contained in whitespace (never on a photo)
   photoIds: string[];
   whitespace: number; // per-page whitespace level, 1 (least white) .. WHITESPACE_LEVELS (most)
   layoutId: string; // which arrangement template (see src/lib/layouts.ts) is applied

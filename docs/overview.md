@@ -17,14 +17,22 @@ grid slot a photo is *contained* (fit + centered), never stretched to fill.
 - **Photo** (`src/types.ts`): one imported image. Holds its native size, `ratio`,
   `caption`, capture `time`, and which page it sits on (`pageId`, or `null` when it is
   still in the library).
-- **AlbumPage**: an ordered list of photo ids, an optional `title`, a per-page
-  `whitespace` level (1 .. `WHITESPACE_LEVELS`), and a `layoutId` (which arrangement
-  template is applied).
+- **AlbumPage**: an ordered list of photo ids, an optional `title` and `subtitle`, a
+  per-page `whitespace` level (1 .. `WHITESPACE_LEVELS`), and a `layoutId` (which
+  arrangement template is applied).
 - **PageFormat**: `square | landscape | portrait`, mapped to an aspect ratio.
 - **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
   box (`slot`, or a `split` along an axis into weighted children). The catalog is pure
   data versioned with the app; a page persists only the `layoutId` that references it.
-- **Project** (`src/lib/project.ts`): one album (pages + photos + format + four
+- **Album theme** (`src/lib/themes.ts`): two project-level choices, a `fontTheme`
+  (a system-font stack applied to album text) and a `colorTheme` (the album's paper +
+  ink print colors plus an accent that also recolors the app chrome). Both default so
+  existing albums look unchanged. Picked in the top bar's **Style** menu.
+- **Text size** (`src/lib/text-sizes.ts`): a per-role size across five roles (cover
+  title/subtitle, page title/subtitle, caption), four levels each (S/M/L/XL), also
+  project-level and picked in the **Style** menu. Medium is today's size; levels scale
+  the text via CSS vars, never the photos. Pages carry their own `title` and `subtitle`.
+- **Project** (`src/lib/project.ts`): one album (pages + photos + format + theme + four
   **cover** faces). The active project is auto-saved to IndexedDB (image bytes as blobs,
   metadata as a JSON doc) so a refresh restores it, and several named projects can
   coexist. See the persistence section in [architecture.md](architecture.md).

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAlbum } from "./store";
+import { useApplyTheme } from "./useApplyTheme";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
 import { PageCard } from "./components/PageCard";
@@ -10,6 +11,8 @@ export function App() {
     useAlbum();
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
+
+  useApplyTheme();
 
   useEffect(() => {
     void initProjects();

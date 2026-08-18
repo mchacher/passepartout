@@ -10,6 +10,15 @@
 // re-attaches a fresh one from the stored blob.
 
 import { DEFAULT_WHITESPACE, type AlbumPage, type Cover, type PageFormat, type Photo } from "../types";
+import {
+  DEFAULT_COLOR_THEME,
+  DEFAULT_FONT_THEME,
+  colorThemeOrDefault,
+  fontThemeOrDefault,
+  type ColorThemeId,
+  type FontThemeId,
+} from "./themes";
+import { DEFAULT_TEXT_SIZES, textSizesOrDefault, type TextSizes } from "./text-sizes";
 
 export interface ProjectMeta {
   id: string;
@@ -24,6 +33,9 @@ export type StoredPhoto = Omit<Photo, "url">;
 /** The full persisted document for one project. */
 export interface ProjectDoc extends ProjectMeta {
   format: PageFormat;
+  fontTheme: FontThemeId;
+  colorTheme: ColorThemeId;
+  textSizes: TextSizes;
   photos: StoredPhoto[];
   pages: AlbumPage[];
   frontCover: Cover;
@@ -38,6 +50,9 @@ export interface ProjectState {
   name: string;
   createdAt: number;
   format: PageFormat;
+  fontTheme: FontThemeId;
+  colorTheme: ColorThemeId;
+  textSizes: TextSizes;
   photos: Photo[];
   pages: AlbumPage[];
   frontCover: Cover;
@@ -78,6 +93,9 @@ export function newProjectDoc(name: string, now: number): ProjectDoc {
     createdAt: now,
     updatedAt: now,
     format: "square",
+    fontTheme: DEFAULT_FONT_THEME,
+    colorTheme: DEFAULT_COLOR_THEME,
+    textSizes: { ...DEFAULT_TEXT_SIZES },
     photos: [],
     pages: [],
     frontCover: newCover(),
@@ -95,6 +113,9 @@ export function serializeProject(state: ProjectState, now: number): ProjectDoc {
     createdAt: state.createdAt,
     updatedAt: now,
     format: state.format,
+    fontTheme: state.fontTheme,
+    colorTheme: state.colorTheme,
+    textSizes: { ...state.textSizes },
     // Strip the runtime object URL; keep native size, ratio, caption, placement.
     photos: state.photos.map(({ url: _url, ...rest }) => rest),
     pages: state.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] })),
@@ -148,6 +169,9 @@ export function duplicateDoc(
     createdAt: opts.now,
     updatedAt: opts.now,
     format: doc.format,
+    fontTheme: fontThemeOrDefault(doc.fontTheme).id,
+    colorTheme: colorThemeOrDefault(doc.colorTheme).id,
+    textSizes: textSizesOrDefault(doc.textSizes),
     photos: doc.photos.map((p) => ({ ...p, id: remap(p.id) })),
     pages: doc.pages.map((pg) => ({ ...pg, photoIds: pg.photoIds.map(remap) })),
     frontCover: remapCover(coverOrDefault(doc.frontCover)),

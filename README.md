@@ -21,6 +21,8 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Free text**: a title per page and a caption under each photo.
 - **Chronological by default**: photos order themselves by EXIF capture time (falling back to file date).
 - **Formats**: square, landscape, portrait.
+- **Album style**: give a project its own look with a font and a color palette (paper and text), from a small curated set. The accent color carries into the app so the album and the app read as one.
+- **Text size**: set the size of each kind of text (cover title and subtitle, page title and subtitle, caption) with four levels (S/M/L/XL), from one common Style menu. Every page can carry its own title and subtitle.
 - **Local and private**: everything runs in your browser. Photos never leave your machine.
 
 ## Getting started

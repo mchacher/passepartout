@@ -13,6 +13,21 @@ import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
 import { defaultLayoutId, getLayout } from "./lib/layouts";
 import {
+  DEFAULT_COLOR_THEME,
+  DEFAULT_FONT_THEME,
+  colorThemeOrDefault,
+  fontThemeOrDefault,
+  type ColorThemeId,
+  type FontThemeId,
+} from "./lib/themes";
+import {
+  DEFAULT_TEXT_SIZES,
+  textSizesOrDefault,
+  type TextRole,
+  type TextSizeLevel,
+  type TextSizes,
+} from "./lib/text-sizes";
+import {
   cleanCover,
   coverOrDefault,
   duplicateDoc,
@@ -43,6 +58,7 @@ function newPage(): AlbumPage {
   return {
     id: crypto.randomUUID(),
     title: "",
+    subtitle: "",
     photoIds: [],
     whitespace: DEFAULT_WHITESPACE,
     layoutId: DEFAULT_LAYOUT_ID,
@@ -78,6 +94,9 @@ interface AlbumState {
   photos: Photo[];
   pages: AlbumPage[];
   format: PageFormat;
+  fontTheme: FontThemeId;
+  colorTheme: ColorThemeId;
+  textSizes: TextSizes;
 
   // The four cover faces of the active project (see CoverFace)
   frontCover: Cover;
@@ -111,11 +130,15 @@ interface AlbumState {
   addPage: () => void;
   deletePage: (pageId: string) => void;
   setPageTitle: (pageId: string, title: string) => void;
+  setPageSubtitle: (pageId: string, subtitle: string) => void;
   setPageWhitespace: (pageId: string, whitespace: number) => void;
   setPageLayout: (pageId: string, layoutId: string) => void;
   setCaption: (photoId: string, caption: string) => void;
 
   setFormat: (format: PageFormat) => void;
+  setFontTheme: (fontTheme: FontThemeId) => void;
+  setColorTheme: (colorTheme: ColorThemeId) => void;
+  setTextSize: (role: TextRole, level: TextSizeLevel) => void;
 }
 
 function distribute(photos: Photo[]): AlbumPage[] {
@@ -186,6 +209,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
         name: s.activeName,
         createdAt: s.activeCreatedAt,
         format: s.format,
+        fontTheme: s.fontTheme,
+        colorTheme: s.colorTheme,
+        textSizes: s.textSizes,
         photos: s.photos,
         pages: s.pages,
         frontCover: s.frontCover,
@@ -242,6 +268,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
     photos: [],
     pages: [],
     format: "square",
+    fontTheme: DEFAULT_FONT_THEME,
+    colorTheme: DEFAULT_COLOR_THEME,
+    textSizes: { ...DEFAULT_TEXT_SIZES },
 
     frontCover: newCover(),
     insideFrontCover: newCover(),
@@ -303,6 +332,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
         photos: [],
         pages: doc.pages,
         format: doc.format,
+        fontTheme: doc.fontTheme,
+        colorTheme: doc.colorTheme,
+        textSizes: doc.textSizes,
         frontCover: doc.frontCover,
         insideFrontCover: doc.insideFrontCover,
         insideBackCover: doc.insideBackCover,
@@ -330,6 +362,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const existing = new Set(photos.map((p) => p.id));
       const pages = doc.pages.map((pg) => ({
         ...pg,
+        subtitle: pg.subtitle ?? "", // normalize pages saved before page subtitles existed
         photoIds: pg.photoIds.filter((pid) => existing.has(pid)),
       }));
       pages.forEach(syncLayout);
@@ -338,6 +371,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
         activeName: doc.name,
         activeCreatedAt: doc.createdAt,
         format: doc.format,
+        fontTheme: fontThemeOrDefault(doc.fontTheme).id,
+        colorTheme: colorThemeOrDefault(doc.colorTheme).id,
+        textSizes: textSizesOrDefault(doc.textSizes),
         photos,
         pages,
         frontCover: cleanCover(coverOrDefault(doc.frontCover), existing),
@@ -409,7 +445,15 @@ export const useAlbum = create<AlbumState>((set, get) => {
         await get().openProject(next.id);
       } else {
         revokeUrls(get().photos);
-        set({ activeId: null, photos: [], pages: [], format: "square" });
+        set({
+          activeId: null,
+          photos: [],
+          pages: [],
+          format: "square",
+          fontTheme: DEFAULT_FONT_THEME,
+          colorTheme: DEFAULT_COLOR_THEME,
+          textSizes: { ...DEFAULT_TEXT_SIZES },
+        });
         db.setLastActiveId(null);
       }
     },
@@ -549,6 +593,13 @@ export const useAlbum = create<AlbumState>((set, get) => {
       scheduleSave();
     },
 
+    setPageSubtitle: (pageId, subtitle) => {
+      set((s) => ({
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, subtitle } : pg)),
+      }));
+      scheduleSave();
+    },
+
     setPageWhitespace: (pageId, whitespace) => {
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, whitespace } : pg)),
@@ -572,6 +623,21 @@ export const useAlbum = create<AlbumState>((set, get) => {
 
     setFormat: (format) => {
       set({ format });
+      scheduleSave();
+    },
+
+    setFontTheme: (fontTheme) => {
+      set({ fontTheme });
+      scheduleSave();
+    },
+
+    setColorTheme: (colorTheme) => {
+      set({ colorTheme });
+      scheduleSave();
+    },
+
+    setTextSize: (role, level) => {
+      set((s) => ({ textSizes: { ...s.textSizes, [role]: level } }));
       scheduleSave();
     },
   };

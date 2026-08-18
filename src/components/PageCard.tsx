@@ -14,7 +14,7 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 // One album page: the control header (title, photo count, delete), a controls row
 // (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageCount, setPageWhitespace, setPageLayout, deletePage } =
+  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, deletePage } =
     useAlbum();
   const count = page.photoIds.length;
   const layouts = layoutsForCount(count);
@@ -26,13 +26,22 @@ export function PageCard({ page, index }: PageCardProps) {
           <b className="font-semibold text-accent">{index + 1}</b>
         </span>
 
-        <input
-          type="text"
-          value={page.title}
-          placeholder="Page title (optional)"
-          onChange={(e) => setPageTitle(page.id, e.target.value)}
-          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 font-display text-[15px] text-ink placeholder:italic placeholder:text-faint hover:border-line focus:border-accent focus:bg-surface focus:outline-none"
-        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <input
+            type="text"
+            value={page.title}
+            placeholder="Page title (optional)"
+            onChange={(e) => setPageTitle(page.id, e.target.value)}
+            className="min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 font-display text-[15px] text-ink placeholder:italic placeholder:text-faint hover:border-line focus:border-accent focus:bg-surface focus:outline-none"
+          />
+          <input
+            type="text"
+            value={page.subtitle}
+            placeholder="Subtitle (optional)"
+            onChange={(e) => setPageSubtitle(page.id, e.target.value)}
+            className="min-w-0 rounded-md border border-transparent bg-transparent px-2 py-0.5 font-display text-[12.5px] text-muted placeholder:italic placeholder:text-faint hover:border-line focus:border-accent focus:bg-surface focus:outline-none"
+          />
+        </div>
 
         <div className="flex items-center gap-[3px]">
           <span className="mr-1 text-[11px] text-muted">Photos</span>

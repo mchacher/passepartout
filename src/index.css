@@ -21,6 +21,21 @@
   --accent: #37596b;
   --accent-ink: #2a4653;
   --accent-soft: #e4ecef;
+
+  /* Album theme (font + print colors). These default to the classic theme and are
+     overridden at runtime by useApplyTheme from the active project's choice. Unlike
+     the chrome tokens above, the album print colors do not vary with the OS theme. */
+  --album-font: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --album-ink: #1c2226;
+  --album-ink-soft: #4a5157;
+
+  /* Per-role text-size multipliers (see src/lib/text-sizes.ts). Default 1 = today's
+     size; overridden at runtime by useApplyTheme from the active project. */
+  --cover-title-scale: 1;
+  --cover-subtitle-scale: 1;
+  --page-title-scale: 1;
+  --page-subtitle-scale: 1;
+  --caption-scale: 1;
 }
 
 @media (prefers-color-scheme: dark) {
