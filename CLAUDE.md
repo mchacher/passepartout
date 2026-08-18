@@ -15,6 +15,7 @@ Passepartout is a **local-first photo album layout tool that never crops your ph
 - React 18 + TypeScript (strict) + Vite
 - Tailwind CSS (design tokens as CSS custom properties in `src/index.css`)
 - Zustand for state (`src/store.ts`)
+- pdf-lib for the print-ready PDF export (bundled, runs in the browser)
 - Vitest for tests
 - No backend. No network calls. Static build in `dist/`.
 
@@ -79,8 +80,8 @@ npm run validate   # typecheck + lint + test
 
 ## Roadmap (not built yet)
 
-1. **PDF export** at print resolution (300 DPI) with bleed, reusing the same engine numbers to paint each page (spec 009; Blurb sizes + spine already prepared in spec 008).
-2. **More imprimeur presets** (CEWE / Saal Digital, etc.). Blurb photo-book trim sizes already ship (spec 008).
+1. **More imprimeur presets** (CEWE / Saal Digital, etc.). Blurb trim sizes + the 300 DPI sRGB PDF export (cover wrap + interior) already ship (specs 008-009).
+2. **Embed the real album fonts** in the PDF (today print maps each album font to a standard PDF family: Times / Helvetica / Courier).
 3. **Full-bleed / spread templates** (one photo across a double page) while still never cropping.
 4. **Reorder photos within a page** by drag (reordering whole pages already ships, spec 007).
 5. **Project files** export/import (backup, move machine, share). Local persistence and multi-project management already ship via IndexedDB (spec 002); this adds a portable file on top.

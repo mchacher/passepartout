@@ -176,11 +176,15 @@ describe("book size + spine migration", () => {
     expect(spineOfDoc(doc)).toEqual({ title: "On the spine" });
   });
 
-  it("effectiveSpineTitle prefers the override, then the front cover title, else empty", () => {
+  it("effectiveSpineTitle prefers the override, then cover title, then album name, else empty", () => {
     const cover: Cover = { title: "Summer", subtitle: "", photoId: null, whitespace: 4 };
-    expect(effectiveSpineTitle({ title: "Custom" }, cover)).toBe("Custom");
-    expect(effectiveSpineTitle({ title: "  " }, cover)).toBe("Summer");
-    expect(effectiveSpineTitle({ title: "" }, { ...cover, title: "" })).toBe("");
+    const blank: Cover = { ...cover, title: "" };
+    expect(effectiveSpineTitle({ title: "Custom" }, cover, "My Album")).toBe("Custom");
+    expect(effectiveSpineTitle({ title: "  " }, cover, "My Album")).toBe("Summer");
+    // No override and no cover title -> fall back to the album (project) name.
+    expect(effectiveSpineTitle({ title: "" }, blank, "My Album")).toBe("My Album");
+    expect(effectiveSpineTitle({ title: "" }, blank, "  ")).toBe("");
+    expect(effectiveSpineTitle({ title: "" }, blank)).toBe(""); // albumName optional
   });
 });
 

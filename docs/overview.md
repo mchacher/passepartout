@@ -24,6 +24,9 @@ grid slot a photo is *contained* (fit + centered), never stretched to fill.
   whose ratio drives the page, so the preview matches the printed page. Carries the
   print constants the export will reuse. Superseded the abstract `PageFormat`.
 - **Spine** (`Spine`): the bound edge; a title that defaults to the front cover title.
+- **Print export** (`src/lib/print.ts` pure + `src/lib/pdf-export.ts` impure): reuses the
+  engine to paint a Blurb-ready cover-wrap PDF and interior PDF at 300 DPI, sRGB, with
+  bleed. Photos embed at full resolution and stay contain-fit; the paper bleeds.
 - **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
   box (`slot`, or a `split` along an axis into weighted children). The catalog is pure
   data versioned with the app; a page persists only the `layoutId` that references it.
