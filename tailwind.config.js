@@ -21,6 +21,9 @@ export default {
         "accent-soft": "var(--accent-soft)",
       },
       fontFamily: {
+        // The album's own font: a project-level choice applied via --album-font
+        // (see src/lib/themes.ts). Chrome text keeps `display` below.
+        album: ["var(--album-font)"],
         display: ["Georgia", "Iowan Old Style", "Times New Roman", "serif"],
         ui: ["system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
         mono: ["ui-monospace", "SF Mono", "Menlo", "Consolas", "monospace"],

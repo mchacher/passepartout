@@ -21,6 +21,13 @@
   --accent: #37596b;
   --accent-ink: #2a4653;
   --accent-soft: #e4ecef;
+
+  /* Album theme (font + print colors). These default to the classic theme and are
+     overridden at runtime by useApplyTheme from the active project's choice. Unlike
+     the chrome tokens above, the album print colors do not vary with the OS theme. */
+  --album-font: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --album-ink: #1c2226;
+  --album-ink-soft: #4a5157;
 }
 
 @media (prefers-color-scheme: dark) {

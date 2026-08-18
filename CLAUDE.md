@@ -36,11 +36,15 @@ passepartout/
 │   │   ├── layouts.ts      # Layout template catalog (nested split trees) + helpers
 │   │   ├── layouts.test.ts # Catalog invariants (leaf counts, defaults, auto)
 │   │   ├── project.ts      # PURE project helpers (ProjectDoc, serialize/hydrate/duplicate)
+│   │   ├── themes.ts       # PURE album-theme catalog (fonts + color palettes) + coercion
+│   │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
 │   │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   │   └── demo.ts         # Canvas-generated sample photos (with blobs)
+│   ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>
 │   └── components/
-│       ├── TopBar.tsx      # Project switcher, format, import
+│       ├── TopBar.tsx      # Project switcher, style (theme), format, import
 │       ├── ProjectMenu.tsx # Project switcher dropdown (new/open/rename/duplicate/delete)
+│       ├── ThemeMenu.tsx   # Album style picker: font + color palette
 │       ├── CoverCard.tsx   # Cover face (front/inside-front/inside-back/back): title + subtitle + optional photo
 │       ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
 │       ├── PageCard.tsx    # Per-page header: title, count 1-6, layout picker, whitespace, delete

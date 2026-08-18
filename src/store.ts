@@ -13,6 +13,14 @@ import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
 import { defaultLayoutId, getLayout } from "./lib/layouts";
 import {
+  DEFAULT_COLOR_THEME,
+  DEFAULT_FONT_THEME,
+  colorThemeOrDefault,
+  fontThemeOrDefault,
+  type ColorThemeId,
+  type FontThemeId,
+} from "./lib/themes";
+import {
   cleanCover,
   coverOrDefault,
   duplicateDoc,
@@ -78,6 +86,8 @@ interface AlbumState {
   photos: Photo[];
   pages: AlbumPage[];
   format: PageFormat;
+  fontTheme: FontThemeId;
+  colorTheme: ColorThemeId;
 
   // The four cover faces of the active project (see CoverFace)
   frontCover: Cover;
@@ -116,6 +126,8 @@ interface AlbumState {
   setCaption: (photoId: string, caption: string) => void;
 
   setFormat: (format: PageFormat) => void;
+  setFontTheme: (fontTheme: FontThemeId) => void;
+  setColorTheme: (colorTheme: ColorThemeId) => void;
 }
 
 function distribute(photos: Photo[]): AlbumPage[] {
@@ -186,6 +198,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         name: s.activeName,
         createdAt: s.activeCreatedAt,
         format: s.format,
+        fontTheme: s.fontTheme,
+        colorTheme: s.colorTheme,
         photos: s.photos,
         pages: s.pages,
         frontCover: s.frontCover,
@@ -242,6 +256,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
     photos: [],
     pages: [],
     format: "square",
+    fontTheme: DEFAULT_FONT_THEME,
+    colorTheme: DEFAULT_COLOR_THEME,
 
     frontCover: newCover(),
     insideFrontCover: newCover(),
@@ -303,6 +319,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         photos: [],
         pages: doc.pages,
         format: doc.format,
+        fontTheme: doc.fontTheme,
+        colorTheme: doc.colorTheme,
         frontCover: doc.frontCover,
         insideFrontCover: doc.insideFrontCover,
         insideBackCover: doc.insideBackCover,
@@ -338,6 +356,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         activeName: doc.name,
         activeCreatedAt: doc.createdAt,
         format: doc.format,
+        fontTheme: fontThemeOrDefault(doc.fontTheme).id,
+        colorTheme: colorThemeOrDefault(doc.colorTheme).id,
         photos,
         pages,
         frontCover: cleanCover(coverOrDefault(doc.frontCover), existing),
@@ -409,7 +429,14 @@ export const useAlbum = create<AlbumState>((set, get) => {
         await get().openProject(next.id);
       } else {
         revokeUrls(get().photos);
-        set({ activeId: null, photos: [], pages: [], format: "square" });
+        set({
+          activeId: null,
+          photos: [],
+          pages: [],
+          format: "square",
+          fontTheme: DEFAULT_FONT_THEME,
+          colorTheme: DEFAULT_COLOR_THEME,
+        });
         db.setLastActiveId(null);
       }
     },
@@ -572,6 +599,16 @@ export const useAlbum = create<AlbumState>((set, get) => {
 
     setFormat: (format) => {
       set({ format });
+      scheduleSave();
+    },
+
+    setFontTheme: (fontTheme) => {
+      set({ fontTheme });
+      scheduleSave();
+    },
+
+    setColorTheme: (colorTheme) => {
+      set({ colorTheme });
       scheduleSave();
     },
   };

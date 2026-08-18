@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useAlbum } from "../store";
 import type { PageFormat } from "../types";
 import { ProjectMenu } from "./ProjectMenu";
+import { ThemeMenu } from "./ThemeMenu";
 
 const FORMATS: Array<{ id: PageFormat; label: string }> = [
   { id: "square", label: "Square" },
@@ -27,6 +28,8 @@ export function TopBar() {
       <div className="mr-auto self-center">
         <ProjectMenu />
       </div>
+
+      <ThemeMenu />
 
       <div className="flex items-center gap-2.5 text-xs text-muted" title="Page format">
         <span>Format</span>

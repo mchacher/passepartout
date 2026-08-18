@@ -240,6 +240,50 @@ describe("store project management", () => {
     expect(doc?.frontCover).toMatchObject({ title: "Hello", subtitle: "2026" });
   });
 
+  it("setFontTheme and setColorTheme change only their own field", async () => {
+    await useAlbum.getState().createProject("Styled");
+    useAlbum.getState().setFontTheme("rounded");
+    useAlbum.getState().setColorTheme("slate");
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("rounded");
+    expect(s.colorTheme).toBe("slate");
+    expect(s.format).toBe("square"); // untouched
+  });
+
+  it("createProject resets the theme to the defaults", async () => {
+    await useAlbum.getState().createProject("A");
+    useAlbum.getState().setFontTheme("typewriter");
+    useAlbum.getState().setColorTheme("sage");
+    await useAlbum.getState().createProject("B");
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("serif");
+    expect(s.colorTheme).toBe("classic");
+  });
+
+  it("persists the theme with the project and restores it on open", async () => {
+    await useAlbum.getState().createProject("Themed");
+    const id = useAlbum.getState().activeId!;
+    useAlbum.getState().setFontTheme("humanist");
+    useAlbum.getState().setColorTheme("warm");
+    await useAlbum.getState().createProject("Other"); // flush Themed on switch
+    await useAlbum.getState().openProject(id);
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("humanist");
+    expect(s.colorTheme).toBe("warm");
+  });
+
+  it("defaults the theme when opening a project saved before it existed", async () => {
+    const legacy = newProjectDoc("LegacyTheme", 1);
+    legacy.id = "legacy-theme";
+    delete (legacy as Partial<ProjectDoc>).fontTheme;
+    delete (legacy as Partial<ProjectDoc>).colorTheme;
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy-theme");
+    const s = useAlbum.getState();
+    expect(s.fontTheme).toBe("serif");
+    expect(s.colorTheme).toBe("classic");
+  });
+
   it("defaults covers when opening a project saved before covers existed", async () => {
     const legacy = newProjectDoc("Legacy", 1);
     legacy.id = "legacy";
