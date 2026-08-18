@@ -252,7 +252,7 @@ export function coverWrapGeometry(input: CoverWrapInput): CoverGeometry {
         y: spineBox.y + spineBox.h / 2,
         // Fill the spine width: the rotated cap height must stay within it, capped so a
         // very thick spine does not get absurd text.
-        sizePt: Math.min(spine * 0.6, F_COVER_TITLE * trimW * input.scales.coverTitle),
+        sizePt: Math.min(spine * 0.72, F_COVER_TITLE * trimW * input.scales.coverTitle),
       }
     : null;
 
@@ -280,18 +280,23 @@ export const PAPERS: Paper[] = [
 
 export const DEFAULT_PAPER: PaperId = "standard";
 
+// The cover/binding contribution to the spine (boards, endsheets, wrap). Without it a
+// low-page book estimates a sub-millimetre spine and the title prints microscopically.
+// A real hardcover photo book is a few mm even at low page counts.
+export const SPINE_COVER_MM = 3;
+
 export function paperOrDefault(id: string | undefined | null): Paper {
   return PAPERS.find((p) => p.id === id) ?? PAPERS.find((p) => p.id === DEFAULT_PAPER)!;
 }
 
 /**
- * A rough spine-width estimate (mm) from the interior page count and paper caliper.
- * Monotonic in page count. Blurb's spec tool gives the exact value; the UI lets the
- * user override this.
+ * A rough spine-width estimate (mm) from the interior page count, the paper caliper, and
+ * a cover/binding allowance. Monotonic in page count. Blurb's spec tool gives the exact
+ * value; the UI lets the user override this.
  */
 export function estimateSpineMm(interiorPageCount: number, paperId: string): number {
   const paper = paperOrDefault(paperId);
-  return Math.max(0, interiorPageCount) * paper.mmPerPage;
+  return SPINE_COVER_MM + Math.max(0, interiorPageCount) * paper.mmPerPage;
 }
 
 /** Map an album font to a standard PDF font family (no external font files). */

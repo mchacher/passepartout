@@ -165,7 +165,7 @@ export function ExportPanel() {
               />
             </label>
             <p className="pb-1 pt-0.5 text-[10.5px] leading-snug text-faint">
-              Estimated from the page count. Paste Blurb's exact spine width from its spec tool to override.
+              Estimated from the page count, paper and cover. Paste Blurb's exact spine width from its spec tool to override.
             </p>
 
             <div className="mt-1.5 flex gap-2">

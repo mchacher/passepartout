@@ -6,6 +6,7 @@ import {
   fontFamilyForTheme,
   interiorPageGeometry,
   mmToPt,
+  SPINE_COVER_MM,
   type PageInput,
 } from "./print";
 
@@ -134,9 +135,11 @@ describe("coverWrapGeometry", () => {
 });
 
 describe("spine estimate + font mapping", () => {
-  it("grows the spine estimate monotonically with the page count", () => {
-    expect(estimateSpineMm(0, "standard")).toBe(0);
+  it("grows the spine estimate monotonically, plus a cover allowance", () => {
+    // Even a 0-page book has a cover, so the estimate is never sub-millimetre.
+    expect(estimateSpineMm(0, "standard")).toBe(SPINE_COVER_MM);
     expect(estimateSpineMm(40, "standard")).toBeGreaterThan(estimateSpineMm(20, "standard"));
+    expect(estimateSpineMm(20, "standard")).toBeGreaterThan(SPINE_COVER_MM);
     expect(estimateSpineMm(20, "premium-lustre")).toBeGreaterThan(estimateSpineMm(20, "standard"));
     expect(estimateSpineMm(20, "nope")).toBe(estimateSpineMm(20, "standard")); // unknown -> default
   });
