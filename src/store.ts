@@ -129,6 +129,7 @@ interface AlbumState {
 
   addPage: () => void;
   deletePage: (pageId: string) => void;
+  movePage: (pageId: string, toIndex: number) => void;
   setPageTitle: (pageId: string, title: string) => void;
   setPageSubtitle: (pageId: string, subtitle: string) => void;
   setPageWhitespace: (pageId: string, whitespace: number) => void;
@@ -582,6 +583,26 @@ export const useAlbum = create<AlbumState>((set, get) => {
           pages = [newPage()];
         }
         return { photos, pages };
+      });
+      scheduleSave();
+    },
+
+    // Reorder content pages only (covers are separate state, never affected). `toIndex`
+    // is an insertion slot in [0, pages.length]: slot 0 = before the first page, slot
+    // length = after the last. Photos reference pageId (not an index), so nothing else
+    // changes. A drop back into the page's own neighborhood is a no-op.
+    movePage: (pageId, toIndex) => {
+      set((s) => {
+        const from = s.pages.findIndex((pg) => pg.id === pageId);
+        if (from === -1) return {};
+        const n = s.pages.length;
+        let to = Math.max(0, Math.min(toIndex, n));
+        if (to > from) to -= 1; // account for removing the dragged page first
+        if (to === from) return {};
+        const pages = [...s.pages];
+        const [moved] = pages.splice(from, 1);
+        pages.splice(to, 0, moved);
+        return { pages };
       });
       scheduleSave();
     },

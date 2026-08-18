@@ -42,7 +42,9 @@ src/
     ├── PageCard.tsx    # Per-page controls: title, count 1-6, layout picker, whitespace
     ├── LayoutThumb.tsx # Tiny SVG miniature of a layout template
     ├── Paper.tsx       # Measures the page box, calls the engine, renders region cells
-    └── dnd.ts          # Shared drag-and-drop payload key
+    ├── Thumb.tsx       # Faithful page/cover mini-render (reuses the engine, no crop)
+    ├── PageRail.tsx    # Right rail: page thumbnails, drag-to-reorder, click-to-scroll
+    └── dnd.ts          # Shared drag-and-drop payload keys (photo + page)
 ```
 
 Three hard boundaries:
@@ -203,6 +205,14 @@ Dragging whitespace never re-groups photos.
 - **Print / export**: reuse `computeLayout`'s numbers to paint a canvas or PDF page at
   print resolution. Same math, different surface: this is why the engine is pure. A
   project-file export/import would build on `ProjectDoc` + the `images` blobs.
+  `Thumb.tsx` is a live example of this reuse: it runs the engine at a nominal box and
+  positions the result in percent, so a page thumbnail is contain-fit exactly like the
+  page and never crops.
+- **Page order**: content pages are ordered by their index in the store's `pages`
+  array (covers are separate `Cover` state, structurally fixed). `store.movePage`
+  permutes that array; `PageRail` drives it by drag and drop. No new field: order is the
+  array order, already serialized. Photos reference `pageId`, so reordering never
+  disturbs a photo or a layout.
 
 ## Roadmap hooks
 

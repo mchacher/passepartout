@@ -91,3 +91,7 @@ paint a 300 DPI PDF page: same math, different canvas.
   the region, 8 is airiest); they never re-group.
 - **Title** is edited in the page header and shown centered on the page.
 - **Caption** is edited inline under each photo.
+- **Page rail** (right side, wide screens) shows a faithful thumbnail of every cover
+  and page; drag a content-page thumbnail to reorder pages (covers stay fixed), or
+  click one to scroll to that page. Thumbnails reuse the layout engine, so they never
+  crop either.
