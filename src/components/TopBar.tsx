@@ -3,6 +3,7 @@ import { useAlbum } from "../store";
 import { ProjectMenu } from "./ProjectMenu";
 import { ThemeMenu } from "./ThemeMenu";
 import { SizeMenu } from "./SizeMenu";
+import { ExportPanel } from "./ExportPanel";
 
 export function TopBar() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -44,6 +45,8 @@ export function TopBar() {
           e.target.value = "";
         }}
       />
+
+      <ExportPanel />
     </header>
   );
 }

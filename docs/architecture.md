@@ -28,6 +28,8 @@ src/
 │   ├── layouts.ts      # PURE layout template catalog (nested split trees) + helpers
 │   ├── project.ts      # PURE project helpers: ProjectDoc, serialize/hydrate/duplicate, spine
 │   ├── book-sizes.ts   # PURE physical book-size catalog (Blurb trim sizes) + print constants
+│   ├── print.ts        # PURE print geometry (media/trim/content boxes, spine) in PDF points
+│   ├── pdf-export.ts   # IMPURE PDF builder (pdf-lib + canvas): interior + cover-wrap files
 │   ├── themes.ts       # PURE album-theme catalog (fonts + color palettes) + coercion
 │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
 │   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
@@ -44,6 +46,7 @@ src/
     ├── LayoutThumb.tsx # Tiny SVG miniature of a layout template
     ├── SizeMenu.tsx    # Book-size (Blurb trim) picker in the top bar
     ├── SpineCard.tsx   # Spine title editor + vertical spine preview
+    ├── ExportPanel.tsx # Export button: interior + cover-wrap PDF download (Blurb)
     ├── Paper.tsx       # Measures the page box, calls the engine, renders region cells
     ├── Thumb.tsx       # Faithful page/cover mini-render (reuses the engine, no crop)
     ├── PageRail.tsx    # Right rail: page thumbnails, drag-to-reorder, click-to-scroll
@@ -53,8 +56,10 @@ src/
 Three hard boundaries:
 
 - **`src/lib/` is pure.** No DOM, no React, no store, no IndexedDB. It takes plain
-  numbers/data and returns plain numbers/data, so it is unit-testable and will later
-  paint a 300 DPI PDF page from the same math. Keep it that way.
+  numbers/data and returns plain numbers/data, so it is unit-testable and paints a
+  300 DPI PDF page from the same math (`print.ts`). Keep it that way. The one exception
+  is `pdf-export.ts`, which is explicitly impure (pdf-lib + canvas, browser-only): it
+  *consumes* the pure geometry from `print.ts` and draws it.
 - **`src/store.ts` owns all state.** Components never mutate state directly; they
   call actions. This is the single place the data model changes.
 - **`src/persistence.ts` is the only impure I/O.** It is the sole module that touches
@@ -213,12 +218,13 @@ Dragging whitespace never re-groups photos.
   itself) in `src/lib/project.ts`; `serializeProject`/`hydratePhotos` carry it and the
   IndexedDB adapter stores it with no change. Bump the DB version in `persistence.ts`
   only if a store shape changes.
-- **Print / export**: reuse `computeLayout`'s numbers to paint a canvas or PDF page at
-  print resolution. Same math, different surface: this is why the engine is pure. A
-  project-file export/import would build on `ProjectDoc` + the `images` blobs.
-  `Thumb.tsx` is a live example of this reuse: it runs the engine at a nominal box and
-  positions the result in percent, so a page thumbnail is contain-fit exactly like the
-  page and never crops.
+- **Print / export** (shipped, spec 009): `print.ts` reuses `computeLayout` to place
+  photos in PDF points on a media box = trim + bleed; `pdf-export.ts` paints it with
+  pdf-lib into a Blurb-ready interior PDF (inside front, pages, inside back) and a
+  cover-wrap PDF (back + spine + front), each photo re-encoded to a 300 DPI sRGB JPEG at
+  its exact contain-fit box (never cropped), text as vector. Same math, different
+  surface: this is why the engine is pure. `Thumb.tsx` is the same reuse at screen
+  scale. A project-file export/import would build on `ProjectDoc` + the `images` blobs.
 - **Page order**: content pages are ordered by their index in the store's `pages`
   array (covers are separate `Cover` state, structurally fixed). `store.movePage`
   permutes that array; `PageRail` drives it by drag and drop. No new field: order is the
