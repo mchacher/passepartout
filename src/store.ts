@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   DEFAULT_WHITESPACE,
   DEFAULT_LAYOUT_ID,
+  DEFAULT_PROJECT_NAME,
   type AlbumPage,
   type PageFormat,
   type Photo,
@@ -9,8 +10,18 @@ import {
 import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
 import { defaultLayoutId, getLayout } from "./lib/layouts";
+import {
+  duplicateDoc,
+  hydratePhotos,
+  metaOf,
+  newProjectDoc,
+  serializeProject,
+  type ProjectMeta,
+} from "./lib/project";
+import * as db from "./persistence";
 
 const DEFAULT_PER_PAGE = 3;
+const SAVE_DEBOUNCE_MS = 400;
 
 function newPage(): AlbumPage {
   return {
@@ -32,13 +43,43 @@ function syncLayout(page: AlbumPage): void {
   }
 }
 
+// Revoke the object URLs of a set of photos before we drop or replace them, so we
+// do not leak blobs when switching projects.
+function revokeUrls(photos: Photo[]): void {
+  for (const p of photos) {
+    if (p.url.startsWith("blob:")) URL.revokeObjectURL(p.url);
+  }
+}
+
+// Insert or replace a project meta, keeping the list newest-first.
+function upsertMeta(list: ProjectMeta[], meta: ProjectMeta): ProjectMeta[] {
+  return [meta, ...list.filter((m) => m.id !== meta.id)].sort(
+    (a, b) => b.updatedAt - a.updatedAt,
+  );
+}
+
 interface AlbumState {
   photos: Photo[];
   pages: AlbumPage[];
   format: PageFormat;
 
+  // Projects
+  projects: ProjectMeta[];
+  activeId: string | null;
+  activeName: string;
+  activeCreatedAt: number;
+  ready: boolean; // initial load finished
+  persistent: boolean; // IndexedDB usable in this environment
+
+  initProjects: () => Promise<void>;
+  createProject: (name?: string) => Promise<void>;
+  openProject: (id: string) => Promise<void>;
+  renameProject: (id: string, name: string) => Promise<void>;
+  duplicateProject: (id: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+
   importFiles: (files: FileList | File[]) => Promise<void>;
-  loadDemo: () => void;
+  loadDemo: () => Promise<void>;
   autoDistribute: () => void;
 
   placeOnPage: (photoId: string, pageId: string) => void;
@@ -53,7 +94,6 @@ interface AlbumState {
   setCaption: (photoId: string, caption: string) => void;
 
   setFormat: (format: PageFormat) => void;
-  reset: () => void;
 }
 
 function distribute(photos: Photo[]): AlbumPage[] {
@@ -74,7 +114,9 @@ function distribute(photos: Photo[]): AlbumPage[] {
   return pages;
 }
 
-async function loadPhoto(file: File): Promise<Photo | null> {
+// Load one File into a Photo (with a runtime object URL) plus the File itself so the
+// caller can persist the blob. Returns null if the image cannot be decoded.
+async function loadPhoto(file: File): Promise<{ photo: Photo; file: File } | null> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -88,15 +130,18 @@ async function loadPhoto(file: File): Promise<Photo | null> {
         /* keep lastModified */
       }
       resolve({
-        id: crypto.randomUUID(),
-        url,
-        w: img.naturalWidth,
-        h: img.naturalHeight,
-        ratio: img.naturalWidth / img.naturalHeight,
-        time,
-        name: file.name,
-        caption: "",
-        pageId: null,
+        file,
+        photo: {
+          id: crypto.randomUUID(),
+          url,
+          w: img.naturalWidth,
+          h: img.naturalHeight,
+          ratio: img.naturalWidth / img.naturalHeight,
+          time,
+          name: file.name,
+          caption: "",
+          pageId: null,
+        },
       });
     };
     img.onerror = () => resolve(null);
@@ -104,123 +149,376 @@ async function loadPhoto(file: File): Promise<Photo | null> {
   });
 }
 
-export const useAlbum = create<AlbumState>((set, get) => ({
-  photos: [],
-  pages: [],
-  format: "square",
+export const useAlbum = create<AlbumState>((set, get) => {
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
-  importFiles: async (files) => {
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (list.length === 0) return;
-    const loaded = (await Promise.all(list.map(loadPhoto))).filter(
-      (p): p is Photo => p !== null,
+  // Persist the active project's document (debounced). Image blobs are written once
+  // at import time, so this only writes the small metadata doc.
+  const flushSave = async () => {
+    saveTimer = null;
+    const s = get();
+    if (!s.persistent || !s.activeId) return;
+    const doc = serializeProject(
+      {
+        id: s.activeId,
+        name: s.activeName,
+        createdAt: s.activeCreatedAt,
+        format: s.format,
+        photos: s.photos,
+        pages: s.pages,
+      },
+      Date.now(),
     );
-    set((s) => {
-      const photos = [...s.photos, ...loaded].sort((a, b) => a.time - b.time);
-      // First import seeds the pages; later imports drop into the library.
-      const pages = s.pages.length === 0 ? distribute(photos) : s.pages;
-      return { photos, pages };
+    try {
+      await db.saveProjectDoc(doc);
+      set((st) => ({ projects: upsertMeta(st.projects, metaOf(doc)) }));
+    } catch {
+      /* keep working in memory; a transient write error must not break editing */
+    }
+  };
+
+  const scheduleSave = () => {
+    if (!get().persistent || !get().activeId) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => void flushSave(), SAVE_DEBOUNCE_MS);
+  };
+
+  const cancelSave = () => {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+  };
+
+  // Flush any pending debounced save NOW, under the CURRENT active project. Call this
+  // before switching/creating a project so the outgoing project's last edits persist
+  // and no stale timer later writes under the wrong (or a deleted) id.
+  const flushPending = async () => {
+    if (!saveTimer) return;
+    cancelSave();
+    await flushSave();
+  };
+
+  // Make sure there is an active project to save into before the first import/demo.
+  const ensureActiveProject = async () => {
+    if (!get().activeId) await get().createProject();
+  };
+
+  // Best-effort flush when the tab is hidden/closed, to shrink the window where an
+  // edit made within the debounce interval would be lost on a refresh.
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") void flushPending();
     });
-  },
+  }
 
-  loadDemo: () => {
-    const photos = makeDemoPhotos();
-    set({ photos, pages: distribute(photos) });
-  },
+  return {
+    photos: [],
+    pages: [],
+    format: "square",
 
-  autoDistribute: () => {
-    const photos = [...get().photos].sort((a, b) => a.time - b.time);
-    photos.forEach((p) => (p.pageId = null));
-    set({ photos, pages: distribute(photos) });
-  },
+    projects: [],
+    activeId: null,
+    activeName: DEFAULT_PROJECT_NAME,
+    activeCreatedAt: 0,
+    ready: false,
+    persistent: false,
 
-  placeOnPage: (photoId, pageId) =>
-    set((s) => {
-      const photos = s.photos.map((p) => ({ ...p }));
-      const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
-      const photo = photos.find((p) => p.id === photoId);
-      const target = pages.find((pg) => pg.id === pageId);
-      if (!photo || !target) return {};
-      if (photo.pageId) {
-        const old = pages.find((pg) => pg.id === photo.pageId);
-        if (old) old.photoIds = old.photoIds.filter((id) => id !== photoId);
+    initProjects: async () => {
+      const available = await db.isAvailable();
+      if (!available) {
+        set({ ready: true, persistent: false });
+        return;
       }
-      target.photoIds.push(photoId);
-      photo.pageId = pageId;
-      pages.forEach(syncLayout);
-      return { photos, pages };
-    }),
-
-  removeFromPage: (photoId) =>
-    set((s) => {
-      const photos = s.photos.map((p) => ({ ...p }));
-      const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
-      const photo = photos.find((p) => p.id === photoId);
-      if (!photo || !photo.pageId) return {};
-      const pg = pages.find((x) => x.id === photo.pageId);
-      if (pg) pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
-      photo.pageId = null;
-      pages.forEach(syncLayout);
-      return { photos, pages };
-    }),
-
-  setPageCount: (pageId, n) =>
-    set((s) => {
-      const photos = s.photos.map((p) => ({ ...p }));
-      const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
-      const target = pages.find((pg) => pg.id === pageId);
-      if (!target) return {};
-      // Shrink: return the last photos to the library.
-      while (target.photoIds.length > n) {
-        const id = target.photoIds.pop()!;
-        const p = photos.find((x) => x.id === id);
-        if (p) p.pageId = null;
+      set({ persistent: true });
+      let projects: ProjectMeta[] = [];
+      try {
+        projects = await db.listProjects();
+      } catch {
+        set({ ready: true, persistent: false });
+        return;
       }
-      // Grow: pull the next unplaced photos (chronological order preserved).
-      const pool = photos.filter((p) => p.pageId === null);
-      while (target.photoIds.length < n && pool.length > 0) {
-        const p = pool.shift()!;
-        target.photoIds.push(p.id);
-        p.pageId = target.id;
+      const lastId = db.getLastActiveId();
+      const target = projects.find((p) => p.id === lastId) ?? projects[0];
+      if (target) {
+        await get().openProject(target.id);
       }
-      syncLayout(target);
-      return { photos, pages };
-    }),
+      set({ projects, ready: true });
+    },
 
-  addPage: () => set((s) => ({ pages: [...s.pages, newPage()] })),
+    createProject: async (name) => {
+      await flushPending(); // persist the outgoing project before switching away
+      const now = Date.now();
+      const doc = newProjectDoc(name?.trim() || DEFAULT_PROJECT_NAME, now);
+      revokeUrls(get().photos);
+      if (get().persistent) {
+        try {
+          await db.saveProjectDoc(doc);
+        } catch {
+          /* degrade to in-memory */
+        }
+      }
+      set((s) => ({
+        projects: upsertMeta(s.projects, metaOf(doc)),
+        activeId: doc.id,
+        activeName: doc.name,
+        activeCreatedAt: doc.createdAt,
+        photos: [],
+        pages: doc.pages,
+        format: doc.format,
+      }));
+      db.setLastActiveId(doc.id);
+    },
 
-  deletePage: (pageId) =>
-    set((s) => {
-      const photos = s.photos.map((p) =>
-        p.pageId === pageId ? { ...p, pageId: null } : p,
+    openProject: async (id) => {
+      if (!get().persistent) return;
+      await flushPending(); // persist the outgoing project before loading the new one
+      const doc = await db.loadProjectDoc(id);
+      if (!doc) return;
+      // Recreate object URLs from the stored blobs.
+      const urls = new Map<string, string>();
+      await Promise.all(
+        doc.photos.map(async (p) => {
+          const blob = await db.getImage(p.id).catch(() => undefined);
+          if (blob) urls.set(p.id, URL.createObjectURL(blob));
+        }),
       );
-      let pages = s.pages.filter((pg) => pg.id !== pageId);
-      if (pages.length === 0) {
-        pages = [newPage()];
+      revokeUrls(get().photos);
+      const photos = hydratePhotos(doc, (pid) => urls.get(pid));
+      // Drop any page reference to a photo whose blob was missing, then re-sync layouts.
+      const existing = new Set(photos.map((p) => p.id));
+      const pages = doc.pages.map((pg) => ({
+        ...pg,
+        photoIds: pg.photoIds.filter((pid) => existing.has(pid)),
+      }));
+      pages.forEach(syncLayout);
+      set({
+        activeId: doc.id,
+        activeName: doc.name,
+        activeCreatedAt: doc.createdAt,
+        format: doc.format,
+        photos,
+        pages,
+      });
+      db.setLastActiveId(doc.id);
+    },
+
+    renameProject: async (id, name) => {
+      const nm = name.trim() || DEFAULT_PROJECT_NAME;
+      set((s) => ({
+        projects: s.projects.map((m) => (m.id === id ? { ...m, name: nm } : m)),
+        activeName: s.activeId === id ? nm : s.activeName,
+      }));
+      if (!get().persistent) return;
+      if (get().activeId === id) {
+        scheduleSave();
+        return;
       }
-      return { photos, pages };
-    }),
+      try {
+        const doc = await db.loadProjectDoc(id);
+        if (doc) await db.saveProjectDoc({ ...doc, name: nm, updatedAt: Date.now() });
+      } catch {
+        /* ignore */
+      }
+    },
 
-  setPageTitle: (pageId, title) =>
-    set((s) => ({
-      pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, title } : pg)),
-    })),
+    duplicateProject: async (id) => {
+      if (!get().persistent) return;
+      await flushPending(); // persist the active project before opening the copy
+      const src = await db.loadProjectDoc(id);
+      if (!src) return;
+      const now = Date.now();
+      const photoIdMap = new Map(src.photos.map((p) => [p.id, crypto.randomUUID()]));
+      const dup = duplicateDoc(src, {
+        id: crypto.randomUUID(),
+        name: `${src.name} copy`,
+        now,
+        photoIdMap,
+      });
+      try {
+        await Promise.all([...photoIdMap].map(([from, to]) => db.copyImage(from, to)));
+        await db.saveProjectDoc(dup);
+      } catch {
+        return;
+      }
+      set((s) => ({ projects: upsertMeta(s.projects, metaOf(dup)) }));
+      await get().openProject(dup.id);
+    },
 
-  setPageWhitespace: (pageId, whitespace) =>
-    set((s) => ({
-      pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, whitespace } : pg)),
-    })),
+    deleteProject: async (id) => {
+      // Cancel (do NOT flush) a pending save for the project being deleted, or the
+      // timer would re-write the doc mid-delete and resurrect it as a ghost.
+      if (get().activeId === id) cancelSave();
+      if (get().persistent) {
+        try {
+          await db.deleteProject(id);
+        } catch {
+          /* ignore */
+        }
+      }
+      const remaining = get().projects.filter((m) => m.id !== id);
+      set({ projects: remaining });
+      if (get().activeId !== id) return;
+      const next = remaining[0]; // newest first
+      if (next) {
+        await get().openProject(next.id);
+      } else {
+        revokeUrls(get().photos);
+        set({ activeId: null, photos: [], pages: [], format: "square" });
+        db.setLastActiveId(null);
+      }
+    },
 
-  setPageLayout: (pageId, layoutId) =>
-    set((s) => ({
-      pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId } : pg)),
-    })),
+    importFiles: async (files) => {
+      const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      if (list.length === 0) return;
+      await ensureActiveProject();
+      const loaded = (await Promise.all(list.map(loadPhoto))).filter(
+        (x): x is { photo: Photo; file: File } => x !== null,
+      );
+      if (get().persistent) {
+        await Promise.all(
+          loaded.map(({ photo, file }) => db.putImage(photo.id, file).catch(() => {})),
+        );
+      }
+      const added = loaded.map((l) => l.photo);
+      set((s) => {
+        const photos = [...s.photos, ...added].sort((a, b) => a.time - b.time);
+        // First import seeds the pages; later imports drop into the library.
+        const pages = s.pages.length === 0 ? distribute(photos) : s.pages;
+        return { photos, pages };
+      });
+      scheduleSave();
+    },
 
-  setCaption: (photoId, caption) =>
-    set((s) => ({
-      photos: s.photos.map((p) => (p.id === photoId ? { ...p, caption } : p)),
-    })),
+    loadDemo: async () => {
+      await ensureActiveProject();
+      const demo = await makeDemoPhotos();
+      if (get().persistent) {
+        await Promise.all(demo.map(({ photo, blob }) => db.putImage(photo.id, blob).catch(() => {})));
+      }
+      revokeUrls(get().photos);
+      const photos = demo.map((d) => d.photo);
+      set({ photos, pages: distribute(photos) });
+      scheduleSave();
+    },
 
-  setFormat: (format) => set({ format }),
-  reset: () => set({ photos: [], pages: [] }),
-}));
+    autoDistribute: () => {
+      const photos = [...get().photos].sort((a, b) => a.time - b.time);
+      photos.forEach((p) => (p.pageId = null));
+      set({ photos, pages: distribute(photos) });
+      scheduleSave();
+    },
+
+    placeOnPage: (photoId, pageId) => {
+      set((s) => {
+        const photos = s.photos.map((p) => ({ ...p }));
+        const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
+        const photo = photos.find((p) => p.id === photoId);
+        const target = pages.find((pg) => pg.id === pageId);
+        if (!photo || !target) return {};
+        if (photo.pageId) {
+          const old = pages.find((pg) => pg.id === photo.pageId);
+          if (old) old.photoIds = old.photoIds.filter((id) => id !== photoId);
+        }
+        target.photoIds.push(photoId);
+        photo.pageId = pageId;
+        pages.forEach(syncLayout);
+        return { photos, pages };
+      });
+      scheduleSave();
+    },
+
+    removeFromPage: (photoId) => {
+      set((s) => {
+        const photos = s.photos.map((p) => ({ ...p }));
+        const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
+        const photo = photos.find((p) => p.id === photoId);
+        if (!photo || !photo.pageId) return {};
+        const pg = pages.find((x) => x.id === photo.pageId);
+        if (pg) pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
+        photo.pageId = null;
+        pages.forEach(syncLayout);
+        return { photos, pages };
+      });
+      scheduleSave();
+    },
+
+    setPageCount: (pageId, n) => {
+      set((s) => {
+        const photos = s.photos.map((p) => ({ ...p }));
+        const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
+        const target = pages.find((pg) => pg.id === pageId);
+        if (!target) return {};
+        // Shrink: return the last photos to the library.
+        while (target.photoIds.length > n) {
+          const id = target.photoIds.pop()!;
+          const p = photos.find((x) => x.id === id);
+          if (p) p.pageId = null;
+        }
+        // Grow: pull the next unplaced photos (chronological order preserved).
+        const pool = photos.filter((p) => p.pageId === null);
+        while (target.photoIds.length < n && pool.length > 0) {
+          const p = pool.shift()!;
+          target.photoIds.push(p.id);
+          p.pageId = target.id;
+        }
+        syncLayout(target);
+        return { photos, pages };
+      });
+      scheduleSave();
+    },
+
+    addPage: () => {
+      set((s) => ({ pages: [...s.pages, newPage()] }));
+      scheduleSave();
+    },
+
+    deletePage: (pageId) => {
+      set((s) => {
+        const photos = s.photos.map((p) =>
+          p.pageId === pageId ? { ...p, pageId: null } : p,
+        );
+        let pages = s.pages.filter((pg) => pg.id !== pageId);
+        if (pages.length === 0) {
+          pages = [newPage()];
+        }
+        return { photos, pages };
+      });
+      scheduleSave();
+    },
+
+    setPageTitle: (pageId, title) => {
+      set((s) => ({
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, title } : pg)),
+      }));
+      scheduleSave();
+    },
+
+    setPageWhitespace: (pageId, whitespace) => {
+      set((s) => ({
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, whitespace } : pg)),
+      }));
+      scheduleSave();
+    },
+
+    setPageLayout: (pageId, layoutId) => {
+      set((s) => ({
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId } : pg)),
+      }));
+      scheduleSave();
+    },
+
+    setCaption: (photoId, caption) => {
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, caption } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setFormat: (format) => {
+      set({ format });
+      scheduleSave();
+    },
+  };
+});

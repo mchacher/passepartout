@@ -21,14 +21,17 @@ src/
 ├── App.tsx             # Shell: TopBar + Library + pages / empty state
 ├── index.css           # Design tokens (both themes) + a few structural rules
 ├── types.ts            # Photo, AlbumPage, PageFormat, whitespace + layout constants
-├── store.ts            # Zustand album store, ALL state and mutations
+├── store.ts            # Zustand album store, ALL state and mutations + auto-save
+├── persistence.ts      # IMPURE IndexedDB adapter: project docs + image blobs
 ├── lib/
 │   ├── layout.ts       # PURE engine: template -> regions -> contain-fit cells; whitespaceToDensity
 │   ├── layouts.ts      # PURE layout template catalog (nested split trees) + helpers
+│   ├── project.ts      # PURE project helpers: ProjectDoc, serialize/hydrate/duplicate
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
-│   └── demo.ts         # Canvas-generated sample photos
+│   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 └── components/
-    ├── TopBar.tsx      # Import, format, auto-arrange (global controls)
+    ├── TopBar.tsx      # Global controls: project switcher, format, import, auto-arrange
+    ├── ProjectMenu.tsx # Project switcher: new / open / rename / duplicate / delete
     ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
     ├── PageCard.tsx    # Per-page controls: title, count 1-4, layout picker, whitespace
     ├── LayoutThumb.tsx # Tiny SVG miniature of a layout template
@@ -36,13 +39,16 @@ src/
     └── dnd.ts          # Shared drag-and-drop payload key
 ```
 
-Two hard boundaries:
+Three hard boundaries:
 
-- **`src/lib/` is pure.** No DOM, no React, no store. It takes plain numbers and
-  returns plain numbers, so it is unit-testable and will later paint a 300 DPI PDF
-  page from the same math. Keep it that way.
+- **`src/lib/` is pure.** No DOM, no React, no store, no IndexedDB. It takes plain
+  numbers/data and returns plain numbers/data, so it is unit-testable and will later
+  paint a 300 DPI PDF page from the same math. Keep it that way.
 - **`src/store.ts` owns all state.** Components never mutate state directly; they
   call actions. This is the single place the data model changes.
+- **`src/persistence.ts` is the only impure I/O.** It is the sole module that touches
+  IndexedDB. Every call degrades gracefully (a missing IndexedDB never crashes the
+  app), and the pure serialization it stores comes from `src/lib/project.ts`.
 
 ## Data model (`src/types.ts`)
 
@@ -57,6 +63,11 @@ Two hard boundaries:
   are visited in order and mapped to the page's photos in order. The catalog is pure
   data versioned with the app; a page persists only the `layoutId` that references it
   (unknown ids and counts outside 1-4 resolve to a balanced `autoTemplate`).
+- **Project** (`src/lib/project.ts`): one album. `ProjectDoc` = meta (`id`, `name`,
+  `createdAt`, `updatedAt`) + `format` + `pages` + `StoredPhoto[]` (`Photo` minus the
+  runtime `url`). Persisted in IndexedDB; a photo's image bytes live in a separate
+  `images` blob store keyed by photo id. The ephemeral object `url` is never persisted:
+  `serializeProject` strips it and `hydratePhotos` re-attaches a fresh one from the blob.
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store
 root.** Match the right altitude when adding a field.
@@ -77,6 +88,27 @@ State flows one way: a control calls a store action, the store produces a new
 `pages`/`photos` array, subscribed components re-render, and `Paper` re-measures and
 re-lays-out. `syncLayout` runs inside every mutation that changes a page's photo
 count (`setPageCount`, `placeOnPage`, `removeFromPage`) to keep `layoutId` valid.
+
+## Persistence and projects
+
+The active project is kept in IndexedDB so a refresh restores it, and several named
+projects can coexist.
+
+```
+App mount -> store.initProjects() -> load last-active ProjectDoc + its blobs
+  -> hydratePhotos (fresh object URLs) -> photos/pages/format
+any album mutation -> scheduleSave() (debounced) -> saveProjectDoc(serializeProject(state))
+import / demo -> putImage(blob) once + object URL
+switch project -> revoke old object URLs -> load new doc + blobs -> hydrate
+```
+
+Rules that keep this correct: image blobs are written once at import time (the
+debounced save only writes the small metadata doc); `scheduleSave` is a no-op unless
+there is an active project and IndexedDB is available; opening/creating/deleting a
+project revokes the previous photos' object URLs to avoid leaks; and a photo whose
+blob is missing on load is dropped (its page references cleaned) rather than crashing.
+The `ProjectMenu` in the top bar drives create / open / rename / duplicate / delete;
+duplication copies each blob under a new photo id so projects never share image bytes.
 
 ## The layout engine (`src/lib/layout.ts`)
 
@@ -119,8 +151,13 @@ Dragging whitespace never re-groups photos.
 - **A new page control**: add the field to `AlbumPage` (`src/types.ts`), a store
   action, and a control in `PageCard.tsx`. Keep it per-page unless it is truly global.
 - **A new page format**: add it to `PageFormat` and `PAGE_ASPECT` in `src/types.ts`.
+- **A new persisted field**: add it to `ProjectDoc` (via `AlbumPage`/`Photo` or the doc
+  itself) in `src/lib/project.ts`; `serializeProject`/`hydratePhotos` carry it and the
+  IndexedDB adapter stores it with no change. Bump the DB version in `persistence.ts`
+  only if a store shape changes.
 - **Print / export**: reuse `computeLayout`'s numbers to paint a canvas or PDF page at
-  print resolution. Same math, different surface: this is why the engine is pure.
+  print resolution. Same math, different surface: this is why the engine is pure. A
+  project-file export/import would build on `ProjectDoc` + the `images` blobs.
 
 ## Roadmap hooks
 

@@ -32,6 +32,9 @@ export const DEFAULT_WHITESPACE = 4;
 // The layout a page falls back to before any photos land on it (a single slot).
 export const DEFAULT_LAYOUT_ID = "single";
 
+// Name a fresh project is created with (see src/lib/project.ts).
+export const DEFAULT_PROJECT_NAME = "Untitled";
+
 export type PageFormat = "square" | "landscape" | "portrait";
 
 // Aspect ratio = width / height of a single page.

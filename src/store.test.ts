@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
+import "fake-indexeddb/auto";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { useAlbum } from "./store";
+import { clearAll, loadProjectDoc } from "./persistence";
 import type { AlbumPage, Photo } from "./types";
 
 // syncLayout is the load-bearing rule: a page's layoutId must always match a
@@ -96,5 +98,99 @@ describe("store layout sync", () => {
     useAlbum.getState().removeFromPage("c");
     expect(useAlbum.getState().pages[0].photoIds).toHaveLength(2);
     expect(layoutOf("pg")).toBe("two-row");
+  });
+});
+
+describe("store project management", () => {
+  beforeAll(() => {
+    // jsdom-less node has no object URL API; the CRUD paths never render, so stub it.
+    globalThis.URL.createObjectURL ??= () => "blob:test";
+    globalThis.URL.revokeObjectURL ??= () => {};
+  });
+
+  beforeEach(async () => {
+    await clearAll();
+    useAlbum.setState({
+      photos: [],
+      pages: [],
+      format: "square",
+      projects: [],
+      activeId: null,
+      activeCreatedAt: 0,
+      ready: false,
+      persistent: false,
+    });
+    await useAlbum.getState().initProjects();
+  });
+
+  it("initProjects marks persistence available with no projects yet", () => {
+    const s = useAlbum.getState();
+    expect(s.persistent).toBe(true);
+    expect(s.ready).toBe(true);
+    expect(s.projects).toEqual([]);
+    expect(s.activeId).toBeNull();
+  });
+
+  it("createProject sets an active empty project and lists it", async () => {
+    await useAlbum.getState().createProject("Holiday");
+    const s = useAlbum.getState();
+    expect(s.activeId).not.toBeNull();
+    expect(s.activeName).toBe("Holiday");
+    expect(s.photos).toEqual([]);
+    expect(s.pages).toEqual([]);
+    expect(s.projects.map((m) => m.name)).toContain("Holiday");
+  });
+
+  it("renameProject updates the active name and its meta", async () => {
+    await useAlbum.getState().createProject("Old");
+    const id = useAlbum.getState().activeId!;
+    await useAlbum.getState().renameProject(id, "New");
+    const s = useAlbum.getState();
+    expect(s.activeName).toBe("New");
+    expect(s.projects.find((m) => m.id === id)!.name).toBe("New");
+  });
+
+  it("duplicateProject creates a distinct active copy in the list", async () => {
+    await useAlbum.getState().createProject("Base");
+    const srcId = useAlbum.getState().activeId!;
+    await useAlbum.getState().duplicateProject(srcId);
+    const s = useAlbum.getState();
+    expect(s.activeId).not.toBe(srcId);
+    expect(s.projects).toHaveLength(2);
+    expect(s.projects.some((m) => m.name === "Base copy")).toBe(true);
+  });
+
+  it("deleteProject switches to the remaining project", async () => {
+    await useAlbum.getState().createProject("First");
+    const firstId = useAlbum.getState().activeId!;
+    await useAlbum.getState().createProject("Second");
+    const secondId = useAlbum.getState().activeId!;
+    await useAlbum.getState().deleteProject(secondId);
+    const s = useAlbum.getState();
+    expect(s.projects.map((m) => m.id)).toEqual([firstId]);
+    expect(s.activeId).toBe(firstId);
+  });
+
+  it("deleteProject of the only project falls back to the empty state", async () => {
+    await useAlbum.getState().createProject("Solo");
+    const id = useAlbum.getState().activeId!;
+    await useAlbum.getState().deleteProject(id);
+    const s = useAlbum.getState();
+    expect(s.projects).toEqual([]);
+    expect(s.activeId).toBeNull();
+    expect(s.photos).toEqual([]);
+  });
+
+  it("flushes the outgoing project's pending edit when switching away", async () => {
+    await useAlbum.getState().createProject("A");
+    const aId = useAlbum.getState().activeId!;
+    useAlbum.getState().addPage();
+    const pageId = useAlbum.getState().pages[0].id;
+    useAlbum.getState().setPageTitle(pageId, "kept edit");
+    // The 400ms debounce has NOT elapsed; switching must flush A's edit explicitly,
+    // or it would be lost (and a stale timer could later write under B's id).
+    await useAlbum.getState().createProject("B");
+    const aDoc = await loadProjectDoc(aId);
+    expect(aDoc?.pages.find((p) => p.id === pageId)?.title).toBe("kept edit");
   });
 });

@@ -16,6 +16,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Layouts**: pick an explicit arrangement per page (rows and grids); whitespace only scales the photos inside it, it never re-groups them.
 - **No cropping, ever**: aspect ratios are preserved to the pixel; a portrait stays portrait, a panorama stays panorama.
 - **Assumed whitespace**: eight whitespace levels per page tune how much white surrounds the photos, from a full-region fill to airy.
+- **Projects that persist**: your work is saved locally in the browser and survives a refresh; keep several named albums and switch between them (new, rename, duplicate, delete).
 - **Free text**: a title per page and a caption under each photo.
 - **Chronological by default**: photos order themselves by EXIF capture time (falling back to file date).
 - **Formats**: square, landscape, portrait.

@@ -34,10 +34,26 @@ const PALETTE: Array<[string, string]> = [
   ["#514A6B", "#A199C4"],
 ];
 
-export function makeDemoPhotos(): Photo[] {
-  const photos: Photo[] = [];
-  SPECS.forEach((spec, i) => {
-    const [rw, rh] = spec;
+// A demo photo carries its blob so the store can persist it like a real import.
+export interface DemoPhoto {
+  photo: Photo;
+  blob: Blob;
+}
+
+function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+      "image/jpeg",
+      0.85,
+    );
+  });
+}
+
+export async function makeDemoPhotos(): Promise<DemoPhoto[]> {
+  const out: DemoPhoto[] = [];
+  for (let i = 0; i < SPECS.length; i++) {
+    const [rw, rh] = SPECS[i];
     const base = 560;
     let w: number, h: number;
     if (rw >= rh) {
@@ -67,17 +83,21 @@ export function makeDemoPhotos(): Photo[] {
     g.font = "600 22px system-ui, sans-serif";
     g.fillText(String(i + 1).padStart(2, "0"), 16, 34);
 
-    photos.push({
-      id: crypto.randomUUID(),
-      url: canvas.toDataURL("image/jpeg", 0.85),
-      w,
-      h,
-      ratio: w / h,
-      time: 1000 + i,
-      name: `example-${i + 1}`,
-      caption: "",
-      pageId: null,
+    const blob = await toBlob(canvas);
+    out.push({
+      blob,
+      photo: {
+        id: crypto.randomUUID(),
+        url: URL.createObjectURL(blob),
+        w,
+        h,
+        ratio: w / h,
+        time: 1000 + i,
+        name: `example-${i + 1}`,
+        caption: "",
+        pageId: null,
+      },
     });
-  });
-  return photos;
+  }
+  return out;
 }

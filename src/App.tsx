@@ -1,17 +1,37 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useAlbum } from "./store";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
 import { PageCard } from "./components/PageCard";
 
 export function App() {
-  const { photos, pages, addPage, importFiles, loadDemo } = useAlbum();
+  const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent } =
+    useAlbum();
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
 
+  useEffect(() => {
+    void initProjects();
+  }, [initProjects]);
+
+  if (!ready) {
+    return (
+      <div className="grid h-screen place-items-center text-[13px] text-muted">
+        Loading your projects...
+      </div>
+    );
+  }
+
   return (
     <div className="grid h-screen grid-rows-[auto_1fr]">
-      <TopBar />
+      <div>
+        <TopBar />
+        {!persistent && (
+          <div className="border-b border-line bg-surface-2 px-5 py-1.5 text-center text-[11.5px] text-muted">
+            This browser cannot save projects locally, so your work will be lost when you close the tab.
+          </div>
+        )}
+      </div>
       <div className="grid min-h-0 grid-cols-[274px_1fr] max-[760px]:grid-cols-1">
         <Library />
 

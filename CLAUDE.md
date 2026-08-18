@@ -28,16 +28,19 @@ passepartout/
 │   ├── App.tsx             # Shell: TopBar + Library + pages / empty state
 │   ├── index.css           # Design tokens (both themes) + a few structural rules
 │   ├── types.ts            # Photo, AlbumPage, PageFormat
-│   ├── store.ts            # Zustand album store (all mutations live here)
+│   ├── store.ts            # Zustand album store (all mutations here) + project auto-save
+│   ├── persistence.ts      # IMPURE IndexedDB adapter (project docs + image blobs)
 │   ├── lib/
 │   │   ├── layout.ts       # PURE layout engine (the heart) + its invariants
 │   │   ├── layout.test.ts  # Ratio-preservation + fit tests
 │   │   ├── layouts.ts      # Layout template catalog (nested split trees) + helpers
 │   │   ├── layouts.test.ts # Catalog invariants (leaf counts, defaults, auto)
+│   │   ├── project.ts      # PURE project helpers (ProjectDoc, serialize/hydrate/duplicate)
 │   │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
-│   │   └── demo.ts         # Canvas-generated sample photos
+│   │   └── demo.ts         # Canvas-generated sample photos (with blobs)
 │   └── components/
-│       ├── TopBar.tsx      # Import, format, auto-arrange
+│       ├── TopBar.tsx      # Project switcher, format, import, auto-arrange
+│       ├── ProjectMenu.tsx # Project switcher dropdown (new/open/rename/duplicate/delete)
 │       ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
 │       ├── PageCard.tsx    # Per-page header: title, count 1-4, layout picker, whitespace, delete
 │       ├── LayoutThumb.tsx # Tiny SVG preview of a layout template
@@ -74,7 +77,7 @@ npm run validate   # typecheck + lint + test
 2. **Imprimeur presets** (CEWE / Blurb / Saal Digital page sizes + safe margins).
 3. **Full-bleed / spread templates** (one photo across a double page) while still never cropping.
 4. **Reorder pages**, drag to reorder photos within a page.
-5. **Persistence** of a project (save/reopen) via the File System Access API or a downloadable project file.
+5. **Project files** export/import (backup, move machine, share). Local persistence and multi-project management already ship via IndexedDB (spec 002); this adds a portable file on top.
 
 ## Skills
 

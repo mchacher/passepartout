@@ -1,0 +1,144 @@
+// The persistence adapter (impure): IndexedDB storage for projects and image blobs.
+//
+// This is the only module that talks to IndexedDB. It is kept out of src/lib/ (which
+// stays pure) and is verified by fake-indexeddb tests plus driving the real app.
+//
+// Two stores:
+//   - "projects": keyPath "id", holds a ProjectDoc (metadata + pages + photo records).
+//   - "images":   out-of-line key = photo id, holds the original image Blob.
+//
+// A normal miss (no such project/image) resolves to undefined and never rejects.
+// Genuine errors reject, and the store degrades to in-memory on top of that.
+
+import { metaOf, type ProjectDoc, type ProjectMeta } from "./lib/project";
+
+const DB_NAME = "passepartout";
+const DB_VERSION = 1;
+const PROJECTS = "projects";
+const IMAGES = "images";
+const LAST_ACTIVE_KEY = "passepartout.lastActiveProjectId";
+
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function hasIDB(): boolean {
+  return typeof indexedDB !== "undefined";
+}
+
+/** Whether persistence can be used at all in this environment. */
+export async function isAvailable(): Promise<boolean> {
+  if (!hasIDB()) return false;
+  try {
+    await openDB();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function openDB(): Promise<IDBDatabase> {
+  if (!hasIDB()) return Promise.reject(new Error("IndexedDB unavailable"));
+  if (!dbPromise) {
+    dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(PROJECTS)) {
+          db.createObjectStore(PROJECTS, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(IMAGES)) {
+          db.createObjectStore(IMAGES); // out-of-line key = photo id
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return dbPromise;
+}
+
+function request<T>(
+  store: string,
+  mode: IDBTransactionMode,
+  run: (s: IDBObjectStore) => IDBRequest<T>,
+): Promise<T> {
+  return openDB().then(
+    (db) =>
+      new Promise<T>((resolve, reject) => {
+        const req = run(db.transaction(store, mode).objectStore(store));
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      }),
+  );
+}
+
+/** All project metas, newest first. */
+export async function listProjects(): Promise<ProjectMeta[]> {
+  const docs = await request<ProjectDoc[]>(PROJECTS, "readonly", (s) => s.getAll());
+  return docs.map(metaOf).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function loadProjectDoc(id: string): Promise<ProjectDoc | undefined> {
+  return request<ProjectDoc | undefined>(PROJECTS, "readonly", (s) => s.get(id));
+}
+
+export async function saveProjectDoc(doc: ProjectDoc): Promise<void> {
+  await request(PROJECTS, "readwrite", (s) => s.put(doc));
+}
+
+export async function putImage(id: string, blob: Blob): Promise<void> {
+  await request(IMAGES, "readwrite", (s) => s.put(blob, id));
+}
+
+export async function getImage(id: string): Promise<Blob | undefined> {
+  return request<Blob | undefined>(IMAGES, "readonly", (s) => s.get(id));
+}
+
+/** Delete a project's doc and all of its image blobs in one transaction. */
+export async function deleteProject(id: string): Promise<void> {
+  const doc = await loadProjectDoc(id);
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const t = db.transaction([PROJECTS, IMAGES], "readwrite");
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.objectStore(PROJECTS).delete(id);
+    if (doc) for (const p of doc.photos) t.objectStore(IMAGES).delete(p.id);
+  });
+}
+
+/** Copy an image blob from one photo id to another (used when duplicating). */
+export async function copyImage(fromId: string, toId: string): Promise<void> {
+  const blob = await getImage(fromId);
+  if (blob) await putImage(toId, blob);
+}
+
+/** Wipe both stores. Handy for tests and a future "reset app" action. */
+export async function clearAll(): Promise<void> {
+  const db = await openDB();
+  await new Promise<void>((resolve, reject) => {
+    const t = db.transaction([PROJECTS, IMAGES], "readwrite");
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+    t.objectStore(PROJECTS).clear();
+    t.objectStore(IMAGES).clear();
+  });
+}
+
+// The pointer to the last-active project is a tiny string: localStorage is enough.
+export function getLastActiveId(): string | null {
+  try {
+    return typeof localStorage !== "undefined" ? localStorage.getItem(LAST_ACTIVE_KEY) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLastActiveId(id: string | null): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    if (id === null) localStorage.removeItem(LAST_ACTIVE_KEY);
+    else localStorage.setItem(LAST_ACTIVE_KEY, id);
+  } catch {
+    /* ignore quota / disabled storage */
+  }
+}
