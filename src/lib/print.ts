@@ -250,7 +250,9 @@ export function coverWrapGeometry(input: CoverWrapInput): CoverGeometry {
         text: spineText,
         cx: spineBox.x + spineBox.w / 2,
         y: spineBox.y + spineBox.h / 2,
-        sizePt: Math.min(spine * 0.5, F_COVER_SUBTITLE * trimW * input.scales.coverSubtitle),
+        // Fill the spine width: the rotated cap height must stay within it, capped so a
+        // very thick spine does not get absurd text.
+        sizePt: Math.min(spine * 0.6, F_COVER_TITLE * trimW * input.scales.coverTitle),
       }
     : null;
 

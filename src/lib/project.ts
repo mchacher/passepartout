@@ -89,9 +89,12 @@ export function newSpine(): Spine {
   return { title: "" };
 }
 
-/** The spine title actually shown: the override, else the front cover title. */
-export function effectiveSpineTitle(spine: Spine, frontCover: Cover): string {
-  return spine.title.trim() || frontCover.title.trim();
+/**
+ * The spine title actually shown: the spine override, else the front cover title, else
+ * the album (project) name, so a named book always gets its name on the bound edge.
+ */
+export function effectiveSpineTitle(spine: Spine, frontCover: Cover, albumName = ""): string {
+  return spine.title.trim() || frontCover.title.trim() || albumName.trim();
 }
 
 /** A fresh, empty cover (no text, no photo). */

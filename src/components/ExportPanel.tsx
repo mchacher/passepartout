@@ -59,7 +59,7 @@ export function ExportPanel() {
     colorTheme: store.colorTheme,
     fontTheme: store.fontTheme,
     textSizes: store.textSizes,
-    spineTitle: effectiveSpineTitle(store.spine, store.frontCover),
+    spineTitle: effectiveSpineTitle(store.spine, store.frontCover, store.activeName),
     interior: [
       faceToPage(store.insideFrontCover),
       ...store.pages.map((pg) => ({

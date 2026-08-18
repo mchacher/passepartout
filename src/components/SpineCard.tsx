@@ -1,13 +1,13 @@
 import { useAlbum } from "../store";
 import { effectiveSpineTitle } from "../lib/project";
 
-// The book spine editor: a title that repeats the front cover title by default, with a
-// vertical preview of how it will read on the bound edge. The printed spine geometry
-// (width from page count + paper) comes in spec 009; this only prepares the text.
+// The book spine editor: a title that repeats the front cover title (or the album name)
+// by default, with a vertical preview of how it will read on the bound edge.
 export function SpineCard() {
-  const { spine, frontCover, setSpineTitle } = useAlbum();
-  const shown = effectiveSpineTitle(spine, frontCover);
-  const usingCoverTitle = spine.title.trim().length === 0 && shown.length > 0;
+  const { spine, frontCover, activeName, setSpineTitle } = useAlbum();
+  const shown = effectiveSpineTitle(spine, frontCover, activeName);
+  const isOverride = spine.title.trim().length > 0;
+  const source = frontCover.title.trim() ? "using cover title" : "using album name";
 
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface-2 shadow-soft">
@@ -15,12 +15,12 @@ export function SpineCard() {
         <span className="whitespace-nowrap font-display text-[13px] font-semibold text-accent">Spine</span>
         <input
           value={spine.title}
-          placeholder="Spine title (defaults to the cover title)"
+          placeholder="Spine title (defaults to the cover title or album name)"
           onChange={(e) => setSpineTitle(e.target.value)}
           className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 font-display text-[14px] text-ink placeholder:italic placeholder:text-faint hover:border-line focus:border-accent focus:bg-surface focus:outline-none"
         />
         <span className="whitespace-nowrap text-[11px] text-muted">
-          {usingCoverTitle ? "using cover title" : "the bound edge of the book"}
+          {isOverride ? "the bound edge of the book" : shown ? source : "the bound edge of the book"}
         </span>
       </div>
 
