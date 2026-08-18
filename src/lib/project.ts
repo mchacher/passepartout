@@ -9,7 +9,7 @@
 // session, so it is NEVER persisted. `serializeProject` strips it and `hydratePhotos`
 // re-attaches a fresh one from the stored blob.
 
-import { DEFAULT_WHITESPACE, type AlbumPage, type Cover, type PageFormat, type Photo } from "../types";
+import { DEFAULT_WHITESPACE, type AlbumPage, type Cover, type PageFormat, type Photo, type Spine } from "../types";
 import {
   DEFAULT_COLOR_THEME,
   DEFAULT_FONT_THEME,
@@ -19,6 +19,12 @@ import {
   type FontThemeId,
 } from "./themes";
 import { DEFAULT_TEXT_SIZES, textSizesOrDefault, type TextSizes } from "./text-sizes";
+import {
+  DEFAULT_BOOK_SIZE,
+  bookSizeForLegacyFormat,
+  bookSizeOrDefault,
+  type BookSizeId,
+} from "./book-sizes";
 
 export interface ProjectMeta {
   id: string;
@@ -32,7 +38,8 @@ export type StoredPhoto = Omit<Photo, "url">;
 
 /** The full persisted document for one project. */
 export interface ProjectDoc extends ProjectMeta {
-  format: PageFormat;
+  bookSize: BookSizeId;
+  spine: Spine;
   fontTheme: FontThemeId;
   colorTheme: ColorThemeId;
   textSizes: TextSizes;
@@ -49,7 +56,8 @@ export interface ProjectState {
   id: string;
   name: string;
   createdAt: number;
-  format: PageFormat;
+  bookSize: BookSizeId;
+  spine: Spine;
   fontTheme: FontThemeId;
   colorTheme: ColorThemeId;
   textSizes: TextSizes;
@@ -59,6 +67,31 @@ export interface ProjectState {
   insideFrontCover: Cover;
   insideBackCover: Cover;
   backCover: Cover;
+}
+
+/** The fields an older (pre-008) document may carry instead of `bookSize` / `spine`. */
+type LegacyDocFields = { format?: PageFormat; bookSize?: BookSizeId; spine?: Spine };
+
+/** The book size of a doc, migrating a legacy `format` when `bookSize` is absent. */
+export function bookSizeOfDoc(doc: ProjectDoc): BookSizeId {
+  const raw = doc as unknown as LegacyDocFields;
+  return bookSizeOrDefault(raw.bookSize ?? bookSizeForLegacyFormat(raw.format)).id;
+}
+
+/** The spine of a doc, defaulting to an empty (auto) spine for older documents. */
+export function spineOfDoc(doc: ProjectDoc): Spine {
+  const raw = doc as unknown as LegacyDocFields;
+  return { title: raw.spine?.title ?? "" };
+}
+
+/** A fresh empty spine (auto: shows the front cover title). */
+export function newSpine(): Spine {
+  return { title: "" };
+}
+
+/** The spine title actually shown: the override, else the front cover title. */
+export function effectiveSpineTitle(spine: Spine, frontCover: Cover): string {
+  return spine.title.trim() || frontCover.title.trim();
 }
 
 /** A fresh, empty cover (no text, no photo). */
@@ -92,7 +125,8 @@ export function newProjectDoc(name: string, now: number): ProjectDoc {
     name,
     createdAt: now,
     updatedAt: now,
-    format: "square",
+    bookSize: DEFAULT_BOOK_SIZE,
+    spine: newSpine(),
     fontTheme: DEFAULT_FONT_THEME,
     colorTheme: DEFAULT_COLOR_THEME,
     textSizes: { ...DEFAULT_TEXT_SIZES },
@@ -112,7 +146,8 @@ export function serializeProject(state: ProjectState, now: number): ProjectDoc {
     name: state.name,
     createdAt: state.createdAt,
     updatedAt: now,
-    format: state.format,
+    bookSize: state.bookSize,
+    spine: { ...state.spine },
     fontTheme: state.fontTheme,
     colorTheme: state.colorTheme,
     textSizes: { ...state.textSizes },
@@ -168,7 +203,8 @@ export function duplicateDoc(
     name: opts.name,
     createdAt: opts.now,
     updatedAt: opts.now,
-    format: doc.format,
+    bookSize: bookSizeOfDoc(doc),
+    spine: spineOfDoc(doc),
     fontTheme: fontThemeOrDefault(doc.fontTheme).id,
     colorTheme: colorThemeOrDefault(doc.colorTheme).id,
     textSizes: textSizesOrDefault(doc.textSizes),

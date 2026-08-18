@@ -195,7 +195,8 @@ describe("store project management", () => {
     useAlbum.setState({
       photos: [],
       pages: [],
-      format: "square",
+      bookSize: "blurb-square-7",
+      spine: { title: "" },
       projects: [],
       activeId: null,
       activeCreatedAt: 0,
@@ -305,7 +306,30 @@ describe("store project management", () => {
     const s = useAlbum.getState();
     expect(s.fontTheme).toBe("rounded");
     expect(s.colorTheme).toBe("slate");
-    expect(s.format).toBe("square"); // untouched
+    expect(s.bookSize).toBe("blurb-square-7"); // untouched
+  });
+
+  it("setBookSize and setSpineTitle change only their own field", async () => {
+    await useAlbum.getState().createProject("Sized");
+    useAlbum.getState().setBookSize("blurb-portrait-8x10");
+    useAlbum.getState().setSpineTitle("The Spine");
+    const s = useAlbum.getState();
+    expect(s.bookSize).toBe("blurb-portrait-8x10");
+    expect(s.spine).toEqual({ title: "The Spine" });
+    expect(s.fontTheme).toBe("serif"); // untouched
+  });
+
+  it("migrates a legacy project's format to a Blurb size and default spine on open", async () => {
+    const legacy = newProjectDoc("LegacyFormat", 1);
+    legacy.id = "legacy-format";
+    delete (legacy as Partial<ProjectDoc>).bookSize;
+    delete (legacy as Partial<ProjectDoc>).spine;
+    (legacy as unknown as { format: string }).format = "landscape";
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy-format");
+    const s = useAlbum.getState();
+    expect(s.bookSize).toBe("blurb-landscape-10x8");
+    expect(s.spine).toEqual({ title: "" });
   });
 
   it("createProject resets the theme to the defaults", async () => {

@@ -12,7 +12,7 @@ export function PageRail() {
   const {
     photos,
     pages,
-    format,
+    bookSize,
     frontCover,
     insideFrontCover,
     insideBackCover,
@@ -68,10 +68,10 @@ export function PageRail() {
       <div className="px-3 pb-2 pt-3.5 text-[11px] uppercase tracking-wide text-faint">Pages</div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-6" onDrop={onDrop}>
         <RailEntry label="Front" onClick={() => scrollTo("cover-front")}>
-          <Thumb photos={coverPhotos(frontCover)} layoutId="single" whitespace={frontCover.whitespace} format={format} />
+          <Thumb photos={coverPhotos(frontCover)} layoutId="single" whitespace={frontCover.whitespace} bookSize={bookSize} />
         </RailEntry>
         <RailEntry label="Inside front" onClick={() => scrollTo("cover-insideFront")}>
-          <Thumb photos={coverPhotos(insideFrontCover)} layoutId="single" whitespace={insideFrontCover.whitespace} format={format} />
+          <Thumb photos={coverPhotos(insideFrontCover)} layoutId="single" whitespace={insideFrontCover.whitespace} bookSize={bookSize} />
         </RailEntry>
 
         {pages.map((pg, i) => (
@@ -90,17 +90,17 @@ export function PageRail() {
               onDragEnd={endDrag}
               onDragOver={(e) => onPageDragOver(e, i)}
             >
-              <Thumb photos={pagePhotos(pg.photoIds)} layoutId={pg.layoutId} whitespace={pg.whitespace} format={format} />
+              <Thumb photos={pagePhotos(pg.photoIds)} layoutId={pg.layoutId} whitespace={pg.whitespace} bookSize={bookSize} />
             </RailEntry>
           </Fragment>
         ))}
         {line(pages.length)}
 
         <RailEntry label="Inside back" onClick={() => scrollTo("cover-insideBack")}>
-          <Thumb photos={coverPhotos(insideBackCover)} layoutId="single" whitespace={insideBackCover.whitespace} format={format} />
+          <Thumb photos={coverPhotos(insideBackCover)} layoutId="single" whitespace={insideBackCover.whitespace} bookSize={bookSize} />
         </RailEntry>
         <RailEntry label="Back" onClick={() => scrollTo("cover-back")}>
-          <Thumb photos={coverPhotos(backCover)} layoutId="single" whitespace={backCover.whitespace} format={format} />
+          <Thumb photos={coverPhotos(backCover)} layoutId="single" whitespace={backCover.whitespace} bookSize={bookSize} />
         </RailEntry>
       </div>
     </aside>

@@ -6,9 +6,10 @@ import {
   type AlbumPage,
   type Cover,
   type CoverFace,
-  type PageFormat,
   type Photo,
+  type Spine,
 } from "./types";
+import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
 import { defaultLayoutId, getLayout } from "./lib/layouts";
@@ -28,6 +29,7 @@ import {
   type TextSizes,
 } from "./lib/text-sizes";
 import {
+  bookSizeOfDoc,
   cleanCover,
   coverOrDefault,
   duplicateDoc,
@@ -35,7 +37,9 @@ import {
   metaOf,
   newCover,
   newProjectDoc,
+  newSpine,
   serializeProject,
+  spineOfDoc,
   type ProjectMeta,
 } from "./lib/project";
 import * as db from "./persistence";
@@ -93,7 +97,8 @@ function upsertMeta(list: ProjectMeta[], meta: ProjectMeta): ProjectMeta[] {
 interface AlbumState {
   photos: Photo[];
   pages: AlbumPage[];
-  format: PageFormat;
+  bookSize: BookSizeId;
+  spine: Spine;
   fontTheme: FontThemeId;
   colorTheme: ColorThemeId;
   textSizes: TextSizes;
@@ -136,7 +141,8 @@ interface AlbumState {
   setPageLayout: (pageId: string, layoutId: string) => void;
   setCaption: (photoId: string, caption: string) => void;
 
-  setFormat: (format: PageFormat) => void;
+  setBookSize: (bookSize: BookSizeId) => void;
+  setSpineTitle: (title: string) => void;
   setFontTheme: (fontTheme: FontThemeId) => void;
   setColorTheme: (colorTheme: ColorThemeId) => void;
   setTextSize: (role: TextRole, level: TextSizeLevel) => void;
@@ -209,7 +215,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         id: s.activeId,
         name: s.activeName,
         createdAt: s.activeCreatedAt,
-        format: s.format,
+        bookSize: s.bookSize,
+        spine: s.spine,
         fontTheme: s.fontTheme,
         colorTheme: s.colorTheme,
         textSizes: s.textSizes,
@@ -268,7 +275,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
   return {
     photos: [],
     pages: [],
-    format: "square",
+    bookSize: DEFAULT_BOOK_SIZE,
+    spine: newSpine(),
     fontTheme: DEFAULT_FONT_THEME,
     colorTheme: DEFAULT_COLOR_THEME,
     textSizes: { ...DEFAULT_TEXT_SIZES },
@@ -332,7 +340,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         activeCreatedAt: doc.createdAt,
         photos: [],
         pages: doc.pages,
-        format: doc.format,
+        bookSize: doc.bookSize,
+        spine: doc.spine,
         fontTheme: doc.fontTheme,
         colorTheme: doc.colorTheme,
         textSizes: doc.textSizes,
@@ -371,7 +380,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         activeId: doc.id,
         activeName: doc.name,
         activeCreatedAt: doc.createdAt,
-        format: doc.format,
+        bookSize: bookSizeOfDoc(doc),
+        spine: spineOfDoc(doc),
         fontTheme: fontThemeOrDefault(doc.fontTheme).id,
         colorTheme: colorThemeOrDefault(doc.colorTheme).id,
         textSizes: textSizesOrDefault(doc.textSizes),
@@ -450,7 +460,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
           activeId: null,
           photos: [],
           pages: [],
-          format: "square",
+          bookSize: DEFAULT_BOOK_SIZE,
+          spine: newSpine(),
           fontTheme: DEFAULT_FONT_THEME,
           colorTheme: DEFAULT_COLOR_THEME,
           textSizes: { ...DEFAULT_TEXT_SIZES },
@@ -642,8 +653,13 @@ export const useAlbum = create<AlbumState>((set, get) => {
       scheduleSave();
     },
 
-    setFormat: (format) => {
-      set({ format });
+    setBookSize: (bookSize) => {
+      set({ bookSize });
+      scheduleSave();
+    },
+
+    setSpineTitle: (title) => {
+      set({ spine: { title } });
       scheduleSave();
     },
 

@@ -32,6 +32,13 @@ export interface Cover {
   whitespace: number; // whitespace level 1 .. WHITESPACE_LEVELS for the cover photo
 }
 
+// The book spine (the edge of the bound book). Its title normally repeats the front
+// cover title; an empty title means "use the front cover title" (see
+// effectiveSpineTitle in src/lib/project.ts).
+export interface Spine {
+  title: string;
+}
+
 // The four cover faces, in booklet order:
 //   front         = outside of the front cover
 //   insideFront   = inside of the front cover (faces the first page)
@@ -53,9 +60,12 @@ export const DEFAULT_LAYOUT_ID = "single";
 // Name a fresh project is created with (see src/lib/project.ts).
 export const DEFAULT_PROJECT_NAME = "Untitled";
 
+// Legacy page format (spec 001-007). Superseded by the physical book size
+// (src/lib/book-sizes.ts); kept only so migration can read an old project doc's
+// `format` and map it to a Blurb size. Not used for rendering anymore.
 export type PageFormat = "square" | "landscape" | "portrait";
 
-// Aspect ratio = width / height of a single page.
+// Aspect ratio = width / height of a single page (legacy, see PageFormat).
 export const PAGE_ASPECT: Record<PageFormat, number> = {
   square: 1,
   landscape: 1.414, // A-series landscape

@@ -1,6 +1,6 @@
-import { PAGE_ASPECT, type PageFormat } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { resolveNode } from "../lib/layouts";
+import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 
 export interface ThumbPhoto {
   id: string;
@@ -12,7 +12,7 @@ interface ThumbProps {
   photos: ThumbPhoto[];
   layoutId: string;
   whitespace: number;
-  format: PageFormat;
+  bookSize: BookSizeId;
 }
 
 // A nominal content box the engine lays out in; the result is positioned in percent so
@@ -22,8 +22,8 @@ const NH = 100;
 // A faithful miniature of a page or cover. It reuses the pure layout engine at a
 // nominal size, so every photo is contain-fit inside its region exactly like the real
 // page: nothing is cropped or stretched. The `inset` mirrors the page's content margin.
-export function Thumb({ photos, layoutId, whitespace, format }: ThumbProps) {
-  const aspect = PAGE_ASPECT[format];
+export function Thumb({ photos, layoutId, whitespace, bookSize }: ThumbProps) {
+  const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const NW = NH * aspect;
   const node = resolveNode(layoutId, photos.length);
   const { cells } = computeLayout(

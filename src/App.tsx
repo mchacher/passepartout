@@ -5,6 +5,7 @@ import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
 import { PageCard } from "./components/PageCard";
 import { CoverCard } from "./components/CoverCard";
+import { SpineCard } from "./components/SpineCard";
 import { PageRail } from "./components/PageRail";
 
 export function App() {
@@ -45,6 +46,9 @@ export function App() {
             <div className="mx-auto flex max-w-[620px] flex-col gap-8">
               <div id="cover-front">
                 <CoverCard which="front" />
+              </div>
+              <div id="spine">
+                <SpineCard />
               </div>
               <div id="cover-insideFront">
                 <CoverCard which="insideFront" />
