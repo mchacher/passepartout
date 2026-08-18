@@ -108,6 +108,7 @@ describe("coverWrapGeometry", () => {
       front: face("f"),
       back: face(null),
       spineTitle: "Summer",
+      spineSubtitle: "",
       scales: { coverTitle: 1, coverSubtitle: 1 },
     });
     expect(g.mediaBox.w).toBeCloseTo(2 * trimW + spine + 2 * bleedPt, 5);
@@ -119,18 +120,34 @@ describe("coverWrapGeometry", () => {
     expect(g.spineBox.w).toBeCloseTo(spine, 5);
   });
 
-  it("keeps the front cover photo's ratio", () => {
+  it("keeps the front cover photo's ratio and emits no spine line when title-less", () => {
     const g = coverWrapGeometry({
       size,
       spineWidthPt: mmToPt(8),
       front: face("f"),
       back: face(null),
       spineTitle: "",
+      spineSubtitle: "",
       scales: { coverTitle: 1, coverSubtitle: 1 },
     });
     expect(g.front.photo).not.toBeNull();
     expect(g.front.photo!.w / g.front.photo!.h).toBeCloseTo(1.5, 6);
-    expect(g.spineTitle).toBeNull(); // empty spine title
+    expect(g.spineLines).toHaveLength(0);
+  });
+
+  it("puts the title alone, or title + subtitle, on the spine", () => {
+    const base = { size, spineWidthPt: mmToPt(10), front: face(null), back: face(null), scales: { coverTitle: 1, coverSubtitle: 1 } };
+    const titleOnly = coverWrapGeometry({ ...base, spineTitle: "Solio", spineSubtitle: "" });
+    expect(titleOnly.spineLines.map((l) => l.text)).toEqual(["Solio"]);
+
+    const both = coverWrapGeometry({ ...base, spineTitle: "Solio", spineSubtitle: "Ardeche" });
+    expect(both.spineLines.map((l) => l.text)).toEqual(["Solio", "Ardeche"]);
+    // Two parallel lines: distinct positions across the spine width, both inside it.
+    expect(both.spineLines[0].cx).not.toBeCloseTo(both.spineLines[1].cx, 3);
+    for (const l of both.spineLines) {
+      expect(l.cx).toBeGreaterThan(both.spineBox.x);
+      expect(l.cx).toBeLessThan(both.spineBox.x + both.spineBox.w);
+    }
   });
 });
 

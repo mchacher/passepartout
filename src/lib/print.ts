@@ -156,8 +156,9 @@ export interface CoverGeometry {
   front: CoverPanel;
   /** The spine panel's trim rect (between back and front). */
   spineBox: PtRect;
-  /** Vertical spine title, centered in the spine panel; drawn rotated by the painter. */
-  spineTitle: TextPlace | null;
+  /** Vertical spine text lines (title, optionally a subtitle), drawn rotated by the
+   * painter. Empty when there is no title. */
+  spineLines: TextPlace[];
 }
 
 export interface CoverFaceInput {
@@ -173,6 +174,8 @@ export interface CoverWrapInput {
   front: CoverFaceInput;
   back: CoverFaceInput;
   spineTitle: string;
+  /** Optional second spine line; empty to print the title alone. */
+  spineSubtitle: string;
   scales: { coverTitle: number; coverSubtitle: number };
 }
 
@@ -244,19 +247,22 @@ export function coverWrapGeometry(input: CoverWrapInput): CoverGeometry {
   const back = coverPanel(input.back, backBox, trimW, input.scales);
   const front = coverPanel(input.front, frontBox, trimW, input.scales);
 
-  const spineText = input.spineTitle.trim();
-  const spineTitle = spineText
-    ? {
-        text: spineText,
-        cx: spineBox.x + spineBox.w / 2,
-        y: spineBox.y + spineBox.h / 2,
-        // Fill the spine width: the rotated cap height must stay within it, capped so a
-        // very thick spine does not get absurd text.
-        sizePt: Math.min(spine * 0.72, F_COVER_TITLE * trimW * input.scales.coverTitle),
-      }
-    : null;
+  // Spine text runs along the spine length (rotated); each line's cap height must fit
+  // within the spine width. With a subtitle the width is shared by two parallel lines.
+  const title = input.spineTitle.trim();
+  const subtitle = input.spineSubtitle.trim();
+  const cy = spineBox.y + spineBox.h / 2;
+  const titleCap = F_COVER_TITLE * trimW * input.scales.coverTitle;
+  const subtitleCap = F_COVER_SUBTITLE * trimW * input.scales.coverSubtitle;
+  const spineLines: TextPlace[] = [];
+  if (title && subtitle) {
+    spineLines.push({ text: title, cx: spineBox.x + spineBox.w * 0.34, y: cy, sizePt: Math.min(spine * 0.42, titleCap) });
+    spineLines.push({ text: subtitle, cx: spineBox.x + spineBox.w * 0.68, y: cy, sizePt: Math.min(spine * 0.26, subtitleCap) });
+  } else if (title) {
+    spineLines.push({ text: title, cx: spineBox.x + spineBox.w / 2, y: cy, sizePt: Math.min(spine * 0.72, titleCap) });
+  }
 
-  return { mediaBox, back, front, spineBox, spineTitle };
+  return { mediaBox, back, front, spineBox, spineLines };
 }
 
 // ---------------------------------------------------------------------------

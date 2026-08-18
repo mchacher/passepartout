@@ -20,6 +20,7 @@ export function ExportPanel() {
   const [open, setOpen] = useState(false);
   const [paper, setPaper] = useState<PaperId>("standard");
   const [spineOverride, setSpineOverride] = useState("");
+  const [spineContent, setSpineContent] = useState<"title" | "titleSubtitle">("title");
   const [busy, setBusy] = useState<null | "cover" | "interior">(null);
 
   const size = bookSizeOrDefault(store.bookSize);
@@ -60,6 +61,7 @@ export function ExportPanel() {
     fontTheme: store.fontTheme,
     textSizes: store.textSizes,
     spineTitle: effectiveSpineTitle(store.spine, store.frontCover, store.activeName),
+    spineSubtitle: spineContent === "titleSubtitle" ? store.frontCover.subtitle : "",
     interior: [
       faceToPage(store.insideFrontCover),
       ...store.pages.map((pg) => ({
@@ -167,6 +169,27 @@ export function ExportPanel() {
             <p className="pb-1 pt-0.5 text-[10.5px] leading-snug text-faint">
               Estimated from the page count, paper and cover. Paste Blurb's exact spine width from its spec tool to override.
             </p>
+
+            <div className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
+              <span className="text-muted">On the spine</span>
+              <div className="flex gap-0.5 rounded-lg border border-line bg-surface-2 p-[3px]">
+                {([
+                  { id: "title", label: "Title" },
+                  { id: "titleSubtitle", label: "Title + subtitle" },
+                ] as const).map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => setSpineContent(o.id)}
+                    aria-pressed={spineContent === o.id}
+                    className={`rounded-md px-2 py-[3px] text-[11.5px] transition-colors ${
+                      spineContent === o.id ? "bg-accent text-white shadow-soft" : "text-muted hover:text-ink"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="mt-1.5 flex gap-2">
               <button
