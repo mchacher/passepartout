@@ -31,8 +31,10 @@
 
   /* Per-role text-size multipliers (see src/lib/text-sizes.ts). Default 1 = today's
      size; overridden at runtime by useApplyTheme from the active project. */
-  --title-scale: 1;
-  --subtitle-scale: 1;
+  --cover-title-scale: 1;
+  --cover-subtitle-scale: 1;
+  --page-title-scale: 1;
+  --page-subtitle-scale: 1;
   --caption-scale: 1;
 }
 

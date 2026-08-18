@@ -60,7 +60,8 @@ Three hard boundaries:
 
 - **Photo**: one imported image. Native size, `ratio` (the sacred value), `caption`,
   capture `time`, and `pageId` (`null` while still in the library).
-- **AlbumPage**: ordered `photoIds`, optional `title`, a `whitespace` level
+- **AlbumPage**: ordered `photoIds`, optional `title` and `subtitle` (both rendered on
+  the paper, contained in whitespace, never on a photo), a `whitespace` level
   (`1 .. WHITESPACE_LEVELS`, currently 8), and a `layoutId`.
 - **PageFormat**: `square | landscape | portrait`, mapped to a page aspect ratio.
 - **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
@@ -91,12 +92,14 @@ Three hard boundaries:
   (impure) from the pure map in `theme-vars.ts`; album print colors stay fixed across
   OS light/dark while the accent variant follows it.
 - **Text size** (`src/lib/text-sizes.ts`): a third project-level album-style axis,
-  `textSizes` = one level (`sm | md | lg`) per text **role** (`title` covers cover and
-  page titles, `subtitle`, `caption`). Each level is a multiplier (`md` = 1, so defaults
-  are unchanged) emitted by `textScaleVars` as `--title-scale` / `--subtitle-scale` /
+  `textSizes` = one level (`sm | md | lg | xl`) per text **role**. Five roles keep the
+  cover and page text distinct: `coverTitle`, `coverSubtitle`, `pageTitle`,
+  `pageSubtitle`, `caption`. Each level is a multiplier (`md` = 1, so defaults are
+  unchanged) emitted by `textScaleVars` as `--cover-title-scale` /
+  `--cover-subtitle-scale` / `--page-title-scale` / `--page-subtitle-scale` /
   `--caption-scale`; the album text sites multiply their base `fontSize` by the role var
-  (`calc(... * var(--title-scale))`). `textSizesOrDefault` coerces a missing object or an
-  unknown per-role value to `md`. `useApplyTheme` writes these vars too. No engine
+  (`calc(... * var(--page-title-scale))`). `textSizesOrDefault` coerces a missing object
+  or an unknown per-role value to `md`. `useApplyTheme` writes these vars too. No engine
   involvement: only text size changes, photo geometry is the engine's alone.
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store

@@ -32,10 +32,16 @@ const state = (): ProjectState => ({
   format: "landscape",
   fontTheme: "sans",
   colorTheme: "warm",
-  textSizes: { title: "lg", subtitle: "md", caption: "sm" },
+  textSizes: {
+    coverTitle: "xl",
+    coverSubtitle: "md",
+    pageTitle: "lg",
+    pageSubtitle: "sm",
+    caption: "sm",
+  },
   photos: [photo("a", 1.5, "pg"), photo("b", 2 / 3, "pg")],
   pages: [
-    { id: "pg", title: "Day 1", photoIds: ["a", "b"], whitespace: 4, layoutId: "two-row" },
+    { id: "pg", title: "Day 1", subtitle: "morning", photoIds: ["a", "b"], whitespace: 4, layoutId: "two-row" },
   ],
   frontCover: { title: "Our Trip", subtitle: "2026", photoId: "a", whitespace: 4 },
   insideFrontCover: { title: "For everyone", subtitle: "", photoId: "b", whitespace: 4 },
@@ -70,7 +76,18 @@ describe("serializeProject", () => {
 
   it("carries the per-role text sizes", () => {
     const doc = serializeProject(state(), 2000);
-    expect(doc.textSizes).toEqual({ title: "lg", subtitle: "md", caption: "sm" });
+    expect(doc.textSizes).toEqual({
+      coverTitle: "xl",
+      coverSubtitle: "md",
+      pageTitle: "lg",
+      pageSubtitle: "sm",
+      caption: "sm",
+    });
+  });
+
+  it("carries the page subtitle", () => {
+    const doc = serializeProject(state(), 2000);
+    expect(doc.pages[0].subtitle).toBe("morning");
   });
 
   it("round-trips pages, photo ids, ratios and captions through hydrate", () => {
@@ -114,7 +131,13 @@ describe("newProjectDoc", () => {
     const doc = newProjectDoc("Fresh", 500);
     expect(doc.fontTheme).toBe("serif");
     expect(doc.colorTheme).toBe("classic");
-    expect(doc.textSizes).toEqual({ title: "md", subtitle: "md", caption: "md" });
+    expect(doc.textSizes).toEqual({
+      coverTitle: "md",
+      coverSubtitle: "md",
+      pageTitle: "md",
+      pageSubtitle: "md",
+      caption: "md",
+    });
   });
 });
 
@@ -141,7 +164,14 @@ describe("duplicateDoc", () => {
     const dup = duplicateDoc(src, { id: "p2", name: "copy", now: 3000, photoIdMap: new Map() });
     expect(dup.fontTheme).toBe("sans");
     expect(dup.colorTheme).toBe("warm");
-    expect(dup.textSizes).toEqual({ title: "lg", subtitle: "md", caption: "sm" });
+    expect(dup.textSizes).toEqual({
+      coverTitle: "xl",
+      coverSubtitle: "md",
+      pageTitle: "lg",
+      pageSubtitle: "sm",
+      caption: "sm",
+    });
+    expect(dup.pages[0].subtitle).toBe("morning");
   });
 });
 

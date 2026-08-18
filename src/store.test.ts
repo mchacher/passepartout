@@ -25,6 +25,7 @@ const photo = (id: string, pageId: string | null = null): Photo => ({
 const page = (id: string, photoIds: string[], layoutId: string): AlbumPage => ({
   id,
   title: "",
+  subtitle: "",
   photoIds,
   whitespace: 4,
   layoutId,
@@ -284,37 +285,68 @@ describe("store project management", () => {
     expect(s.colorTheme).toBe("classic");
   });
 
+  const ALL_MD = {
+    coverTitle: "md",
+    coverSubtitle: "md",
+    pageTitle: "md",
+    pageSubtitle: "md",
+    caption: "md",
+  } as const;
+
   it("setTextSize changes only the target role", async () => {
     await useAlbum.getState().createProject("Sized");
-    useAlbum.getState().setTextSize("title", "lg");
+    useAlbum.getState().setTextSize("coverTitle", "xl");
     useAlbum.getState().setTextSize("caption", "sm");
     const s = useAlbum.getState();
-    expect(s.textSizes).toEqual({ title: "lg", subtitle: "md", caption: "sm" });
+    expect(s.textSizes).toEqual({ ...ALL_MD, coverTitle: "xl", caption: "sm" });
   });
 
   it("createProject resets the text sizes to the defaults", async () => {
     await useAlbum.getState().createProject("A");
-    useAlbum.getState().setTextSize("title", "lg");
+    useAlbum.getState().setTextSize("pageTitle", "xl");
     await useAlbum.getState().createProject("B");
-    expect(useAlbum.getState().textSizes).toEqual({ title: "md", subtitle: "md", caption: "md" });
+    expect(useAlbum.getState().textSizes).toEqual(ALL_MD);
   });
 
   it("persists the text sizes and restores them on open", async () => {
     await useAlbum.getState().createProject("Sized");
     const id = useAlbum.getState().activeId!;
-    useAlbum.getState().setTextSize("subtitle", "lg");
+    useAlbum.getState().setTextSize("pageSubtitle", "lg");
     await useAlbum.getState().createProject("Other"); // flush on switch
     await useAlbum.getState().openProject(id);
-    expect(useAlbum.getState().textSizes.subtitle).toBe("lg");
+    expect(useAlbum.getState().textSizes.pageSubtitle).toBe("lg");
   });
 
-  it("defaults the text sizes when opening a project saved before they existed", async () => {
+  it("defaults the text sizes (and drops old 005 keys) for a legacy project", async () => {
     const legacy = newProjectDoc("LegacySizes", 1);
     legacy.id = "legacy-sizes";
-    delete (legacy as Partial<ProjectDoc>).textSizes;
+    // Simulate spec 005's old shape, which has none of the new role keys.
+    (legacy as unknown as { textSizes: unknown }).textSizes = { title: "lg", subtitle: "lg", caption: "xl" };
     await saveProjectDoc(legacy as ProjectDoc);
     await useAlbum.getState().openProject("legacy-sizes");
-    expect(useAlbum.getState().textSizes).toEqual({ title: "md", subtitle: "md", caption: "md" });
+    expect(useAlbum.getState().textSizes).toEqual({ ...ALL_MD, caption: "xl" });
+  });
+
+  it("setPageSubtitle changes only the target page", async () => {
+    useAlbum.setState({
+      photos: [],
+      pages: [page("p1", [], "single"), page("p2", [], "single")],
+    });
+    useAlbum.getState().setPageSubtitle("p1", "a note");
+    const pages = useAlbum.getState().pages;
+    expect(pages.find((p) => p.id === "p1")!.subtitle).toBe("a note");
+    expect(pages.find((p) => p.id === "p2")!.subtitle).toBe("");
+  });
+
+  it("normalizes a page saved before subtitles existed to an empty subtitle", async () => {
+    const legacy = newProjectDoc("LegacyPage", 1);
+    legacy.id = "legacy-page";
+    legacy.pages = [
+      { id: "old", title: "Old", photoIds: [], whitespace: 4, layoutId: "single" } as unknown as AlbumPage,
+    ];
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy-page");
+    expect(useAlbum.getState().pages[0].subtitle).toBe("");
   });
 
   it("defaults covers when opening a project saved before covers existed", async () => {

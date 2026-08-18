@@ -43,7 +43,7 @@ export function ThemeMenu() {
             className="fixed inset-0 z-20 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 z-30 mt-1.5 w-[268px] rounded-xl border border-line bg-surface p-2.5 shadow-soft">
+          <div className="absolute right-0 z-30 mt-1.5 w-[300px] rounded-xl border border-line bg-surface p-2.5 shadow-soft">
             <div className="px-1 pb-1 text-[11px] uppercase tracking-wide text-faint">Font</div>
             <div className="flex flex-col gap-0.5">
               {FONT_THEMES.map((f) => (
@@ -89,7 +89,7 @@ export function ThemeMenu() {
             <div className="flex flex-col gap-1">
               {TEXT_ROLES.map((r) => (
                 <div key={r.role} className="flex items-center justify-between gap-2">
-                  <span className="text-[12.5px] text-muted">{r.name}</span>
+                  <span className="whitespace-nowrap text-[12px] text-muted">{r.name}</span>
                   <div className="flex gap-0.5 rounded-lg border border-line bg-surface-2 p-[3px]">
                     {TEXT_SIZE_LEVELS.map((lvl) => {
                       const selected = textSizes[r.role] === lvl.level;

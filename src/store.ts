@@ -58,6 +58,7 @@ function newPage(): AlbumPage {
   return {
     id: crypto.randomUUID(),
     title: "",
+    subtitle: "",
     photoIds: [],
     whitespace: DEFAULT_WHITESPACE,
     layoutId: DEFAULT_LAYOUT_ID,
@@ -129,6 +130,7 @@ interface AlbumState {
   addPage: () => void;
   deletePage: (pageId: string) => void;
   setPageTitle: (pageId: string, title: string) => void;
+  setPageSubtitle: (pageId: string, subtitle: string) => void;
   setPageWhitespace: (pageId: string, whitespace: number) => void;
   setPageLayout: (pageId: string, layoutId: string) => void;
   setCaption: (photoId: string, caption: string) => void;
@@ -360,6 +362,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const existing = new Set(photos.map((p) => p.id));
       const pages = doc.pages.map((pg) => ({
         ...pg,
+        subtitle: pg.subtitle ?? "", // normalize pages saved before page subtitles existed
         photoIds: pg.photoIds.filter((pid) => existing.has(pid)),
       }));
       pages.forEach(syncLayout);
@@ -586,6 +589,13 @@ export const useAlbum = create<AlbumState>((set, get) => {
     setPageTitle: (pageId, title) => {
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, title } : pg)),
+      }));
+      scheduleSave();
+    },
+
+    setPageSubtitle: (pageId, subtitle) => {
+      set((s) => ({
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, subtitle } : pg)),
       }));
       scheduleSave();
     },

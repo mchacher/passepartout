@@ -6,16 +6,24 @@
 // touched. The impure application (writing the vars onto <html>) lives in
 // useApplyTheme; this module only shapes data.
 
-export type TextRole = "title" | "subtitle" | "caption";
-export type TextSizeLevel = "sm" | "md" | "lg";
+// The cover text and the page text are distinct styles: a page title is not the big
+// opening title. Five roles in all (spec 006).
+export type TextRole =
+  | "coverTitle"
+  | "coverSubtitle"
+  | "pageTitle"
+  | "pageSubtitle"
+  | "caption";
+export type TextSizeLevel = "sm" | "md" | "lg" | "xl";
 
 /** One size level per text role. */
 export type TextSizes = Record<TextRole, TextSizeLevel>;
 
-// Cover title and page title share the "title" role: a heading is a heading.
 export const TEXT_ROLES: { role: TextRole; name: string }[] = [
-  { role: "title", name: "Title" },
-  { role: "subtitle", name: "Subtitle" },
+  { role: "coverTitle", name: "Cover title" },
+  { role: "coverSubtitle", name: "Cover subtitle" },
+  { role: "pageTitle", name: "Page title" },
+  { role: "pageSubtitle", name: "Page subtitle" },
   { role: "caption", name: "Caption" },
 ];
 
@@ -23,6 +31,7 @@ export const TEXT_SIZE_LEVELS: { level: TextSizeLevel; label: string }[] = [
   { level: "sm", label: "S" },
   { level: "md", label: "M" },
   { level: "lg", label: "L" },
+  { level: "xl", label: "XL" },
 ];
 
 // Multiplier per level. `md` MUST be 1 so the defaults change nothing.
@@ -30,23 +39,33 @@ export const SIZE_SCALE: Record<TextSizeLevel, number> = {
   sm: 0.85,
   md: 1,
   lg: 1.2,
+  xl: 1.45,
 };
 
-export const DEFAULT_TEXT_SIZES: TextSizes = { title: "md", subtitle: "md", caption: "md" };
+export const DEFAULT_TEXT_SIZES: TextSizes = {
+  coverTitle: "md",
+  coverSubtitle: "md",
+  pageTitle: "md",
+  pageSubtitle: "md",
+  caption: "md",
+};
 
 function levelOrDefault(v: unknown): TextSizeLevel {
-  return v === "sm" || v === "md" || v === "lg" ? v : "md";
+  return v === "sm" || v === "md" || v === "lg" || v === "xl" ? v : "md";
 }
 
 /**
  * A full, valid TextSizes from a possibly missing or partial value: every role is
  * coerced to a known level, an unknown or absent one falling back to `md`. Backward
- * compatibility for documents saved before this feature, like `coverOrDefault`.
+ * compatibility for documents saved before this feature (including spec 005's old
+ * {title, subtitle, caption} keys, which simply fall through to the defaults).
  */
 export function textSizesOrDefault(v: Partial<TextSizes> | undefined | null): TextSizes {
   return {
-    title: levelOrDefault(v?.title),
-    subtitle: levelOrDefault(v?.subtitle),
+    coverTitle: levelOrDefault(v?.coverTitle),
+    coverSubtitle: levelOrDefault(v?.coverSubtitle),
+    pageTitle: levelOrDefault(v?.pageTitle),
+    pageSubtitle: levelOrDefault(v?.pageSubtitle),
     caption: levelOrDefault(v?.caption),
   };
 }
@@ -54,8 +73,10 @@ export function textSizesOrDefault(v: Partial<TextSizes> | undefined | null): Te
 /** Pure map from the chosen sizes to the CSS custom properties that carry them. */
 export function textScaleVars(sizes: TextSizes): Record<string, string> {
   return {
-    "--title-scale": String(SIZE_SCALE[sizes.title]),
-    "--subtitle-scale": String(SIZE_SCALE[sizes.subtitle]),
+    "--cover-title-scale": String(SIZE_SCALE[sizes.coverTitle]),
+    "--cover-subtitle-scale": String(SIZE_SCALE[sizes.coverSubtitle]),
+    "--page-title-scale": String(SIZE_SCALE[sizes.pageTitle]),
+    "--page-subtitle-scale": String(SIZE_SCALE[sizes.pageSubtitle]),
     "--caption-scale": String(SIZE_SCALE[sizes.caption]),
   };
 }
