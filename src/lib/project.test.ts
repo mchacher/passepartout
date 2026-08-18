@@ -32,6 +32,7 @@ const state = (): ProjectState => ({
   format: "landscape",
   fontTheme: "sans",
   colorTheme: "warm",
+  textSizes: { title: "lg", subtitle: "md", caption: "sm" },
   photos: [photo("a", 1.5, "pg"), photo("b", 2 / 3, "pg")],
   pages: [
     { id: "pg", title: "Day 1", photoIds: ["a", "b"], whitespace: 4, layoutId: "two-row" },
@@ -65,6 +66,11 @@ describe("serializeProject", () => {
     const doc = serializeProject(state(), 2000);
     expect(doc.fontTheme).toBe("sans");
     expect(doc.colorTheme).toBe("warm");
+  });
+
+  it("carries the per-role text sizes", () => {
+    const doc = serializeProject(state(), 2000);
+    expect(doc.textSizes).toEqual({ title: "lg", subtitle: "md", caption: "sm" });
   });
 
   it("round-trips pages, photo ids, ratios and captions through hydrate", () => {
@@ -104,10 +110,11 @@ describe("newProjectDoc", () => {
     expect(doc.pages).toEqual([]);
   });
 
-  it("starts with the default font and color theme", () => {
+  it("starts with the default font, color theme and text sizes", () => {
     const doc = newProjectDoc("Fresh", 500);
     expect(doc.fontTheme).toBe("serif");
     expect(doc.colorTheme).toBe("classic");
+    expect(doc.textSizes).toEqual({ title: "md", subtitle: "md", caption: "md" });
   });
 });
 
@@ -129,11 +136,12 @@ describe("duplicateDoc", () => {
     expect(src.photos.map((p) => p.id)).toEqual(["a", "b"]);
   });
 
-  it("carries the font and color theme into the copy", () => {
+  it("carries the font, color theme and text sizes into the copy", () => {
     const src: ProjectDoc = serializeProject(state(), 2000);
     const dup = duplicateDoc(src, { id: "p2", name: "copy", now: 3000, photoIdMap: new Map() });
     expect(dup.fontTheme).toBe("sans");
     expect(dup.colorTheme).toBe("warm");
+    expect(dup.textSizes).toEqual({ title: "lg", subtitle: "md", caption: "sm" });
   });
 });
 

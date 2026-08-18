@@ -284,6 +284,39 @@ describe("store project management", () => {
     expect(s.colorTheme).toBe("classic");
   });
 
+  it("setTextSize changes only the target role", async () => {
+    await useAlbum.getState().createProject("Sized");
+    useAlbum.getState().setTextSize("title", "lg");
+    useAlbum.getState().setTextSize("caption", "sm");
+    const s = useAlbum.getState();
+    expect(s.textSizes).toEqual({ title: "lg", subtitle: "md", caption: "sm" });
+  });
+
+  it("createProject resets the text sizes to the defaults", async () => {
+    await useAlbum.getState().createProject("A");
+    useAlbum.getState().setTextSize("title", "lg");
+    await useAlbum.getState().createProject("B");
+    expect(useAlbum.getState().textSizes).toEqual({ title: "md", subtitle: "md", caption: "md" });
+  });
+
+  it("persists the text sizes and restores them on open", async () => {
+    await useAlbum.getState().createProject("Sized");
+    const id = useAlbum.getState().activeId!;
+    useAlbum.getState().setTextSize("subtitle", "lg");
+    await useAlbum.getState().createProject("Other"); // flush on switch
+    await useAlbum.getState().openProject(id);
+    expect(useAlbum.getState().textSizes.subtitle).toBe("lg");
+  });
+
+  it("defaults the text sizes when opening a project saved before they existed", async () => {
+    const legacy = newProjectDoc("LegacySizes", 1);
+    legacy.id = "legacy-sizes";
+    delete (legacy as Partial<ProjectDoc>).textSizes;
+    await saveProjectDoc(legacy as ProjectDoc);
+    await useAlbum.getState().openProject("legacy-sizes");
+    expect(useAlbum.getState().textSizes).toEqual({ title: "md", subtitle: "md", caption: "md" });
+  });
+
   it("defaults covers when opening a project saved before covers existed", async () => {
     const legacy = newProjectDoc("Legacy", 1);
     legacy.id = "legacy";

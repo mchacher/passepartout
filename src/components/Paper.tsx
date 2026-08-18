@@ -74,7 +74,7 @@ export function Paper({ page }: PaperProps) {
         {hasTitle && (
           <div
             className="pointer-events-none absolute inset-x-[7%] top-[5.4%] z-10 text-center font-album tracking-wide"
-            style={{ fontSize: "clamp(13px, 3.1cqw, 19px)", color: "var(--album-ink)" }}
+            style={{ fontSize: "calc(clamp(13px, 3.1cqw, 19px) * var(--title-scale))", color: "var(--album-ink)" }}
           >
             {page.title.trim()}
           </div>
@@ -153,8 +153,8 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
       />
       <div
         ref={capRef}
-        className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center font-album text-[10.5px] leading-tight outline-none"
-        style={{ width: `${w}px`, color: "var(--album-ink-soft)" }}
+        className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center font-album leading-tight outline-none"
+        style={{ width: `${w}px`, fontSize: "calc(10.5px * var(--caption-scale))", color: "var(--album-ink-soft)" }}
         contentEditable
         suppressContentEditableWarning
         spellCheck={false}

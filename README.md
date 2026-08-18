@@ -22,6 +22,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Chronological by default**: photos order themselves by EXIF capture time (falling back to file date).
 - **Formats**: square, landscape, portrait.
 - **Album style**: give a project its own look with a font and a color palette (paper and text), from a small curated set. The accent color carries into the app so the album and the app read as one.
+- **Text size**: set the size of each kind of text (title, subtitle, caption) with three levels, from one common Style menu.
 - **Local and private**: everything runs in your browser. Photos never leave your machine.
 
 ## Getting started

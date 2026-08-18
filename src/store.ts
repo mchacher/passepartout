@@ -21,6 +21,13 @@ import {
   type FontThemeId,
 } from "./lib/themes";
 import {
+  DEFAULT_TEXT_SIZES,
+  textSizesOrDefault,
+  type TextRole,
+  type TextSizeLevel,
+  type TextSizes,
+} from "./lib/text-sizes";
+import {
   cleanCover,
   coverOrDefault,
   duplicateDoc,
@@ -88,6 +95,7 @@ interface AlbumState {
   format: PageFormat;
   fontTheme: FontThemeId;
   colorTheme: ColorThemeId;
+  textSizes: TextSizes;
 
   // The four cover faces of the active project (see CoverFace)
   frontCover: Cover;
@@ -128,6 +136,7 @@ interface AlbumState {
   setFormat: (format: PageFormat) => void;
   setFontTheme: (fontTheme: FontThemeId) => void;
   setColorTheme: (colorTheme: ColorThemeId) => void;
+  setTextSize: (role: TextRole, level: TextSizeLevel) => void;
 }
 
 function distribute(photos: Photo[]): AlbumPage[] {
@@ -200,6 +209,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
         format: s.format,
         fontTheme: s.fontTheme,
         colorTheme: s.colorTheme,
+        textSizes: s.textSizes,
         photos: s.photos,
         pages: s.pages,
         frontCover: s.frontCover,
@@ -258,6 +268,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     format: "square",
     fontTheme: DEFAULT_FONT_THEME,
     colorTheme: DEFAULT_COLOR_THEME,
+    textSizes: { ...DEFAULT_TEXT_SIZES },
 
     frontCover: newCover(),
     insideFrontCover: newCover(),
@@ -321,6 +332,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
         format: doc.format,
         fontTheme: doc.fontTheme,
         colorTheme: doc.colorTheme,
+        textSizes: doc.textSizes,
         frontCover: doc.frontCover,
         insideFrontCover: doc.insideFrontCover,
         insideBackCover: doc.insideBackCover,
@@ -358,6 +370,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
         format: doc.format,
         fontTheme: fontThemeOrDefault(doc.fontTheme).id,
         colorTheme: colorThemeOrDefault(doc.colorTheme).id,
+        textSizes: textSizesOrDefault(doc.textSizes),
         photos,
         pages,
         frontCover: cleanCover(coverOrDefault(doc.frontCover), existing),
@@ -436,6 +449,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
           format: "square",
           fontTheme: DEFAULT_FONT_THEME,
           colorTheme: DEFAULT_COLOR_THEME,
+          textSizes: { ...DEFAULT_TEXT_SIZES },
         });
         db.setLastActiveId(null);
       }
@@ -609,6 +623,11 @@ export const useAlbum = create<AlbumState>((set, get) => {
 
     setColorTheme: (colorTheme) => {
       set({ colorTheme });
+      scheduleSave();
+    },
+
+    setTextSize: (role, level) => {
+      set((s) => ({ textSizes: { ...s.textSizes, [role]: level } }));
       scheduleSave();
     },
   };

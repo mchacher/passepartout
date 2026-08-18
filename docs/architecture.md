@@ -29,6 +29,7 @@ src/
 │   ├── project.ts      # PURE project helpers: ProjectDoc, serialize/hydrate/duplicate
 │   ├── themes.ts       # PURE album-theme catalog (fonts + color palettes) + coercion
 │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
+│   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
@@ -89,6 +90,14 @@ Three hard boundaries:
   `coverOrDefault`. The choice is applied as CSS custom properties by `useApplyTheme`
   (impure) from the pure map in `theme-vars.ts`; album print colors stay fixed across
   OS light/dark while the accent variant follows it.
+- **Text size** (`src/lib/text-sizes.ts`): a third project-level album-style axis,
+  `textSizes` = one level (`sm | md | lg`) per text **role** (`title` covers cover and
+  page titles, `subtitle`, `caption`). Each level is a multiplier (`md` = 1, so defaults
+  are unchanged) emitted by `textScaleVars` as `--title-scale` / `--subtitle-scale` /
+  `--caption-scale`; the album text sites multiply their base `fontSize` by the role var
+  (`calc(... * var(--title-scale))`). `textSizesOrDefault` coerces a missing object or an
+  unknown per-role value to `md`. `useApplyTheme` writes these vars too. No engine
+  involvement: only text size changes, photo geometry is the engine's alone.
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store
 root.** Match the right altitude when adding a field.
@@ -181,6 +190,9 @@ Dragging whitespace never re-groups photos.
 - **A new album font or color palette**: add a `FontTheme` / `ColorTheme` (with a stable
   new id) to the catalog in `src/lib/themes.ts`. `ThemeMenu`, `theme-vars.ts` and
   `useApplyTheme` pick it up for free; no engine or store change.
+- **A new text role or size level**: extend `TEXT_ROLES` / `TEXT_SIZE_LEVELS` in
+  `src/lib/text-sizes.ts` and add the matching `--<role>-scale` var to the text site.
+  `ThemeMenu` renders the new row/level automatically.
 - **A new persisted field**: add it to `ProjectDoc` (via `AlbumPage`/`Photo` or the doc
   itself) in `src/lib/project.ts`; `serializeProject`/`hydratePhotos` carry it and the
   IndexedDB adapter stores it with no change. Bump the DB version in `persistence.ts`

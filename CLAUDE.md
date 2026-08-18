@@ -38,6 +38,7 @@ passepartout/
 │   │   ├── project.ts      # PURE project helpers (ProjectDoc, serialize/hydrate/duplicate)
 │   │   ├── themes.ts       # PURE album-theme catalog (fonts + color palettes) + coercion
 │   │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
+│   │   ├── text-sizes.ts   # PURE per-role text-size catalog + scale vars
 │   │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   │   └── demo.ts         # Canvas-generated sample photos (with blobs)
 │   ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>

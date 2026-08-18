@@ -5,13 +5,15 @@ import {
   FONT_THEMES,
   colorThemeOrDefault,
 } from "../lib/themes";
+import { TEXT_ROLES, TEXT_SIZE_LEVELS } from "../lib/text-sizes";
 
 // The album style picker in the top bar (same dropdown pattern as ProjectMenu):
-// pick the project's font and color theme. Both apply live to the album and, for the
-// accent, to the app chrome. Fonts are previewed in their own stack; palettes as a
-// paper + ink + accent swatch.
+// pick the project's font, color theme and per-role text sizes. All apply live to the
+// album and, for the accent, to the app chrome. Fonts are previewed in their own
+// stack; palettes as a paper + ink + accent swatch; text sizes as an S/M/L toggle.
 export function ThemeMenu() {
-  const { fontTheme, colorTheme, setFontTheme, setColorTheme } = useAlbum();
+  const { fontTheme, colorTheme, textSizes, setFontTheme, setColorTheme, setTextSize } =
+    useAlbum();
   const [open, setOpen] = useState(false);
   const active = colorThemeOrDefault(colorTheme);
 
@@ -82,6 +84,33 @@ export function ThemeMenu() {
               })}
             </div>
             <div className="mt-1.5 px-1 text-center text-[11px] text-muted">{active.name}</div>
+
+            <div className="mt-2.5 px-1 pb-1.5 text-[11px] uppercase tracking-wide text-faint">Text size</div>
+            <div className="flex flex-col gap-1">
+              {TEXT_ROLES.map((r) => (
+                <div key={r.role} className="flex items-center justify-between gap-2">
+                  <span className="text-[12.5px] text-muted">{r.name}</span>
+                  <div className="flex gap-0.5 rounded-lg border border-line bg-surface-2 p-[3px]">
+                    {TEXT_SIZE_LEVELS.map((lvl) => {
+                      const selected = textSizes[r.role] === lvl.level;
+                      return (
+                        <button
+                          key={lvl.level}
+                          onClick={() => setTextSize(r.role, lvl.level)}
+                          aria-pressed={selected}
+                          title={`${r.name} ${lvl.label}`}
+                          className={`w-7 rounded-md py-[3px] text-[12px] transition-colors ${
+                            selected ? "bg-accent text-white shadow-soft" : "text-muted hover:text-ink"
+                          }`}
+                        >
+                          {lvl.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}

@@ -132,14 +132,14 @@ export function CoverCard({ which }: CoverCardProps) {
               placeholder={face.titlePlaceholder}
               onChange={(e) => updateCover(which, { title: e.target.value })}
               className="w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none"
-              style={{ fontSize: "clamp(16px, 5cqw, 34px)", color: "var(--album-ink)" }}
+              style={{ fontSize: "calc(clamp(16px, 5cqw, 34px) * var(--title-scale))", color: "var(--album-ink)" }}
             />
             <input
               value={cover.subtitle}
               placeholder={face.subtitlePlaceholder}
               onChange={(e) => updateCover(which, { subtitle: e.target.value })}
               className="mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none"
-              style={{ fontSize: "clamp(11px, 2.6cqw, 16px)", color: "var(--album-ink-soft)" }}
+              style={{ fontSize: "calc(clamp(11px, 2.6cqw, 16px) * var(--subtitle-scale))", color: "var(--album-ink-soft)" }}
             />
           </div>
 
