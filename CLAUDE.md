@@ -82,7 +82,7 @@ npm run validate   # typecheck + lint + test
 1. **PDF export** at print resolution (300 DPI) with bleed, reusing the same engine numbers to paint each page.
 2. **Imprimeur presets** (CEWE / Blurb / Saal Digital page sizes + safe margins).
 3. **Full-bleed / spread templates** (one photo across a double page) while still never cropping.
-4. **Reorder pages**, drag to reorder photos within a page.
+4. **Reorder photos within a page** by drag (reordering whole pages already ships, spec 007).
 5. **Project files** export/import (backup, move machine, share). Local persistence and multi-project management already ship via IndexedDB (spec 002); this adds a portable file on top.
 
 ## Skills

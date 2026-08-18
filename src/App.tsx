@@ -5,6 +5,7 @@ import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
 import { PageCard } from "./components/PageCard";
 import { CoverCard } from "./components/CoverCard";
+import { PageRail } from "./components/PageRail";
 
 export function App() {
   const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent } =
@@ -36,16 +37,22 @@ export function App() {
           </div>
         )}
       </div>
-      <div className="grid min-h-0 grid-cols-[274px_1fr] max-[760px]:grid-cols-1">
+      <div className="grid min-h-0 grid-cols-[274px_1fr] xl:grid-cols-[274px_1fr_212px] max-[760px]:grid-cols-1">
         <Library />
 
         <main className="min-h-0 overflow-y-auto px-8 pb-24 pt-8">
           {hasPhotos ? (
             <div className="mx-auto flex max-w-[620px] flex-col gap-8">
-              <CoverCard which="front" />
-              <CoverCard which="insideFront" />
+              <div id="cover-front">
+                <CoverCard which="front" />
+              </div>
+              <div id="cover-insideFront">
+                <CoverCard which="insideFront" />
+              </div>
               {pages.map((page, i) => (
-                <PageCard key={page.id} page={page} index={i} />
+                <div id={`page-${page.id}`} key={page.id}>
+                  <PageCard page={page} index={i} />
+                </div>
               ))}
               <button
                 onClick={addPage}
@@ -56,8 +63,12 @@ export function App() {
                 </svg>
                 Add page
               </button>
-              <CoverCard which="insideBack" />
-              <CoverCard which="back" />
+              <div id="cover-insideBack">
+                <CoverCard which="insideBack" />
+              </div>
+              <div id="cover-back">
+                <CoverCard which="back" />
+              </div>
             </div>
           ) : (
             <div className="mx-auto mt-[8vh] max-w-[460px] text-center text-muted">
@@ -100,6 +111,8 @@ export function App() {
             </div>
           )}
         </main>
+
+        {hasPhotos && <PageRail />}
       </div>
     </div>
   );

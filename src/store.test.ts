@@ -126,6 +126,63 @@ describe("store layout sync", () => {
   });
 });
 
+describe("store page reorder", () => {
+  const ids = () => useAlbum.getState().pages.map((p) => p.id);
+
+  const seed = () =>
+    useAlbum.setState({
+      photos: [photo("x", "p1"), photo("y", "p3")],
+      pages: [
+        page("p1", ["x"], "single"),
+        page("p2", [], "single"),
+        page("p3", ["y"], "single"),
+        page("p4", [], "single"),
+      ],
+    });
+
+  it("moves a page to a later slot", () => {
+    seed();
+    useAlbum.getState().movePage("p1", 2); // insert p1 into slot 2 (between p2 and p3)
+    expect(ids()).toEqual(["p2", "p1", "p3", "p4"]);
+  });
+
+  it("moves a page to the very front and to the very end", () => {
+    seed();
+    useAlbum.getState().movePage("p3", 0);
+    expect(ids()).toEqual(["p3", "p1", "p2", "p4"]);
+    seed();
+    useAlbum.getState().movePage("p2", 4); // slot == length -> end
+    expect(ids()).toEqual(["p1", "p3", "p4", "p2"]);
+  });
+
+  it("clamps an out-of-range slot to the end", () => {
+    seed();
+    useAlbum.getState().movePage("p1", 99);
+    expect(ids()).toEqual(["p2", "p3", "p4", "p1"]);
+  });
+
+  it("is a no-op when dropped in its own neighborhood or for an unknown id", () => {
+    seed();
+    useAlbum.getState().movePage("p2", 1); // slot 1 is p2's own position
+    expect(ids()).toEqual(["p1", "p2", "p3", "p4"]);
+    useAlbum.getState().movePage("p2", 2); // slot just after itself
+    expect(ids()).toEqual(["p1", "p2", "p3", "p4"]);
+    useAlbum.getState().movePage("nope", 0);
+    expect(ids()).toEqual(["p1", "p2", "p3", "p4"]);
+  });
+
+  it("does not touch photos or a page's photoIds / layoutId", () => {
+    seed();
+    const photosBefore = useAlbum.getState().photos;
+    useAlbum.getState().movePage("p1", 3);
+    const s = useAlbum.getState();
+    expect(s.photos).toBe(photosBefore); // reference unchanged
+    const p1 = s.pages.find((p) => p.id === "p1")!;
+    expect(p1.photoIds).toEqual(["x"]);
+    expect(p1.layoutId).toBe("single");
+  });
+});
+
 describe("store project management", () => {
   beforeAll(() => {
     // jsdom-less node has no object URL API; the CRUD paths never render, so stub it.
