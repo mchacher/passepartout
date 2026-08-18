@@ -1,8 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
-import { PAGE_ASPECT, type AlbumPage, type Photo } from "../types";
+import { type AlbumPage, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity, type PlacedCell } from "../lib/layout";
 import { resolveNode } from "../lib/layouts";
+import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
 
 interface PaperProps {
@@ -13,7 +14,8 @@ interface PaperProps {
 // pixels, then asking the pure engine to place each one inside a fixed region of
 // the chosen layout. Nothing is cropped: each photo is contain-fit in its region.
 export function Paper({ page }: PaperProps) {
-  const { photos, format, placeOnPage, removeFromPage, setCaption } = useAlbum();
+  const { photos, bookSize, placeOnPage, removeFromPage, setCaption } = useAlbum();
+  const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const density = whitespaceToDensity(page.whitespace);
   const layoutId = page.layoutId;
   const innerRef = useRef<HTMLDivElement>(null);
@@ -40,7 +42,7 @@ export function Paper({ page }: PaperProps) {
     setCells(res.cells);
     // items, density and layout are the real inputs; recomputed via the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [density, layoutId, page.photoIds.join(","), format]);
+  }, [density, layoutId, page.photoIds.join(","), aspect]);
 
   useLayoutEffect(() => {
     measure();
@@ -56,7 +58,7 @@ export function Paper({ page }: PaperProps) {
       <div
         className="relative overflow-hidden rounded-sm bg-paper shadow-paper transition-shadow"
         style={{
-          aspectRatio: String(PAGE_ASPECT[format]),
+          aspectRatio: String(aspect),
           boxShadow: hot ? "0 0 0 2px var(--accent)" : undefined,
           containerType: "inline-size",
         }}

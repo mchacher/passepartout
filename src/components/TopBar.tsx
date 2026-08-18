@@ -1,18 +1,12 @@
 import { useRef } from "react";
 import { useAlbum } from "../store";
-import type { PageFormat } from "../types";
 import { ProjectMenu } from "./ProjectMenu";
 import { ThemeMenu } from "./ThemeMenu";
-
-const FORMATS: Array<{ id: PageFormat; label: string }> = [
-  { id: "square", label: "Square" },
-  { id: "landscape", label: "Landscape" },
-  { id: "portrait", label: "Portrait" },
-];
+import { SizeMenu } from "./SizeMenu";
 
 export function TopBar() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const { format, setFormat, importFiles } = useAlbum();
+  const { importFiles } = useAlbum();
 
   return (
     <header className="flex flex-wrap items-center gap-6 border-b border-line bg-surface px-5 py-3">
@@ -31,23 +25,7 @@ export function TopBar() {
 
       <ThemeMenu />
 
-      <div className="flex items-center gap-2.5 text-xs text-muted" title="Page format">
-        <span>Format</span>
-        <div className="flex gap-0.5 rounded-lg border border-line bg-surface-2 p-[3px]">
-          {FORMATS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setFormat(f.id)}
-              aria-pressed={format === f.id}
-              className={`rounded-md px-3 py-[5px] text-[12.5px] transition-colors ${
-                format === f.id ? "bg-accent text-white shadow-soft" : "text-muted"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <SizeMenu />
 
       <button
         onClick={() => fileRef.current?.click()}

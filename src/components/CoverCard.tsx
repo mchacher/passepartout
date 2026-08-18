@@ -1,8 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
-import { PAGE_ASPECT, WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
+import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { autoTemplate } from "../lib/layouts";
+import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
 
 interface CoverCardProps {
@@ -22,8 +23,9 @@ const FACE: Record<CoverFace, { label: string; titlePlaceholder: string; subtitl
 // from the Library. The photo is contained (sized by the engine's single-slot path),
 // never cropped.
 export function CoverCard({ which }: CoverCardProps) {
-  const { photos, format, frontCover, insideFrontCover, insideBackCover, backCover, updateCover } =
+  const { photos, bookSize, frontCover, insideFrontCover, insideBackCover, backCover, updateCover } =
     useAlbum();
+  const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const cover = { front: frontCover, insideFront: insideFrontCover, insideBack: insideBackCover, back: backCover }[which];
   const face = FACE[which];
   const label = face.label;
@@ -56,7 +58,7 @@ export function CoverCard({ which }: CoverCardProps) {
     const cell = res.cells[0];
     setSize(cell ? { w: cell.w, h: cell.h } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo?.id, photo?.ratio, cover.whitespace, format]);
+  }, [photo?.id, photo?.ratio, cover.whitespace, aspect]);
 
   useLayoutEffect(() => {
     measure();
@@ -108,7 +110,7 @@ export function CoverCard({ which }: CoverCardProps) {
         <div
           className="relative flex flex-col overflow-hidden rounded-sm bg-paper shadow-paper transition-shadow"
           style={{
-            aspectRatio: String(PAGE_ASPECT[format]),
+            aspectRatio: String(aspect),
             boxShadow: hot ? "0 0 0 2px var(--accent)" : undefined,
             containerType: "inline-size",
           }}

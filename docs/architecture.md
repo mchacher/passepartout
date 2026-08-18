@@ -26,7 +26,8 @@ src/
 ├── lib/
 │   ├── layout.ts       # PURE engine: template -> regions -> contain-fit cells; whitespaceToDensity
 │   ├── layouts.ts      # PURE layout template catalog (nested split trees) + helpers
-│   ├── project.ts      # PURE project helpers: ProjectDoc, serialize/hydrate/duplicate
+│   ├── project.ts      # PURE project helpers: ProjectDoc, serialize/hydrate/duplicate, spine
+│   ├── book-sizes.ts   # PURE physical book-size catalog (Blurb trim sizes) + print constants
 │   ├── themes.ts       # PURE album-theme catalog (fonts + color palettes) + coercion
 │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
 │   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
@@ -41,6 +42,8 @@ src/
     ├── Library.tsx     # Photo tray (drag source + drop-to-remove)
     ├── PageCard.tsx    # Per-page controls: title, count 1-6, layout picker, whitespace
     ├── LayoutThumb.tsx # Tiny SVG miniature of a layout template
+    ├── SizeMenu.tsx    # Book-size (Blurb trim) picker in the top bar
+    ├── SpineCard.tsx   # Spine title editor + vertical spine preview
     ├── Paper.tsx       # Measures the page box, calls the engine, renders region cells
     ├── Thumb.tsx       # Faithful page/cover mini-render (reuses the engine, no crop)
     ├── PageRail.tsx    # Right rail: page thumbnails, drag-to-reorder, click-to-scroll
@@ -65,7 +68,14 @@ Three hard boundaries:
 - **AlbumPage**: ordered `photoIds`, optional `title` and `subtitle` (both rendered on
   the paper, contained in whitespace, never on a photo), a `whitespace` level
   (`1 .. WHITESPACE_LEVELS`, currently 8), and a `layoutId`.
-- **PageFormat**: `square | landscape | portrait`, mapped to a page aspect ratio.
+- **Book size** (`src/lib/book-sizes.ts`): the physical print size a project targets,
+  one of a curated set of real Blurb trim sizes (mm + orientation). Its ratio drives the
+  page and cover preview, so what you see is what prints. Carries the print constants
+  (`BLEED_MM`, `SAFE_MM`, `PRINT_DPI`) the export (spec 009) reuses. Replaced the abstract
+  `PageFormat` (kept only as the legacy shape `bookSizeForLegacyFormat` migrates on load).
+- **Spine** (`Spine` in `src/types.ts`): the bound edge, a `title` that defaults to the
+  front cover title when empty (`effectiveSpineTitle`). Prepared here; painted in the
+  cover wrap by the export (spec 009).
 - **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
   box. A node is either a `slot` (holds one photo) or a `split` along an axis
   (`h` = side-by-side columns, `v` = stacked rows) into weighted children. Leaves
@@ -73,7 +83,7 @@ Three hard boundaries:
   data versioned with the app; a page persists only the `layoutId` that references it
   (unknown ids and counts outside 1-6 resolve to a balanced `autoTemplate`).
 - **Project** (`src/lib/project.ts`): one album. `ProjectDoc` = meta (`id`, `name`,
-  `createdAt`, `updatedAt`) + `format` + `fontTheme` + `colorTheme` + `pages` +
+  `createdAt`, `updatedAt`) + `bookSize` + `spine` + `fontTheme` + `colorTheme` + `pages` +
   `StoredPhoto[]` (`Photo` minus the runtime `url`) + the four covers (`frontCover`,
   `insideFrontCover`, `insideBackCover`, `backCover`). Persisted in IndexedDB; a photo's
   image bytes live in a separate `images` blob store keyed by photo id. The ephemeral
@@ -191,7 +201,8 @@ Dragging whitespace never re-groups photos.
   persist it). No engine change needed; `LayoutThumb` and `Paper` render it for free.
 - **A new page control**: add the field to `AlbumPage` (`src/types.ts`), a store
   action, and a control in `PageCard.tsx`. Keep it per-page unless it is truly global.
-- **A new page format**: add it to `PageFormat` and `PAGE_ASPECT` in `src/types.ts`.
+- **A new book size**: add a `BookSize` (real trim mm + orientation) to `BOOK_SIZES` in
+  `src/lib/book-sizes.ts`; `SizeMenu` and every ratio consumer pick it up for free.
 - **A new album font or color palette**: add a `FontTheme` / `ColorTheme` (with a stable
   new id) to the catalog in `src/lib/themes.ts`. `ThemeMenu`, `theme-vars.ts` and
   `useApplyTheme` pick it up for free; no engine or store change.

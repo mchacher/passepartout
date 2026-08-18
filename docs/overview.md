@@ -20,7 +20,10 @@ grid slot a photo is *contained* (fit + centered), never stretched to fill.
 - **AlbumPage**: an ordered list of photo ids, an optional `title` and `subtitle`, a
   per-page `whitespace` level (1 .. `WHITESPACE_LEVELS`), and a `layoutId` (which
   arrangement template is applied).
-- **PageFormat**: `square | landscape | portrait`, mapped to an aspect ratio.
+- **Book size** (`src/lib/book-sizes.ts`): a real Blurb trim size (mm + orientation)
+  whose ratio drives the page, so the preview matches the printed page. Carries the
+  print constants the export will reuse. Superseded the abstract `PageFormat`.
+- **Spine** (`Spine`): the bound edge; a title that defaults to the front cover title.
 - **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
   box (`slot`, or a `split` along an axis into weighted children). The catalog is pure
   data versioned with the app; a page persists only the `layoutId` that references it.
@@ -32,7 +35,7 @@ grid slot a photo is *contained* (fit + centered), never stretched to fill.
   title/subtitle, page title/subtitle, caption), four levels each (S/M/L/XL), also
   project-level and picked in the **Style** menu. Medium is today's size; levels scale
   the text via CSS vars, never the photos. Pages carry their own `title` and `subtitle`.
-- **Project** (`src/lib/project.ts`): one album (pages + photos + format + theme + four
+- **Project** (`src/lib/project.ts`): one album (pages + photos + book size + spine + theme + four
   **cover** faces). The active project is auto-saved to IndexedDB (image bytes as blobs,
   metadata as a JSON doc) so a refresh restores it, and several named projects can
   coexist. See the persistence section in [architecture.md](architecture.md).

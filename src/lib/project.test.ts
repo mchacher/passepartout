@@ -1,13 +1,16 @@
 import { describe, it, expect } from "vitest";
 import {
+  bookSizeOfDoc,
   cleanCover,
   coverOrDefault,
   duplicateDoc,
+  effectiveSpineTitle,
   hydratePhotos,
   metaOf,
   newCover,
   newProjectDoc,
   serializeProject,
+  spineOfDoc,
   type ProjectDoc,
   type ProjectState,
 } from "./project";
@@ -29,7 +32,8 @@ const state = (): ProjectState => ({
   id: "proj-1",
   name: "Trip",
   createdAt: 1000,
-  format: "landscape",
+  bookSize: "blurb-landscape-10x8",
+  spine: { title: "On the spine" },
   fontTheme: "sans",
   colorTheme: "warm",
   textSizes: {
@@ -57,14 +61,15 @@ describe("serializeProject", () => {
     }
   });
 
-  it("stamps updatedAt and keeps id/name/createdAt/format", () => {
+  it("stamps updatedAt and keeps id/name/createdAt/bookSize/spine", () => {
     const doc = serializeProject(state(), 2000);
     expect(doc).toMatchObject({
       id: "proj-1",
       name: "Trip",
       createdAt: 1000,
       updatedAt: 2000,
-      format: "landscape",
+      bookSize: "blurb-landscape-10x8",
+      spine: { title: "On the spine" },
     });
   });
 
@@ -88,6 +93,12 @@ describe("serializeProject", () => {
   it("carries the page subtitle", () => {
     const doc = serializeProject(state(), 2000);
     expect(doc.pages[0].subtitle).toBe("morning");
+  });
+
+  it("carries the book size and spine", () => {
+    const doc = serializeProject(state(), 2000);
+    expect(doc.bookSize).toBe("blurb-landscape-10x8");
+    expect(doc.spine).toEqual({ title: "On the spine" });
   });
 
   it("round-trips pages, photo ids, ratios and captions through hydrate", () => {
@@ -139,6 +150,38 @@ describe("newProjectDoc", () => {
       caption: "md",
     });
   });
+
+  it("starts with the default book size and an empty (auto) spine", () => {
+    const doc = newProjectDoc("Fresh", 500);
+    expect(doc.bookSize).toBe("blurb-square-7");
+    expect(doc.spine).toEqual({ title: "" });
+  });
+});
+
+describe("book size + spine migration", () => {
+  it("migrates a legacy doc's format to a Blurb size and defaults the spine", () => {
+    const legacy = {
+      ...serializeProject(state(), 2000),
+      bookSize: undefined,
+      spine: undefined,
+      format: "portrait",
+    } as unknown as ProjectDoc;
+    expect(bookSizeOfDoc(legacy)).toBe("blurb-portrait-8x10");
+    expect(spineOfDoc(legacy)).toEqual({ title: "" });
+  });
+
+  it("keeps an explicit bookSize and spine when present", () => {
+    const doc = serializeProject(state(), 2000);
+    expect(bookSizeOfDoc(doc)).toBe("blurb-landscape-10x8");
+    expect(spineOfDoc(doc)).toEqual({ title: "On the spine" });
+  });
+
+  it("effectiveSpineTitle prefers the override, then the front cover title, else empty", () => {
+    const cover: Cover = { title: "Summer", subtitle: "", photoId: null, whitespace: 4 };
+    expect(effectiveSpineTitle({ title: "Custom" }, cover)).toBe("Custom");
+    expect(effectiveSpineTitle({ title: "  " }, cover)).toBe("Summer");
+    expect(effectiveSpineTitle({ title: "" }, { ...cover, title: "" })).toBe("");
+  });
 });
 
 describe("duplicateDoc", () => {
@@ -172,6 +215,13 @@ describe("duplicateDoc", () => {
       caption: "sm",
     });
     expect(dup.pages[0].subtitle).toBe("morning");
+  });
+
+  it("carries the book size and spine into the copy", () => {
+    const src: ProjectDoc = serializeProject(state(), 2000);
+    const dup = duplicateDoc(src, { id: "p2", name: "copy", now: 3000, photoIdMap: new Map() });
+    expect(dup.bookSize).toBe("blurb-landscape-10x8");
+    expect(dup.spine).toEqual({ title: "On the spine" });
   });
 });
 
