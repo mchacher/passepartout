@@ -46,6 +46,8 @@ grid).
 - Every consumer (`Paper`, `Thumb`, `PreviewPaper`, `LayoutThumb`, `CoverCard`,
   `print.ts`) renders from the grid with no behaviour change a user would notice (hero
   layouts aside).
+- A discreet, optional **grid overlay** on editor pages, toggled globally from the top bar
+  (a view preference, persisted). Faint 12 x 12 lines; not shown on full-page or covers.
 
 ## Non-goals
 
