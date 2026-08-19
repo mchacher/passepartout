@@ -1,7 +1,7 @@
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
-import { resolveNode } from "../lib/layouts";
+import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
-import { DEFAULT_CROP_FOCUS, type CropFocus, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
 
 export interface ThumbPhoto {
   id: string;
@@ -18,6 +18,8 @@ interface ThumbProps {
   fullPage?: PageFill;
   /** Crop focus for `cover` full-page mode. */
   focus?: CropFocus;
+  /** Custom grid placement (spec 013); overrides the named template when valid. */
+  placement?: CellRect[];
 }
 
 // A nominal content box the engine lays out in; the result is positioned in percent so
@@ -27,15 +29,14 @@ const NH = 100;
 // A faithful miniature of a page or cover. It reuses the pure layout engine at a
 // nominal size, so every photo is contain-fit inside its region exactly like the real
 // page: nothing is cropped or stretched. The `inset` mirrors the page's content margin.
-export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus }: ThumbProps) {
+export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus, placement }: ThumbProps) {
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const NW = NH * aspect;
-  const node = resolveNode(layoutId, photos.length);
   const { cells } = computeLayout(
     photos.map((p) => ({ ratio: p.ratio })),
     NW,
     NH,
-    node,
+    resolveCells(layoutId, photos.length, placement),
     { density: whitespaceToDensity(whitespace) },
   );
 

@@ -71,6 +71,7 @@ export function ExportPanel() {
         layoutId: pg.layoutId,
         fullPage: pg.fullPage,
         focus: pg.fullPageFocus,
+        placement: pg.placement,
         items: pg.photoIds
           .map(photoById)
           .filter((p): p is Photo => p !== undefined)

@@ -2,7 +2,8 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type PageFill, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity, type PlacedCell } from "../lib/layout";
-import { resolveNode } from "../lib/layouts";
+import { resolveCells, GRID_COLS, GRID_ROWS } from "../lib/layouts";
+import { useView } from "../viewStore";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
 
@@ -15,6 +16,7 @@ interface PaperProps {
 // the chosen layout. Nothing is cropped: each photo is contain-fit in its region.
 export function Paper({ page }: PaperProps) {
   const { photos, bookSize, placeOnPage, removeFromPage, setCaption } = useAlbum();
+  const showGrid = useView((s) => s.showGrid);
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const density = whitespaceToDensity(page.whitespace);
   const layoutId = page.layoutId;
@@ -41,13 +43,13 @@ export function Paper({ page }: PaperProps) {
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
-    const node = resolveNode(layoutId, items.length);
-    const res = computeLayout(items, cw, ch, node, { density });
+    const cells = resolveCells(layoutId, items.length, page.placement);
+    const res = computeLayout(items, cw, ch, cells, { density });
     setCells(res.cells);
     // items, density and layout are the real inputs; recomputed via the effect below.
     // fullPage is included so toggling it re-attaches the observer to the (re)mounted box.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [density, layoutId, page.photoIds.join(","), aspect, fullPage]);
+  }, [density, layoutId, page.photoIds.join(","), aspect, fullPage, page.placement]);
 
   useLayoutEffect(() => {
     measure();
@@ -110,13 +112,14 @@ export function Paper({ page }: PaperProps) {
               className="absolute inset-0"
               style={{ padding: "5%", paddingTop: hasSubtitle ? "14%" : hasTitle ? "11%" : "5%" }}
             >
-              {items.length === 0 ? (
-                <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">
-                  Empty page. Drag photos here, or pick a number above.
-                </div>
-              ) : (
-                <div className="relative h-full w-full">
-                  {cells.map((cell) => (
+              <div className="relative h-full w-full">
+                {showGrid && <GridOverlay />}
+                {items.length === 0 ? (
+                  <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">
+                    Empty page. Drag photos here, or pick a number above.
+                  </div>
+                ) : (
+                  cells.map((cell) => (
                     <div
                       key={cell.item.id}
                       className="absolute flex flex-col items-center justify-center"
@@ -130,9 +133,9 @@ export function Paper({ page }: PaperProps) {
                         onCaption={(text) => setCaption(cell.item.id, text)}
                       />
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </>
         )}
@@ -199,6 +202,31 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
         }}
       />
     </div>
+  );
+}
+
+// A discreet 12 x 12 page grid drawn over the content box (spec 013), toggled globally
+// from the top bar. Even divisions, faint theme-aware lines, non-scaling stroke so they
+// stay hairline-thin under the non-uniform viewBox stretch. Purely a visual aid.
+function GridOverlay() {
+  // vector-effect is NOT inherited, so it must sit on each line, not the group.
+  const line = (key: string, x1: number, y1: number, x2: number, y2: number) => (
+    <line key={key} x1={x1} y1={y1} x2={x2} y2={y2} vectorEffect="non-scaling-stroke" />
+  );
+  const lines = [];
+  for (let i = 1; i < GRID_COLS; i++) lines.push(line(`v${i}`, i, 0, i, GRID_ROWS));
+  for (let j = 1; j < GRID_ROWS; j++) lines.push(line(`h${j}`, 0, j, GRID_COLS, j));
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      viewBox={`0 0 ${GRID_COLS} ${GRID_ROWS}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <g stroke="var(--line-strong)" strokeWidth={1} strokeOpacity={0.45}>
+        {lines}
+      </g>
+    </svg>
   );
 }
 

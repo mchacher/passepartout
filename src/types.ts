@@ -28,6 +28,16 @@ export interface CropFocus {
   y: number;
 }
 
+// A photo's rectangle on the page grid (spec 013), in half-open cell ranges over the
+// fixed GRID_COLS x GRID_ROWS grid. Templates are lists of these; a custom placement is
+// the same shape. The photo is always contain-fit inside the rectangle, never cropped.
+export interface CellRect {
+  col: number;
+  row: number;
+  colSpan: number;
+  rowSpan: number;
+}
+
 export interface AlbumPage {
   id: string;
   title: string;
@@ -35,6 +45,10 @@ export interface AlbumPage {
   photoIds: string[];
   whitespace: number; // per-page whitespace level, 1 (least white) .. WHITESPACE_LEVELS (most)
   layoutId: string; // which arrangement template (see src/lib/layouts.ts) is applied
+  // Custom grid placement (spec 013). When present and its length matches the photo count,
+  // it overrides the named template (the page is "detached"). Written by the free-placement
+  // editor (Phase B); cleared when a template is re-selected or the count changes.
+  placement?: CellRect[];
   // Full-page photo mode (spec 012). Undefined = a normal page. Effective only when the
   // page holds exactly one photo; cleared when the count leaves 1.
   fullPage?: PageFill;

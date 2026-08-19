@@ -1,57 +1,30 @@
-import type { LayoutNode } from "../lib/layouts";
+import { GRID_COLS, GRID_ROWS } from "../lib/layouts";
+import type { CellRect } from "../types";
 
 interface LayoutThumbProps {
-  node: LayoutNode;
+  cells: CellRect[];
   size?: number;
   active?: boolean;
 }
 
-interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-// Split a rect into child rects the same way the engine does, so the thumbnail is
-// a faithful miniature of the real arrangement.
-function subdivide(node: LayoutNode, box: Rect, gap: number, out: Rect[]): void {
-  if (node.kind === "slot") {
-    out.push(box);
-    return;
-  }
-  const n = node.children.length;
-  const weights = node.weights ?? node.children.map(() => 1);
-  const total = weights.reduce((a, w) => a + w, 0);
-  const along = node.axis === "h" ? box.w : box.h;
-  const free = Math.max(0, along - gap * (n - 1));
-  let offset = node.axis === "h" ? box.x : box.y;
-  for (let i = 0; i < n; i++) {
-    const s = free * (weights[i] / total);
-    const child: Rect =
-      node.axis === "h"
-        ? { x: offset, y: box.y, w: s, h: box.h }
-        : { x: box.x, y: offset, w: box.w, h: s };
-    subdivide(node.children[i], child, gap, out);
-    offset += s + gap;
-  }
-}
-
-// A tiny SVG preview of a layout template: nested rectangles, one per photo slot.
-export function LayoutThumb({ node, size = 26, active = false }: LayoutThumbProps) {
+// A tiny SVG preview of a layout template: one rounded rectangle per photo cell, drawn on
+// the 12 x 12 grid so the miniature matches the real arrangement. A small gap between
+// cells mirrors the engine's gutter.
+export function LayoutThumb({ cells, size = 26, active = false }: LayoutThumbProps) {
   const pad = 2;
+  const gap = 0.6; // in grid units, purely cosmetic separation
   const inner = size - pad * 2;
-  const rects: Rect[] = [];
-  subdivide(node, { x: pad, y: pad, w: inner, h: inner }, 2, rects);
+  const unitW = inner / GRID_COLS;
+  const unitH = inner / GRID_ROWS;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-      {rects.map((r, i) => (
+      {cells.map((c, i) => (
         <rect
           key={i}
-          x={r.x}
-          y={r.y}
-          width={r.w}
-          height={r.h}
+          x={pad + c.col * unitW + (gap / 2) * unitW}
+          y={pad + c.row * unitH + (gap / 2) * unitH}
+          width={c.colSpan * unitW - gap * unitW}
+          height={c.rowSpan * unitH - gap * unitH}
           rx={1.5}
           fill={active ? "var(--paper, #fff)" : "currentColor"}
           opacity={active ? 1 : 0.55}

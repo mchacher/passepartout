@@ -161,6 +161,34 @@ describe("store full-page mode (spec 012)", () => {
   });
 });
 
+describe("store custom grid placement (spec 013)", () => {
+  const placementOf = (pageId: string) =>
+    useAlbum.getState().pages.find((p) => p.id === pageId)!.placement;
+  const twoCells = [
+    { col: 0, row: 0, colSpan: 8, rowSpan: 12 },
+    { col: 8, row: 0, colSpan: 4, rowSpan: 12 },
+  ];
+
+  it("setPageLayout clears a custom placement (re-attaches to the template)", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", "p1")],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
+    });
+    useAlbum.getState().setPageLayout("p1", "two-col");
+    expect(placementOf("p1")).toBeUndefined();
+    expect(layoutOf("p1")).toBe("two-col");
+  });
+
+  it("syncLayout drops a placement whose length no longer matches the count", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", "p1"), photo("c", null)],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
+    });
+    useAlbum.getState().placeOnPage("c", "p1"); // now 3 photos, placement has 2 rects
+    expect(placementOf("p1")).toBeUndefined();
+  });
+});
+
 describe("store page reorder", () => {
   const ids = () => useAlbum.getState().pages.map((p) => p.id);
 

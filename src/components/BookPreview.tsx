@@ -135,6 +135,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           photos={pagePreviewPhotos(page.photoIds)}
           fullPage={page.fullPage}
           focus={page.fullPageFocus}
+          placement={page.placement}
         />
       );
     }
@@ -241,7 +242,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
                   ? (() => {
                       const page = pages.find((p) => p.id === leaf.pageId);
                       return page ? (
-                        <Thumb photos={pageThumbPhotos(page.photoIds)} layoutId={page.layoutId} whitespace={page.whitespace} bookSize={bookSize} fullPage={page.fullPage} focus={page.fullPageFocus} />
+                        <Thumb photos={pageThumbPhotos(page.photoIds)} layoutId={page.layoutId} whitespace={page.whitespace} bookSize={bookSize} fullPage={page.fullPage} focus={page.fullPageFocus} placement={page.placement} />
                       ) : null;
                     })()
                   : (() => {

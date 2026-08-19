@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { useView } from "../viewStore";
 import { ProjectMenu } from "./ProjectMenu";
 import { ThemeMenu } from "./ThemeMenu";
 import { SizeMenu } from "./SizeMenu";
@@ -9,6 +10,7 @@ import { BookPreview } from "./BookPreview";
 export function TopBar() {
   const fileRef = useRef<HTMLInputElement>(null);
   const { importFiles, photos } = useAlbum();
+  const { showGrid, toggleGrid } = useView();
   const [previewOpen, setPreviewOpen] = useState(false);
   const hasPhotos = photos.length > 0;
 
@@ -30,6 +32,21 @@ export function TopBar() {
       <ThemeMenu />
 
       <SizeMenu />
+
+      <button
+        onClick={toggleGrid}
+        aria-pressed={showGrid}
+        title={showGrid ? "Hide the page grid" : "Show the page grid"}
+        className={`inline-flex h-[32px] w-[34px] items-center justify-center rounded-lg border transition-colors ${
+          showGrid
+            ? "border-accent bg-accent-soft text-accent"
+            : "border-line-strong bg-surface-2 text-muted hover:border-faint hover:bg-surface"
+        }`}
+      >
+        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+          <path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18" />
+        </svg>
+      </button>
 
       <button
         onClick={() => fileRef.current?.click()}

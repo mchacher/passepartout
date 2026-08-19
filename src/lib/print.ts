@@ -10,9 +10,9 @@
 
 import { BLEED_MM, type BookSize } from "./book-sizes";
 import { computeLayout, whitespaceToDensity } from "./layout";
-import { resolveNode } from "./layouts";
+import { resolveCells } from "./layouts";
 import type { FontThemeId } from "./themes";
-import { DEFAULT_CROP_FOCUS, type CropFocus, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
 
 export const PT_PER_MM = 72 / 25.4;
 export const mmToPt = (mm: number) => mm * PT_PER_MM;
@@ -86,6 +86,8 @@ export interface PageInput {
   fullPage?: PageFill;
   /** Crop focus for `cover` full-page mode (defaults to centered). */
   focus?: CropFocus;
+  /** Custom grid placement (spec 013); overrides the named template when valid. */
+  placement?: CellRect[];
 }
 
 /** Geometry for one interior page (or an inside cover face rendered as a page). */
@@ -139,12 +141,11 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     h: trimH - topMargin - margin,
   };
 
-  const node = resolveNode(input.layoutId, input.items.length);
   const { cells } = computeLayout(
     input.items.map((i) => ({ ratio: i.ratio })),
     contentBox.w,
     contentBox.h,
-    node,
+    resolveCells(input.layoutId, input.items.length, input.placement),
     { density: whitespaceToDensity(input.whitespace) },
   );
 
@@ -252,7 +253,7 @@ function coverPanel(
       w: trimBox.w - 2 * margin,
       h: trimBox.h - headerBottom - 2 * margin,
     };
-    const { cells } = computeLayout([{ ratio: face.photo.ratio }], area.w, area.h, resolveNode("single", 1), {
+    const { cells } = computeLayout([{ ratio: face.photo.ratio }], area.w, area.h, resolveCells("single", 1), {
       density: whitespaceToDensity(face.whitespace),
     });
     const c = cells[0];

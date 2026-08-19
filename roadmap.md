@@ -18,14 +18,15 @@ designs live under `specs/`.
   pure engine, read-only (spec 011)
 - Full-page photos: per-page Fit (no crop) / Fill (crop) on single-photo pages, with a
   draggable crop focus for Fill; no-crop is the default (spec 012)
+- Grid layout substrate (spec 013, Phase A): the catalog rests on a fixed 12 x 12 grid
+  (templates are `CellRect`s); groundwork for free placement on the same model
 
 ## Requested (this round)
 
-1. **Free placement.** Let a photo be positioned freely on the page rather than only in
-   the fixed layout-template regions. This is a significant model change: today a page is
-   a `layoutId` (a nested split tree) and the engine derives regions from it. Free
-   placement means per-photo position/size on the page (a new placement model alongside,
-   or instead of, templates). Design carefully so it coexists with the existing layouts.
+1. **Free placement** (spec 013 Phase B). Let a photo be moved and resized on the page,
+   snapped to the 12 x 12 grid, writing a per-page `placement` that detaches from the
+   named template. Phase A shipped the grid substrate; this adds the editor. (Phase C,
+   later: adjustable grid resolution, overlaps, spanning a double-page spread.)
 
 2. **Image editing (crop / format / masks).**
    > ⚠️ **Direct tension with the founding rule.** The product's one rule is *"a photo's

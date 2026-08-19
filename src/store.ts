@@ -84,6 +84,11 @@ function syncLayout(page: AlbumPage): void {
   if (count !== 1 && page.fullPage !== undefined) {
     page.fullPage = undefined;
   }
+  // A custom grid placement is only valid with one rectangle per photo; drop a stale one
+  // so the page falls back to its named template (spec 013).
+  if (page.placement && page.placement.length !== count) {
+    page.placement = undefined;
+  }
 }
 
 // Revoke the object URLs of a set of photos before we drop or replace them, so we
@@ -649,8 +654,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPageLayout: (pageId, layoutId) => {
+      // Re-selecting a template re-attaches the page: any custom placement is cleared.
       set((s) => ({
-        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId } : pg)),
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId, placement: undefined } : pg)),
       }));
       scheduleSave();
     },
