@@ -34,6 +34,7 @@ src/
 │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
 │   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
+│   ├── preview.ts      # PURE book-preview helpers: booklet leaf order, spread pairing, fit-to-stage sizing
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
 └── components/
@@ -49,6 +50,8 @@ src/
     ├── ExportPanel.tsx # Export button: interior + cover-wrap PDF download (Blurb)
     ├── Paper.tsx       # Measures the page box, calls the engine, renders region cells
     ├── Thumb.tsx       # Faithful page/cover mini-render (reuses the engine, no crop)
+    ├── BookPreview.tsx # Full-screen read-only viewer: double-page spreads + thumbnail rail (spec 011)
+    ├── PreviewPaper.tsx# Read-only faithful leaf render for the preview (reuses the engine, no crop)
     ├── PageRail.tsx    # Right rail: page thumbnails, drag-to-reorder, click-to-scroll
     └── dnd.ts          # Shared drag-and-drop payload keys (photo + page)
 ```
@@ -225,6 +228,13 @@ Dragging whitespace never re-groups photos.
   its exact contain-fit box (never cropped), text as vector. Same math, different
   surface: this is why the engine is pure. `Thumb.tsx` is the same reuse at screen
   scale. A project-file export/import would build on `ProjectDoc` + the `images` blobs.
+- **Book preview** (shipped, spec 011): a full-screen, read-only viewer
+  (`BookPreview.tsx` + `PreviewPaper.tsx`) that reads the whole book in double-page
+  spreads. `src/lib/preview.ts` (pure) gives the booklet leaf order, the spread pairing
+  (cover single, then verso/recto), and `fitSpread` (largest page size that fills the
+  stage while keeping the page aspect). Each leaf reuses `computeLayout` exactly like
+  `Paper`, so the preview never crops. View state (open flag, spread index) is ephemeral
+  and lives in the component, not the store.
 - **Page order**: content pages are ordered by their index in the store's `pages`
   array (covers are separate `Cover` state, structurally fixed). `store.movePage`
   permutes that array; `PageRail` drives it by drag and drop. No new field: order is the

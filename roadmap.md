@@ -14,14 +14,12 @@ designs live under `specs/`.
 - Print-ready PDF export: cover wrap + interior, 300 DPI, sRGB, bleed; spine carries the
   title or title + subtitle (009)
 - Larger photos: tighter whitespace levers + photos maximized by default (spec 010)
+- In-app book preview: read-through in double-page spreads, thumbnail rail, reuses the
+  pure engine, read-only (spec 011)
 
 ## Requested (this round)
 
-1. **In-app book preview.** A read-through preview of the whole book inside the web
-   interface (turn/scroll the pages as they will print), distinct from the editor and
-   from the PDF. Reuses the same pure engine numbers as `Paper` / `Thumb` / `print.ts`.
-
-2. **Full-page photos.** A way to let a photo fill the whole page (edge to edge /
+1. **Full-page photos.** A way to let a photo fill the whole page (edge to edge /
    full-bleed), for the "one big photo per page" look.
    > **No-crop caveat.** A photo can only fill the *entire* page without cropping when
    > its ratio matches the page's; otherwise full-page means either cropping (conflicts
@@ -29,15 +27,15 @@ designs live under `specs/`.
    > to decide when this becomes a spec: (a) full-bleed only when the photo ratio is
    > close enough to the page, else contain-fit; (b) an explicit per-photo full-bleed opt-in
    > that accepts a crop (ties into item 5); (c) let the page adapt toward the photo's
-   > ratio. Related to the shipped "maximize photos" (010) and to free placement (3).
+   > ratio. Related to the shipped "maximize photos" (010) and to free placement (2).
 
-3. **Free placement.** Let a photo be positioned freely on the page rather than only in
+2. **Free placement.** Let a photo be positioned freely on the page rather than only in
    the fixed layout-template regions. This is a significant model change: today a page is
    a `layoutId` (a nested split tree) and the engine derives regions from it. Free
    placement means per-photo position/size on the page (a new placement model alongside,
    or instead of, templates). Design carefully so it coexists with the existing layouts.
 
-4. **Image editing (crop / format / masks).**
+3. **Image editing (crop / format / masks).**
    > ⚠️ **Direct tension with the founding rule.** The product's one rule is *"a photo's
    > aspect ratio is never changed and a photo is never clipped"* (see `CLAUDE.md`). Crop
    > and masks clip the photo; a forced format changes its ratio. Recording this as
