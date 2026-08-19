@@ -104,7 +104,7 @@ export function PageCard({ page, index }: PageCardProps) {
         )}
 
         {editing ? (
-          <span className="text-[11px] text-muted">Drag to move, corners to resize; use the buttons to layer or remove.</span>
+          <span className="text-[11px] text-muted">Click a photo to select it, then use its toolbar (crop, layer, remove). Drag to move, corners to resize.</span>
         ) : (
         <>
         {layouts.length > 1 && (
