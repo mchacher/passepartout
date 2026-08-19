@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { resolveNode, autoTemplate } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
+import { DEFAULT_CROP_FOCUS, type CropFocus, type PageFill } from "../types";
 
 // A read-only, faithful render of one book leaf (a page or a cover face) at an exact
 // pixel width, for the in-app book preview (spec 011). It reuses the pure layout engine
@@ -30,6 +31,8 @@ interface PagePreviewProps {
   layoutId: string;
   whitespace: number;
   photos: PreviewPhoto[];
+  fullPage?: PageFill;
+  focus?: CropFocus;
 }
 
 interface CoverPreviewProps {
@@ -60,7 +63,22 @@ export function PreviewPaper(props: PreviewPaperProps) {
 
 // A content page: title/subtitle header, photos placed by the engine, per-photo
 // captions. Blank when the page has no photos (a faithful blank printed page).
-function PageLeaf({ title, subtitle, layoutId, whitespace, photos, w, h }: PagePreviewProps & { w: number; h: number }) {
+function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, focus, w, h }: PagePreviewProps & { w: number; h: number }) {
+  // Full-page mode (spec 012): the single photo fills the page edge to edge, contained
+  // (Fit) or covered (Fill, cropped at the focus). No header/captions. Never distorted.
+  if (fullPage && photos.length === 1) {
+    const f = focus ?? DEFAULT_CROP_FOCUS;
+    return (
+      <img
+        src={photos[0].url}
+        alt=""
+        draggable={false}
+        className={`absolute inset-0 h-full w-full ${fullPage === "cover" ? "object-cover" : "object-contain"}`}
+        style={fullPage === "cover" ? { objectPosition: `${f.x * 100}% ${f.y * 100}%` } : undefined}
+      />
+    );
+  }
+
   const hasTitle = title.trim().length > 0;
   const hasSubtitle = subtitle.trim().length > 0;
   const hasHeader = hasTitle || hasSubtitle;

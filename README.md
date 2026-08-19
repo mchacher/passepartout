@@ -15,6 +15,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Per-page control**: choose 1 to 6 photos per page and exactly which photos, by drag and drop.
 - **Layouts**: pick an explicit arrangement per page (rows and grids); whitespace only scales the photos inside it, it never re-groups them.
 - **No cropping, ever**: aspect ratios are preserved to the pixel; a portrait stays portrait, a panorama stays panorama.
+- **Full-page photos**: give a single-photo page the big-photo look. Fit fills the page with no crop (paper bands where the ratio differs); Fill covers the whole page by cropping, and you drag the photo to choose the framing. No-crop stays the default.
 - **Assumed whitespace**: eight whitespace levels per page tune how much white surrounds the photos, from a full-region fill to airy.
 - **Projects that persist**: your work is saved locally in the browser and survives a refresh; keep several named albums and switch between them (new, rename, duplicate, delete).
 - **Complete booklet covers**: a front cover, its inside, the pages, the inside back, and the back cover, each with a title, a subtitle, and an optional photo (contained, never cropped).

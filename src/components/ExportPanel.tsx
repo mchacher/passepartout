@@ -69,6 +69,8 @@ export function ExportPanel() {
         subtitle: pg.subtitle,
         whitespace: pg.whitespace,
         layoutId: pg.layoutId,
+        fullPage: pg.fullPage,
+        focus: pg.fullPageFocus,
         items: pg.photoIds
           .map(photoById)
           .filter((p): p is Photo => p !== undefined)

@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
-import { type AlbumPage, type Photo } from "../types";
+import { DEFAULT_CROP_FOCUS, type AlbumPage, type PageFill, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity, type PlacedCell } from "../lib/layout";
 import { resolveNode } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
@@ -29,6 +29,10 @@ export function Paper({ page }: PaperProps) {
     .map((id) => photos.find((p) => p.id === id))
     .filter((p): p is Photo => p !== undefined);
 
+  // Full-page mode (spec 012): one photo owns the whole page, no header or captions.
+  // Effective only with exactly one photo (the store clears it otherwise).
+  const fullPage = page.fullPage && items.length === 1 ? page.fullPage : undefined;
+
   const measure = useCallback(() => {
     const el = innerRef.current;
     if (!el) return;
@@ -41,8 +45,9 @@ export function Paper({ page }: PaperProps) {
     const res = computeLayout(items, cw, ch, node, { density });
     setCells(res.cells);
     // items, density and layout are the real inputs; recomputed via the effect below.
+    // fullPage is included so toggling it re-attaches the observer to the (re)mounted box.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [density, layoutId, page.photoIds.join(","), aspect]);
+  }, [density, layoutId, page.photoIds.join(","), aspect, fullPage]);
 
   useLayoutEffect(() => {
     measure();
@@ -75,56 +80,62 @@ export function Paper({ page }: PaperProps) {
           if (id) placeOnPage(id, page.id);
         }}
       >
-        {hasHeader && (
-          <div className="pointer-events-none absolute inset-x-[7%] top-[5.4%] z-10 text-center">
-            {hasTitle && (
-              <div
-                className="font-album tracking-wide"
-                style={{ fontSize: "calc(clamp(13px, 3.1cqw, 19px) * var(--page-title-scale))", color: "var(--album-ink)" }}
-              >
-                {page.title.trim()}
+        {fullPage ? (
+          <FullPagePhoto page={page} photo={items[0]} mode={fullPage} onRemove={() => removeFromPage(items[0].id)} />
+        ) : (
+          <>
+            {hasHeader && (
+              <div className="pointer-events-none absolute inset-x-[7%] top-[5.4%] z-10 text-center">
+                {hasTitle && (
+                  <div
+                    className="font-album tracking-wide"
+                    style={{ fontSize: "calc(clamp(13px, 3.1cqw, 19px) * var(--page-title-scale))", color: "var(--album-ink)" }}
+                  >
+                    {page.title.trim()}
+                  </div>
+                )}
+                {hasSubtitle && (
+                  <div
+                    className="mt-[1%] font-album"
+                    style={{ fontSize: "calc(clamp(10px, 2.2cqw, 14px) * var(--page-subtitle-scale))", color: "var(--album-ink-soft)" }}
+                  >
+                    {page.subtitle.trim()}
+                  </div>
+                )}
               </div>
             )}
-            {hasSubtitle && (
-              <div
-                className="mt-[1%] font-album"
-                style={{ fontSize: "calc(clamp(10px, 2.2cqw, 14px) * var(--page-subtitle-scale))", color: "var(--album-ink-soft)" }}
-              >
-                {page.subtitle.trim()}
-              </div>
-            )}
-          </div>
-        )}
 
-        <div
-          ref={innerRef}
-          className="absolute inset-0"
-          style={{ padding: "5%", paddingTop: hasSubtitle ? "14%" : hasTitle ? "11%" : "5%" }}
-        >
-          {items.length === 0 ? (
-            <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">
-              Empty page. Drag photos here, or pick a number above.
-            </div>
-          ) : (
-            <div className="relative h-full w-full">
-              {cells.map((cell) => (
-                <div
-                  key={cell.item.id}
-                  className="absolute flex flex-col items-center justify-center"
-                  style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
-                >
-                  <Cell
-                    photo={cell.item}
-                    w={cell.w}
-                    h={cell.h}
-                    onRemove={() => removeFromPage(cell.item.id)}
-                    onCaption={(text) => setCaption(cell.item.id, text)}
-                  />
+            <div
+              ref={innerRef}
+              className="absolute inset-0"
+              style={{ padding: "5%", paddingTop: hasSubtitle ? "14%" : hasTitle ? "11%" : "5%" }}
+            >
+              {items.length === 0 ? (
+                <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">
+                  Empty page. Drag photos here, or pick a number above.
                 </div>
-              ))}
+              ) : (
+                <div className="relative h-full w-full">
+                  {cells.map((cell) => (
+                    <div
+                      key={cell.item.id}
+                      className="absolute flex flex-col items-center justify-center"
+                      style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
+                    >
+                      <Cell
+                        photo={cell.item}
+                        w={cell.w}
+                        h={cell.h}
+                        onRemove={() => removeFromPage(cell.item.id)}
+                        onCaption={(text) => setCaption(cell.item.id, text)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -187,6 +198,84 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
           }
         }}
       />
+    </div>
+  );
+}
+
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+interface FullPagePhotoProps {
+  page: AlbumPage;
+  photo: Photo;
+  mode: PageFill;
+  onRemove: () => void;
+}
+
+// A single photo owning the whole page (spec 012). `contain` (Fit) is letterboxed to the
+// page with no crop; `cover` (Fill) fills the page, cropped to the page ratio, and can be
+// dragged to reposition the crop focus along its overflowing axis. Neither ever distorts
+// the photo (object-fit keeps the ratio); only Fill clips.
+function FullPagePhoto({ page, photo, mode, onRemove }: FullPagePhotoProps) {
+  const { setPageFullPageFocus } = useAlbum();
+  const focus = page.fullPageFocus ?? DEFAULT_CROP_FOCUS;
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (mode !== "cover") return;
+    const el = boxRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const boxRatio = rect.width / rect.height;
+    // Under object-cover exactly one axis overflows; only that one can pan.
+    let overflowX = 0;
+    let overflowY = 0;
+    if (photo.ratio > boxRatio) {
+      overflowX = rect.height * photo.ratio - rect.width;
+    } else {
+      overflowY = rect.width / photo.ratio - rect.height;
+    }
+    if (overflowX <= 0 && overflowY <= 0) return; // ratio matches the page: nothing to pan
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const start = { ...focus };
+    // Dragging the photo one way reveals the opposite edge, so focus moves against the drag.
+    const onMove = (ev: PointerEvent) => {
+      const x = overflowX > 0 ? clamp01(start.x - (ev.clientX - startX) / overflowX) : start.x;
+      const y = overflowY > 0 ? clamp01(start.y - (ev.clientY - startY) / overflowY) : start.y;
+      setPageFullPageFocus(page.id, { x, y });
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  return (
+    <div ref={boxRef} className="group absolute inset-0">
+      <img
+        src={photo.url}
+        alt={photo.name}
+        draggable={false}
+        onPointerDown={onPointerDown}
+        className={`h-full w-full ${mode === "cover" ? "object-cover cursor-grab active:cursor-grabbing" : "object-contain"}`}
+        style={mode === "cover" ? { objectPosition: `${focus.x * 100}% ${focus.y * 100}%` } : undefined}
+      />
+      <button
+        onClick={onRemove}
+        title="Remove from page"
+        className="absolute right-2 top-2 z-20 hidden h-6 w-6 items-center justify-center rounded-full border-0 bg-ink text-[13px] leading-none text-paper shadow-soft group-hover:flex"
+      >
+        ×
+      </button>
+      {mode === "cover" && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 hidden justify-center group-hover:flex">
+          <span className="rounded-full bg-ink/70 px-2.5 py-1 text-[11px] text-paper">Drag to reposition</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -14,10 +14,19 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 // One album page: the control header (title, photo count, delete), a controls row
 // (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, deletePage } =
+  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, deletePage } =
     useAlbum();
   const count = page.photoIds.length;
   const layouts = layoutsForCount(count);
+  const isFullPage = page.fullPage !== undefined;
+
+  // Full-page choices for a single-photo page (spec 012). Off = normal page; Fit fills the
+  // page without cropping; Fill fills the page by cropping to the page ratio.
+  const fillOptions = [
+    { id: null, label: "Off", title: "Normal page" },
+    { id: "contain", label: "Fit", title: "Fill the page, never cropping" },
+    { id: "cover", label: "Fill", title: "Fill the page, cropping to fit" },
+  ] as const;
 
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface-2 shadow-soft">
@@ -99,8 +108,38 @@ export function PageCard({ page, index }: PageCardProps) {
           </div>
         )}
 
+        {/* Full page: only offered for a single-photo page. Fit never crops; Fill crops. */}
+        {count === 1 && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted">Page fill</span>
+            <div className="flex gap-0.5 rounded-lg border border-line bg-surface p-[3px]">
+              {fillOptions.map((o) => {
+                const active = (page.fullPage ?? null) === o.id;
+                return (
+                  <button
+                    key={o.label}
+                    onClick={() => setPageFullPage(page.id, o.id)}
+                    aria-pressed={active}
+                    title={o.title}
+                    className={`rounded-md px-2 py-[3px] text-[11.5px] transition-colors ${
+                      active ? "bg-accent text-white shadow-soft" : "text-muted hover:text-ink"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            {page.fullPage === "cover" && (
+              <span className="text-[10.5px] text-faint">drag the photo to reposition the crop</span>
+            )}
+          </div>
+        )}
+
         {/* Per-page whitespace, a slider snapped to discrete levels: 1 = least white
-            (photos fill their region), WHITESPACE_LEVELS = most white. */}
+            (photos fill their region), WHITESPACE_LEVELS = most white. Hidden at full
+            page, where the photo always fills the page. */}
+        {!isFullPage && (
         <label
           className="ml-auto flex items-center gap-2 text-[11px] text-muted"
           title={`Whitespace level ${page.whitespace} of ${WHITESPACE_LEVELS}`}
@@ -125,6 +164,7 @@ export function PageCard({ page, index }: PageCardProps) {
             {page.whitespace}/{WHITESPACE_LEVELS}
           </span>
         </label>
+        )}
       </div>
 
       <Paper page={page} />

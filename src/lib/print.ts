@@ -12,6 +12,7 @@ import { BLEED_MM, type BookSize } from "./book-sizes";
 import { computeLayout, whitespaceToDensity } from "./layout";
 import { resolveNode } from "./layouts";
 import type { FontThemeId } from "./themes";
+import { DEFAULT_CROP_FOCUS, type CropFocus, type PageFill } from "../types";
 
 export const PT_PER_MM = 72 / 25.4;
 export const mmToPt = (mm: number) => mm * PT_PER_MM;
@@ -25,13 +26,18 @@ export interface PtRect {
   h: number;
 }
 
-/** A placed photo box (already contain-fit, so w/h === the photo's ratio). */
+/** A placed photo box. Contain boxes are already contain-fit (w/h === the photo's ratio);
+ * a `cover` box is the full page and the painter crops the source to it at `focus`. */
 export interface PhotoBox {
   photoId: string;
   x: number;
   y: number;
   w: number;
   h: number;
+  /** True for a full-page Fill photo: the painter cover-crops the source into this box. */
+  cover?: boolean;
+  /** Crop focus for a `cover` box (defaults to centered). */
+  focus?: CropFocus;
 }
 
 /** A piece of text to draw, centered on `cx`, its top at `y`. */
@@ -76,6 +82,10 @@ export interface PageInput {
   subtitle: string;
   /** Per-role text-size multipliers (see text-sizes.ts). */
   scales: { pageTitle: number; pageSubtitle: number; caption: number };
+  /** Full-page mode for a single-photo page (spec 012); undefined = a normal page. */
+  fullPage?: PageFill;
+  /** Crop focus for `cover` full-page mode (defaults to centered). */
+  focus?: CropFocus;
 }
 
 /** Geometry for one interior page (or an inside cover face rendered as a page). */
@@ -86,6 +96,36 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
 
   const mediaBox: PtRect = { x: 0, y: 0, w: trimW + 2 * bleed, h: trimH + 2 * bleed };
   const trimBox: PtRect = { x: bleed, y: bleed, w: trimW, h: trimH };
+
+  // Full-page photo (spec 012): the single photo owns the whole media box (into the bleed)
+  // and there is no page text. Contain keeps the ratio (paper bands where it differs);
+  // cover fills the box and is cropped by the painter. Never distorted either way.
+  const one = input.items[0];
+  if (input.fullPage && input.items.length === 1 && one) {
+    let photo: PhotoBox;
+    if (input.fullPage === "cover") {
+      photo = {
+        photoId: one.photoId,
+        x: 0,
+        y: 0,
+        w: mediaBox.w,
+        h: mediaBox.h,
+        cover: true,
+        focus: input.focus ?? DEFAULT_CROP_FOCUS,
+      };
+    } else {
+      const boxH = Math.min(mediaBox.h, mediaBox.w / one.ratio);
+      const boxW = boxH * one.ratio;
+      photo = {
+        photoId: one.photoId,
+        x: (mediaBox.w - boxW) / 2,
+        y: (mediaBox.h - boxH) / 2,
+        w: boxW,
+        h: boxH,
+      };
+    }
+    return { mediaBox, trimBox, contentBox: { ...mediaBox }, photos: [photo], title: null, subtitle: null, captions: [] };
+  }
 
   const hasTitle = input.title.trim().length > 0;
   const hasSubtitle = input.subtitle.trim().length > 0;

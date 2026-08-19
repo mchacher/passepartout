@@ -13,6 +13,21 @@ export interface Photo {
   pageId: string | null; // null = still in the library, not placed
 }
 
+// Full-page mode for a single-photo page (spec 012). `contain` (Fit) maximizes the photo
+// to the page edges without ever cropping (paper bands where the ratio differs). `cover`
+// (Fill) crops the photo to the page ratio to cover all four edges. `contain` keeps the
+// founding no-crop rule; `cover` is the one explicit, opt-in clip.
+export type PageFill = "contain" | "cover";
+
+// Normalized crop focus for a `cover` full-page photo: which part of the photo stays
+// visible. Each axis is 0..1 (0 = left/top edge kept, 1 = right/bottom, 0.5 = centered).
+// Only the overflowing axis has any effect. The ratio is never changed; only the overflow
+// is clipped.
+export interface CropFocus {
+  x: number;
+  y: number;
+}
+
 export interface AlbumPage {
   id: string;
   title: string;
@@ -20,6 +35,11 @@ export interface AlbumPage {
   photoIds: string[];
   whitespace: number; // per-page whitespace level, 1 (least white) .. WHITESPACE_LEVELS (most)
   layoutId: string; // which arrangement template (see src/lib/layouts.ts) is applied
+  // Full-page photo mode (spec 012). Undefined = a normal page. Effective only when the
+  // page holds exactly one photo; cleared when the count leaves 1.
+  fullPage?: PageFill;
+  // Crop focus for `cover` full-page mode; defaults to centered when absent.
+  fullPageFocus?: CropFocus;
 }
 
 // A booklet cover face: text plus one optional photo chosen from the library. The
@@ -57,6 +77,9 @@ export const DEFAULT_WHITESPACE = 1;
 
 // The layout a page falls back to before any photos land on it (a single slot).
 export const DEFAULT_LAYOUT_ID = "single";
+
+// The crop focus a `cover` full-page photo starts with: centered (a symmetric crop).
+export const DEFAULT_CROP_FOCUS: CropFocus = { x: 0.5, y: 0.5 };
 
 // Name a fresh project is created with (see src/lib/project.ts).
 export const DEFAULT_PROJECT_NAME = "Untitled";

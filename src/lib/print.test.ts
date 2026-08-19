@@ -92,6 +92,83 @@ describe("interiorPageGeometry", () => {
   });
 });
 
+describe("interiorPageGeometry - full page (spec 012)", () => {
+  const pageRatio = trimW / trimH; // portrait 8x10 -> < 1
+
+  it("contain: maximizes one photo inside the media box, ratio intact, no text", () => {
+    const g = interiorPageGeometry(
+      pageInput([{ photoId: "a", ratio: 1.5, caption: "cap" }], "single", {
+        fullPage: "contain",
+        title: "T",
+        subtitle: "S",
+      }),
+    );
+    expect(g.photos).toHaveLength(1);
+    const p = g.photos[0];
+    expect(p.w / p.h).toBeCloseTo(1.5, 6); // ratio preserved
+    expect(p.cover).toBeFalsy();
+    // Inside the media box (into the bleed), never overflowing.
+    expect(p.x).toBeGreaterThanOrEqual(-1e-6);
+    expect(p.y).toBeGreaterThanOrEqual(-1e-6);
+    expect(p.x + p.w).toBeLessThanOrEqual(g.mediaBox.w + 1e-6);
+    expect(p.y + p.h).toBeLessThanOrEqual(g.mediaBox.h + 1e-6);
+    // Maximized: it touches a media-box edge on its constraining axis.
+    const touchesW = Math.abs(p.w - g.mediaBox.w) < 1e-6;
+    const touchesH = Math.abs(p.h - g.mediaBox.h) < 1e-6;
+    expect(touchesW || touchesH).toBe(true);
+    // No page text in full-page mode.
+    expect(g.title).toBeNull();
+    expect(g.subtitle).toBeNull();
+    expect(g.captions).toHaveLength(0);
+  });
+
+  it("contain: a photo matching the page ratio covers the full trim (true bleed)", () => {
+    const g = interiorPageGeometry(
+      pageInput([{ photoId: "a", ratio: pageRatio, caption: "" }], "single", { fullPage: "contain" }),
+    );
+    const p = g.photos[0];
+    expect(p.w / p.h).toBeCloseTo(pageRatio, 6); // ratio preserved
+    // It reaches into the bleed (touches a media-box edge) and fully covers the trim, so
+    // the trimmed book shows no paper band. (The tiny slack sits in the bleed.)
+    const t = g.trimBox;
+    expect(p.x).toBeLessThanOrEqual(t.x + 1e-6);
+    expect(p.y).toBeLessThanOrEqual(t.y + 1e-6);
+    expect(p.x + p.w).toBeGreaterThanOrEqual(t.x + t.w - 1e-6);
+    expect(p.y + p.h).toBeGreaterThanOrEqual(t.y + t.h - 1e-6);
+  });
+
+  it("cover: the photo box is the whole media box, flagged cover, carrying the focus", () => {
+    const focus = { x: 0.2, y: 0.8 };
+    const g = interiorPageGeometry(
+      pageInput([{ photoId: "a", ratio: 2, caption: "" }], "single", { fullPage: "cover", focus }),
+    );
+    const p = g.photos[0];
+    expect(p).toMatchObject({ x: 0, y: 0, cover: true, focus });
+    expect(p.w).toBeCloseTo(g.mediaBox.w, 5);
+    expect(p.h).toBeCloseTo(g.mediaBox.h, 5);
+    expect(g.title).toBeNull();
+    expect(g.captions).toHaveLength(0);
+  });
+
+  it("cover: defaults the focus to centered when none is given", () => {
+    const g = interiorPageGeometry(
+      pageInput([{ photoId: "a", ratio: 2, caption: "" }], "single", { fullPage: "cover" }),
+    );
+    expect(g.photos[0].focus).toEqual({ x: 0.5, y: 0.5 });
+  });
+
+  it("ignores full page unless there is exactly one photo", () => {
+    const items = [
+      { photoId: "a", ratio: 1, caption: "" },
+      { photoId: "b", ratio: 1, caption: "" },
+    ];
+    const g = interiorPageGeometry(pageInput(items, "two-row", { fullPage: "cover" }));
+    // Falls back to the normal two-photo layout inside the trim content box.
+    expect(g.photos).toHaveLength(2);
+    expect(g.photos.every((p) => !p.cover)).toBe(true);
+  });
+});
+
 describe("coverWrapGeometry", () => {
   const face = (photoId: string | null) => ({
     title: "Summer",

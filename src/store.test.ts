@@ -126,6 +126,41 @@ describe("store layout sync", () => {
   });
 });
 
+describe("store full-page mode (spec 012)", () => {
+  const fullPageOf = (pageId: string) =>
+    useAlbum.getState().pages.find((p) => p.id === pageId)!.fullPage;
+
+  it("setPageFullPage sets and clears the mode on the target page only", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", "p2")],
+      pages: [page("p1", ["a"], "single"), page("p2", ["b"], "single")],
+    });
+    useAlbum.getState().setPageFullPage("p1", "cover");
+    expect(fullPageOf("p1")).toBe("cover");
+    expect(fullPageOf("p2")).toBeUndefined(); // other page untouched
+    useAlbum.getState().setPageFullPage("p1", null);
+    expect(fullPageOf("p1")).toBeUndefined();
+  });
+
+  it("setPageFullPageFocus clamps each axis to [0,1]", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1")],
+      pages: [page("p1", ["a"], "single")],
+    });
+    useAlbum.getState().setPageFullPageFocus("p1", { x: 2, y: -1 });
+    expect(useAlbum.getState().pages[0].fullPageFocus).toEqual({ x: 1, y: 0 });
+  });
+
+  it("clears full-page mode when the page stops holding exactly one photo", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", null)],
+      pages: [{ ...page("p1", ["a"], "single"), fullPage: "cover" }],
+    });
+    useAlbum.getState().placeOnPage("b", "p1"); // now 2 photos
+    expect(fullPageOf("p1")).toBeUndefined();
+  });
+});
+
 describe("store page reorder", () => {
   const ids = () => useAlbum.getState().pages.map((p) => p.id);
 
