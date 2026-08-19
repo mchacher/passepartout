@@ -40,6 +40,11 @@ export interface CellRect {
   // front. Templates omit it (no overlap); the layout engine ignores it (geometry only);
   // renderers and the print painter use it to layer overlapping cells (see drawOrder).
   z?: number;
+  // Where the contain-fit photo sits inside its cell's free space (spec 013 Phase B):
+  // ax/ay in 0..1 (0 = left/top edge, 0.5 = centered, 1 = right/bottom). Only the axis
+  // that has whitespace moves; the photo is never cropped, just repositioned. Default 0.5.
+  ax?: number;
+  ay?: number;
 }
 
 export interface AlbumPage {

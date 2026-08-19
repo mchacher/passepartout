@@ -233,9 +233,11 @@ Dragging whitespace never re-groups photos.
   resize it, snapped to the grid (`src/lib/grid-edit.ts`, pure), writing `page.placement`
   via `store.setPagePlacement`. Overlap is allowed; a per-cell `z` (front/back) drives a
   pure `drawOrder(cells)` that `Paper` / `Thumb` / `PreviewPaper` / `print.ts` all paint
-  in, so layers match everywhere. The first edit detaches the page from its template;
-  `removeFromPage` / `placeOnPage` reconcile `placement` by index. The engine is unchanged
-  (still contain-fit, no crop).
+  in, so layers match everywhere. Shift-dragging pans the contain-fit photo within its
+  cell's whitespace (a per-cell anchor `ax/ay`; the engine returns the photo's `ox/oy`
+  offset in `PlacedCell`), never cropping. The first edit detaches the page from its
+  template; `removeFromPage` / `placeOnPage` reconcile `placement` by index. The engine is
+  unchanged in spirit (still contain-fit, no crop; it now also returns the anchored offset).
 - **A new text role or size level**: extend `TEXT_ROLES` / `TEXT_SIZE_LEVELS` in
   `src/lib/text-sizes.ts` and add the matching `--<role>-scale` var to the text site.
   `ThemeMenu` renders the new row/level automatically.

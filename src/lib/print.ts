@@ -157,9 +157,9 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
   for (const i of drawOrder(gridCells)) {
     const c = cells[i];
     if (!c) continue;
-    // Center the photo in its region, exactly like Paper's flex centering.
-    const x = contentBox.x + c.rx + (c.rw - c.w) / 2;
-    const y = contentBox.y + c.ry + (c.rh - c.h) / 2;
+    // Position the photo in its region by the cell's anchor (ox/oy), like Paper.
+    const x = contentBox.x + c.rx + c.ox;
+    const y = contentBox.y + c.ry + c.oy;
     photos.push({ photoId: input.items[i].photoId, x, y, w: c.w, h: c.h });
     const caption = input.items[i].caption.trim();
     if (caption) {

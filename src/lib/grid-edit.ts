@@ -7,6 +7,17 @@ import type { CellRect } from "../types";
 import { GRID_COLS, GRID_ROWS } from "./layouts";
 
 const clampInt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+/**
+ * New photo anchor (0..1) after dragging by `dPx` within a cell whose free space on that
+ * axis is `freePx` (region size minus the contain-fit photo size). The photo follows the
+ * cursor; when there is no free space (the photo fills that axis) the anchor cannot move.
+ */
+export function panAnchor(startA: number, dPx: number, freePx: number): number {
+  if (freePx <= 0) return clamp01(startA);
+  return clamp01(startA + dPx / freePx);
+}
 
 /** Translate a cell by whole grid units, clamped so it stays fully inside the grid. */
 export function moveCell(rect: CellRect, dCol: number, dRow: number): CellRect {

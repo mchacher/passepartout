@@ -27,6 +27,9 @@ framing. Overlap draws one contained photo over another; neither is cropped.
 
 - An "Edit layout" toggle per page; in that mode, move a photo (drag its body) and resize
   it (drag a corner handle), snapped to grid units, min 1 x 1, kept inside the grid.
+- **Pan the photo inside its cell** (Shift-drag, hand cursor): the contain-fit photo is
+  repositioned within its cell's whitespace (a per-cell anchor `ax/ay`), never cropped.
+  Only the axis that has whitespace moves.
 - Overlap allowed; per-photo **bring to front / send to back** sets a stacking order used
   by every renderer and the print export.
 - Editing detaches the page: the first edit seeds `page.placement` from the currently

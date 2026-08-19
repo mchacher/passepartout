@@ -133,10 +133,13 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
             return (
               <div
                 key={photo.id}
-                className="absolute flex flex-col items-center justify-center"
+                className="absolute"
                 style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
               >
-                <div className="flex flex-col items-center gap-[5px]">
+                <div
+                  className="absolute flex flex-col items-center gap-[5px]"
+                  style={{ left: cell.ox, top: cell.oy, width: cell.w }}
+                >
                   <img
                     src={photo.url}
                     alt=""

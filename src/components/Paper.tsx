@@ -3,7 +3,7 @@ import { useAlbum } from "../store";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells, GRID_COLS, GRID_ROWS } from "../lib/layouts";
-import { moveCell, resizeCell, restack, type Corner } from "../lib/grid-edit";
+import { moveCell, resizeCell, restack, panAnchor, type Corner } from "../lib/grid-edit";
 import { useView } from "../viewStore";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
@@ -77,8 +77,9 @@ export function Paper({ page, editing = false }: PaperProps) {
     return () => ro.disconnect();
   }, [measure]);
 
-  // Drag a cell (move its body or resize a corner) by whole grid units; commit on release.
-  const beginDrag = (e: React.PointerEvent, index: number, mode: "move" | "resize", corner?: Corner) => {
+  // Drag a cell: move its body, resize a corner (both snap to grid units), or pan the
+  // photo within its cell's whitespace (Shift, no crop). Commit on release.
+  const beginDrag = (e: React.PointerEvent, index: number, mode: "move" | "resize" | "pan", corner?: Corner) => {
     if (!editCells || box.w <= 0 || box.h <= 0) return;
     e.preventDefault();
     e.stopPropagation();
@@ -88,12 +89,25 @@ export function Paper({ page, editing = false }: PaperProps) {
     const startY = e.clientY;
     const start = editCells[index];
     const base = editCells;
+    // Free space (region minus contain-fit photo) for a pan; the photo never leaves its cell.
+    const pc = placed[index];
+    const freeX = pc ? pc.rw - pc.w : 0;
+    const freeY = pc ? pc.rh - pc.h : 0;
     workingRef.current = base;
     let moved = false;
     const onMove = (ev: PointerEvent) => {
-      const dCol = Math.round((ev.clientX - startX) / unitW);
-      const dRow = Math.round((ev.clientY - startY) / unitH);
-      const nextRect = mode === "move" ? moveCell(start, dCol, dRow) : resizeCell(start, corner!, dCol, dRow);
+      let nextRect = start;
+      if (mode === "move") {
+        nextRect = moveCell(start, Math.round((ev.clientX - startX) / unitW), Math.round((ev.clientY - startY) / unitH));
+      } else if (mode === "resize") {
+        nextRect = resizeCell(start, corner!, Math.round((ev.clientX - startX) / unitW), Math.round((ev.clientY - startY) / unitH));
+      } else {
+        nextRect = {
+          ...start,
+          ax: panAnchor(start.ax ?? 0.5, ev.clientX - startX, freeX),
+          ay: panAnchor(start.ay ?? 0.5, ev.clientY - startY, freeY),
+        };
+      }
       const next = base.map((c, i) => (i === index ? nextRect : c));
       workingRef.current = next;
       moved = true;
@@ -114,6 +128,20 @@ export function Paper({ page, editing = false }: PaperProps) {
     setEditCells(next);
     setPagePlacement(page.id, next);
   };
+
+  // Hold Shift while editing to pan a photo inside its cell (hand cursor).
+  const [shiftHeld, setShiftHeld] = useState(false);
+  useEffect(() => {
+    if (!canEdit) return;
+    const onKey = (e: KeyboardEvent) => setShiftHeld(e.shiftKey);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      setShiftHeld(false);
+    };
+  }, [canEdit]);
 
   const gridVisible = showGrid || canEdit;
 
@@ -182,7 +210,7 @@ export function Paper({ page, editing = false }: PaperProps) {
                     return (
                       <div
                         key={cell.item.id}
-                        className="absolute flex flex-col items-center justify-center"
+                        className="absolute"
                         style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
                       >
                         {canEdit ? (
@@ -190,20 +218,25 @@ export function Paper({ page, editing = false }: PaperProps) {
                             photo={cell.item}
                             w={cell.w}
                             h={cell.h}
-                            onMoveDown={(e) => beginDrag(e, idx, "move")}
+                            ox={cell.ox}
+                            oy={cell.oy}
+                            panHint={shiftHeld}
+                            onMoveDown={(e) => beginDrag(e, idx, e.shiftKey ? "pan" : "move")}
                             onResizeDown={(e, corner) => beginDrag(e, idx, "resize", corner)}
                             onFront={() => restackCell(idx, "front")}
                             onBack={() => restackCell(idx, "back")}
                             onRemove={() => removeFromPage(cell.item.id)}
                           />
                         ) : (
-                          <Cell
-                            photo={cell.item}
-                            w={cell.w}
-                            h={cell.h}
-                            onRemove={() => removeFromPage(cell.item.id)}
-                            onCaption={(text) => setCaption(cell.item.id, text)}
-                          />
+                          <div className="absolute" style={{ left: cell.ox, top: cell.oy, width: cell.w }}>
+                            <Cell
+                              photo={cell.item}
+                              w={cell.w}
+                              h={cell.h}
+                              onRemove={() => removeFromPage(cell.item.id)}
+                              onCaption={(text) => setCaption(cell.item.id, text)}
+                            />
+                          </div>
                         )}
                       </div>
                     );
@@ -291,6 +324,9 @@ interface EditCellProps {
   photo: Photo;
   w: number;
   h: number;
+  ox: number;
+  oy: number;
+  panHint: boolean;
   onMoveDown: (e: React.PointerEvent) => void;
   onResizeDown: (e: React.PointerEvent, corner: Corner) => void;
   onFront: () => void;
@@ -299,18 +335,21 @@ interface EditCellProps {
 }
 
 // A cell in "Edit layout" mode (spec 013 Phase B): fills its grid region, drag the body to
-// move, drag a corner to resize (snapped to the grid), and restack / remove from a small
-// toolbar. The photo stays contain-fit (never cropped); only the cell rectangle changes.
-function EditCell({ photo, w, h, onMoveDown, onResizeDown, onFront, onBack, onRemove }: EditCellProps) {
+// move, drag a corner to resize (snapped to the grid), Shift-drag to pan the photo inside
+// its cell's whitespace, and restack / remove from a small toolbar. The photo stays
+// contain-fit (never cropped); only the cell rectangle and the photo's anchor change.
+function EditCell({ photo, w, h, ox, oy, panHint, onMoveDown, onResizeDown, onFront, onBack, onRemove }: EditCellProps) {
   const stop = (e: React.PointerEvent) => e.stopPropagation();
   const toolBtn =
     "flex h-5 w-5 items-center justify-center rounded border-0 bg-ink/80 text-[12px] leading-none text-paper hover:bg-ink";
   return (
     <div
-      className="group absolute inset-0 cursor-move touch-none select-none rounded-[2px] ring-1 ring-accent/50 hover:ring-accent"
+      className={`group absolute inset-0 touch-none select-none rounded-[2px] ring-1 ring-accent/50 hover:ring-accent ${
+        panHint ? "cursor-grab active:cursor-grabbing" : "cursor-move"
+      }`}
       onPointerDown={onMoveDown}
     >
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div className="pointer-events-none absolute" style={{ left: `${ox}px`, top: `${oy}px`, width: `${w}px`, height: `${h}px` }}>
         <img
           src={photo.url}
           alt={photo.name}

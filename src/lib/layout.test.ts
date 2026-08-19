@@ -168,6 +168,24 @@ describe("computeLayout", () => {
     expect(cells[0].rw).toBeGreaterThan(cells[2].rw);
   });
 
+  it("centers the contained photo in its region by default", () => {
+    const c = computeLayout([item(2)], 600, 600, cellsOf("single"), { density: 100 }).cells[0];
+    // A ratio-2 photo in a square region is full width, half height -> whitespace top/bottom.
+    expect(c.ox).toBeCloseTo((c.rw - c.w) / 2, 4);
+    expect(c.oy).toBeCloseTo((c.rh - c.h) / 2, 4);
+  });
+
+  it("anchors the contained photo within its cell's free space (ay), never cropping", () => {
+    const cellAt = (ay: number): CellRect => ({ col: 0, row: 0, colSpan: 12, rowSpan: 12, ay });
+    const top = computeLayout([item(2)], 600, 600, [cellAt(0)], { density: 100 }).cells[0];
+    const bot = computeLayout([item(2)], 600, 600, [cellAt(1)], { density: 100 }).cells[0];
+    expect(top.oy).toBeCloseTo(0, 4); // flush to the top
+    expect(bot.oy).toBeCloseTo(bot.rh - bot.h, 4); // flush to the bottom
+    // Still fully inside the region (contained, not cropped) and ratio intact.
+    expect(bot.oy + bot.h).toBeLessThanOrEqual(bot.rh + 1e-6);
+    expect(top.w / top.h).toBeCloseTo(2, 6);
+  });
+
   it("makes a single full-grid cell fill the whole content box", () => {
     const c = computeLayout([item(1)], 640, 480, cellsOf("single"), { density: 50 }).cells[0];
     expect(c.rx).toBeCloseTo(0, 6);

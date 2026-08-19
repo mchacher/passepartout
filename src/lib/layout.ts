@@ -32,6 +32,10 @@ export interface PlacedCell<T extends LayoutItem> {
   // The photo box, contain-fit and scaled by density. Always w / h === item.ratio.
   w: number;
   h: number;
+  // The photo box's top-left offset inside its region, from the cell's anchor (ax/ay).
+  // Defaults to centered; the photo always stays fully inside the region (no crop).
+  ox: number;
+  oy: number;
 }
 
 export interface LayoutResult<T extends LayoutItem> {
@@ -129,7 +133,21 @@ export function computeLayout<T extends LayoutItem>(
     // Contain-fit the ratio inside the region, then scale by the fill fraction.
     const boxH = Math.min(r.h, r.w / item.ratio) * fill;
     const boxW = boxH * item.ratio;
-    placed.push({ item, rx: r.x, ry: r.y, rw: r.w, rh: r.h, w: boxW, h: boxH });
+    // Position the photo in the region by the cell's anchor (default centered). It always
+    // fits (boxW <= r.w, boxH <= r.h), so the anchor only shifts it within the whitespace.
+    const ax = clamp(cells[i].ax ?? 0.5, 0, 1);
+    const ay = clamp(cells[i].ay ?? 0.5, 0, 1);
+    placed.push({
+      item,
+      rx: r.x,
+      ry: r.y,
+      rw: r.w,
+      rh: r.h,
+      w: boxW,
+      h: boxH,
+      ox: (r.w - boxW) * ax,
+      oy: (r.h - boxH) * ay,
+    });
   }
 
   return { cells: placed };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { moveCell, resizeCell, restack } from "./grid-edit";
+import { moveCell, resizeCell, restack, panAnchor } from "./grid-edit";
 import type { CellRect } from "../types";
 
 const cell = (col: number, row: number, colSpan: number, rowSpan: number): CellRect => ({
@@ -65,5 +65,21 @@ describe("restack", () => {
 
   it("is a no-op for an out-of-range index", () => {
     expect(restack(cells, 9, "front")).toBe(cells);
+  });
+});
+
+describe("panAnchor", () => {
+  it("moves the anchor with the drag, scaled by the free space", () => {
+    expect(panAnchor(0.5, 40, 200)).toBeCloseTo(0.7, 6); // +40/200 = +0.2
+    expect(panAnchor(0.5, -100, 200)).toBeCloseTo(0, 6); // -0.5, clamped to 0
+  });
+
+  it("clamps to [0,1]", () => {
+    expect(panAnchor(0.9, 500, 200)).toBe(1);
+    expect(panAnchor(0.1, -500, 200)).toBe(0);
+  });
+
+  it("cannot move when the axis has no free space", () => {
+    expect(panAnchor(0.3, 100, 0)).toBe(0.3);
   });
 });

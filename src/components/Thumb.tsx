@@ -74,7 +74,7 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
           return (
             <div
               key={photos[i].id}
-              className="absolute flex items-center justify-center"
+              className="absolute"
               style={{
                 left: `${(c.rx / NW) * 100}%`,
                 top: `${(c.ry / NH) * 100}%`,
@@ -86,8 +86,13 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
                 src={photos[i].url}
                 alt=""
                 draggable={false}
-                style={{ width: `${(c.w / c.rw) * 100}%`, height: `${(c.h / c.rh) * 100}%` }}
-                className="block"
+                style={{
+                  left: `${(c.ox / c.rw) * 100}%`,
+                  top: `${(c.oy / c.rh) * 100}%`,
+                  width: `${(c.w / c.rw) * 100}%`,
+                  height: `${(c.h / c.rh) * 100}%`,
+                }}
+                className="absolute block"
               />
             </div>
           );
