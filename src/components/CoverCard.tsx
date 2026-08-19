@@ -2,6 +2,8 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
+import { effectiveRatio } from "../lib/crop";
+import { CroppedImg } from "./CroppedImg";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
@@ -49,7 +51,7 @@ export function CoverCard({ which }: CoverCardProps) {
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
     const res = computeLayout(
-      [{ ratio: photo.ratio }],
+      [{ ratio: effectiveRatio(photo.ratio, photo.crop) }],
       cw,
       ch,
       resolveCells("single", 1),
@@ -181,12 +183,7 @@ function CoverPhoto({ photo, w, h, onRemove }: CoverPhotoProps) {
       >
         ×
       </button>
-      <img
-        src={photo.url}
-        alt={photo.name}
-        style={{ width: `${w}px`, height: `${h}px` }}
-        className="block rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]"
-      />
+      <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
     </div>
   );
 }

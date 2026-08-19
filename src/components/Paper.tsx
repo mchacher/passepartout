@@ -4,8 +4,11 @@ import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type 
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells, GRID_COLS, GRID_ROWS } from "../lib/layouts";
 import { moveCell, resizeCell, restack, panAnchor, snapAnchor, type Corner } from "../lib/grid-edit";
+import { effectiveRatio } from "../lib/crop";
 import { useView } from "../viewStore";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
+import { CroppedImg } from "./CroppedImg";
+import { CropEditor } from "./CropEditor";
 import { PHOTO_DND_TYPE } from "./dnd";
 
 interface PaperProps {
@@ -19,7 +22,9 @@ interface PaperProps {
 // each photo is contain-fit in its region. In edit mode the cells become draggable /
 // resizable on the grid (writing the page's custom placement).
 export function Paper({ page, editing = false }: PaperProps) {
-  const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement } = useAlbum();
+  const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement, setPhotoCrop } = useAlbum();
+  // The photo id being cropped (spec 015), or null. Opens the crop editor overlay.
+  const [cropping, setCropping] = useState<string | null>(null);
   const showGrid = useView((s) => s.showGrid);
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const density = whitespaceToDensity(page.whitespace);
@@ -51,10 +56,15 @@ export function Paper({ page, editing = false }: PaperProps) {
 
   const gridCells = editCells ?? resolveCells(layoutId, items.length, page.placement);
   const gridKey = JSON.stringify(gridCells);
+  // The engine lays out by each photo's EFFECTIVE ratio (its crop's ratio; spec 015), so a
+  // cropped photo re-fits its cell as a photo of the kept region. The cell item keeps the
+  // Photo fields (url/crop) for rendering.
+  const engineItems = items.map((p) => ({ ...p, ratio: effectiveRatio(p.ratio, p.crop) }));
+  const cropKey = items.map((p) => (p.crop ? `${p.crop.x},${p.crop.y},${p.crop.w},${p.crop.h}` : "-")).join("|");
   const placed = useMemo(
-    () => computeLayout(items, box.w, box.h, gridCells, { density }).cells,
+    () => computeLayout(engineItems, box.w, box.h, gridCells, { density }).cells,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [box.w, box.h, density, page.photoIds.join(","), gridKey],
+    [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey],
   );
   const order = useMemo(() => drawOrder(gridCells), [gridKey]);
 
@@ -223,6 +233,7 @@ export function Paper({ page, editing = false }: PaperProps) {
                             panHint={shiftHeld}
                             onMoveDown={(e) => beginDrag(e, idx, e.shiftKey ? "pan" : "move")}
                             onResizeDown={(e, corner) => beginDrag(e, idx, "resize", corner)}
+                            onCrop={() => setCropping(cell.item.id)}
                             onFront={() => restackCell(idx, "front")}
                             onBack={() => restackCell(idx, "back")}
                             onRemove={() => removeFromPage(cell.item.id)}
@@ -247,6 +258,22 @@ export function Paper({ page, editing = false }: PaperProps) {
           </>
         )}
       </div>
+
+      {cropping &&
+        (() => {
+          const p = photos.find((ph) => ph.id === cropping);
+          if (!p) return null;
+          return (
+            <CropEditor
+              photo={p}
+              onApply={(crop) => {
+                setPhotoCrop(p.id, crop);
+                setCropping(null);
+              }}
+              onClose={() => setCropping(null)}
+            />
+          );
+        })()}
     </div>
   );
 }
@@ -277,17 +304,15 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
       >
         ×
       </button>
-      <img
-        src={photo.url}
-        alt={photo.name}
+      <div
         draggable
         onDragStart={(e) => {
           e.dataTransfer.setData(PHOTO_DND_TYPE, photo.id);
           e.dataTransfer.effectAllowed = "move";
         }}
-        style={{ width: `${w}px`, height: `${h}px` }}
-        className="block rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]"
-      />
+      >
+        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+      </div>
       <div
         ref={capRef}
         className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center font-album leading-tight outline-none"
@@ -329,6 +354,7 @@ interface EditCellProps {
   panHint: boolean;
   onMoveDown: (e: React.PointerEvent) => void;
   onResizeDown: (e: React.PointerEvent, corner: Corner) => void;
+  onCrop: () => void;
   onFront: () => void;
   onBack: () => void;
   onRemove: () => void;
@@ -336,9 +362,9 @@ interface EditCellProps {
 
 // A cell in "Edit layout" mode (spec 013 Phase B): fills its grid region, drag the body to
 // move, drag a corner to resize (snapped to the grid), Shift-drag to pan the photo inside
-// its cell's whitespace, and restack / remove from a small toolbar. The photo stays
-// contain-fit (never cropped); only the cell rectangle and the photo's anchor change.
-function EditCell({ photo, w, h, ox, oy, panHint, onMoveDown, onResizeDown, onFront, onBack, onRemove }: EditCellProps) {
+// its cell's whitespace, Crop the photo (spec 015), and restack / remove from a small
+// toolbar. The photo stays contain-fit unless the user crops it in the crop editor.
+function EditCell({ photo, w, h, ox, oy, panHint, onMoveDown, onResizeDown, onCrop, onFront, onBack, onRemove }: EditCellProps) {
   const stop = (e: React.PointerEvent) => e.stopPropagation();
   const toolBtn =
     "flex h-5 w-5 items-center justify-center rounded border-0 bg-ink/80 text-[12px] leading-none text-paper hover:bg-ink";
@@ -349,23 +375,22 @@ function EditCell({ photo, w, h, ox, oy, panHint, onMoveDown, onResizeDown, onFr
       }`}
       onPointerDown={onMoveDown}
     >
-      <div className="pointer-events-none absolute" style={{ left: `${ox}px`, top: `${oy}px`, width: `${w}px`, height: `${h}px` }}>
-        <img
-          src={photo.url}
-          alt={photo.name}
-          draggable={false}
-          style={{ width: `${w}px`, height: `${h}px` }}
-          className="block rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]"
-        />
+      <div className="pointer-events-none absolute" style={{ left: `${ox}px`, top: `${oy}px` }}>
+        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
       </div>
       {CORNERS.map((corner) => (
         <span
           key={corner}
           onPointerDown={(e) => onResizeDown(e, corner)}
-          className={`absolute h-3 w-3 rounded-[2px] border border-accent bg-paper opacity-0 group-hover:opacity-100 ${CORNER_POS[corner]}`}
+          className={`absolute h-3 w-3 rounded-[2px] border border-accent bg-paper ${CORNER_POS[corner]}`}
         />
       ))}
-      <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">
+      <div className="absolute right-1 top-1 flex gap-1">
+        <button onPointerDown={stop} onClick={onCrop} title="Crop the photo" className={toolBtn}>
+          <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" />
+          </svg>
+        </button>
         <button onPointerDown={stop} onClick={onFront} title="Bring to front" className={toolBtn}>
           <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <path d="M12 19V5M6 11l6-6 6 6" />

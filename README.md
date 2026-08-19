@@ -14,7 +14,8 @@ Most album software starts from fixed template slots and forces each photo to fi
 
 - **Per-page control**: choose 1 to 6 photos per page and exactly which photos, by drag and drop.
 - **Layouts**: pick an explicit arrangement per page (rows and grids); whitespace only scales the photos inside it, it never re-groups them.
-- **No cropping, ever**: aspect ratios are preserved to the pixel; a portrait stays portrait, a panorama stays panorama.
+- **No cropping by default**: a photo is shown whole and contained; a portrait stays portrait, a panorama stays panorama. Cropping is always an explicit choice, never automatic.
+- **Crop when you want**: in Edit layout, a Crop button opens a free crop rectangle on the photo; the kept region then lays out and prints like any photo. The rest of your photos stay uncropped.
 - **Full-page photos**: give a single-photo page the big-photo look. Fit fills the page with no crop (paper bands where the ratio differs); Fill covers the whole page by cropping, and you drag the photo to choose the framing. No-crop stays the default.
 - **Assumed whitespace**: eight whitespace levels per page tune how much white surrounds the photos, from a full-region fill to airy.
 - **Projects that persist**: your work is saved locally in the browser and survives a refresh; keep several named albums and switch between them (new, rename, duplicate, delete).

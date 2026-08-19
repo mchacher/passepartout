@@ -29,11 +29,11 @@ export function PageRail() {
     photoIds
       .map(photoById)
       .filter((p): p is NonNullable<typeof p> => p !== undefined)
-      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio }));
+      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, crop: p.crop }));
 
   const coverPhotos = (cover: Cover): ThumbPhoto[] => {
     const p = cover.photoId ? photoById(cover.photoId) : undefined;
-    return p ? [{ id: p.id, url: p.url, ratio: p.ratio }] : [];
+    return p ? [{ id: p.id, url: p.url, ratio: p.ratio, crop: p.crop }] : [];
   };
 
   const scrollTo = (anchor: string) =>

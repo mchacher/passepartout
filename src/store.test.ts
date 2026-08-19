@@ -229,6 +229,19 @@ describe("store custom grid placement (spec 013)", () => {
   });
 });
 
+describe("store photo crop (spec 015)", () => {
+  const cropOf = (id: string) => useAlbum.getState().photos.find((p) => p.id === id)!.crop;
+
+  it("setPhotoCrop sets a clamped crop and clears it with null", () => {
+    useAlbum.setState({ photos: [photo("a", "p1"), photo("b", "p1")], pages: [page("p1", ["a", "b"], "two-row")] });
+    useAlbum.getState().setPhotoCrop("a", { x: -0.5, y: 0.2, w: 2, h: 0.4 });
+    expect(cropOf("a")).toEqual({ x: 0, y: 0.2, w: 1, h: 0.4 }); // clamped
+    expect(cropOf("b")).toBeUndefined(); // other photo untouched
+    useAlbum.getState().setPhotoCrop("a", null);
+    expect(cropOf("a")).toBeUndefined();
+  });
+});
+
 describe("store page reorder", () => {
   const ids = () => useAlbum.getState().pages.map((p) => p.id);
 

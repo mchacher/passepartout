@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAlbum } from "../store";
 import { bookSizeOrDefault } from "../lib/book-sizes";
+import { effectiveRatio } from "../lib/crop";
 import { effectiveSpineTitle } from "../lib/project";
 import { estimateSpineMm, mmToPt, PAPERS, type PaperId } from "../lib/print";
 import {
@@ -40,7 +41,7 @@ export function ExportPanel() {
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
       layoutId: "single",
-      items: p ? [{ photoId: p.id, ratio: p.ratio, url: p.url, caption: "" }] : [],
+      items: p ? [{ photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), url: p.url, caption: "", crop: p.crop }] : [],
     };
   };
 
@@ -50,7 +51,7 @@ export function ExportPanel() {
       title: cover.title,
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
-      photo: p ? { photoId: p.id, ratio: p.ratio, url: p.url } : null,
+      photo: p ? { photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), url: p.url, crop: p.crop } : null,
     };
   };
 
@@ -64,19 +65,30 @@ export function ExportPanel() {
     spineSubtitle: spineContent === "titleSubtitle" ? store.frontCover.subtitle : "",
     interior: [
       faceToPage(store.insideFrontCover),
-      ...store.pages.map((pg) => ({
-        title: pg.title,
-        subtitle: pg.subtitle,
-        whitespace: pg.whitespace,
-        layoutId: pg.layoutId,
-        fullPage: pg.fullPage,
-        focus: pg.fullPageFocus,
-        placement: pg.placement,
-        items: pg.photoIds
-          .map(photoById)
-          .filter((p): p is Photo => p !== undefined)
-          .map((p) => ({ photoId: p.id, ratio: p.ratio, url: p.url, caption: p.caption })),
-      })),
+      ...store.pages.map((pg) => {
+        // Full-page mode frames the photo to the whole page and ignores a per-photo crop on
+        // screen; keep the PDF in step by exporting the source ratio and no crop there.
+        const fp = !!pg.fullPage && pg.photoIds.length === 1;
+        return {
+          title: pg.title,
+          subtitle: pg.subtitle,
+          whitespace: pg.whitespace,
+          layoutId: pg.layoutId,
+          fullPage: pg.fullPage,
+          focus: pg.fullPageFocus,
+          placement: pg.placement,
+          items: pg.photoIds
+            .map(photoById)
+            .filter((p): p is Photo => p !== undefined)
+            .map((p) => ({
+              photoId: p.id,
+              ratio: fp ? p.ratio : effectiveRatio(p.ratio, p.crop),
+              url: p.url,
+              caption: p.caption,
+              crop: fp ? undefined : p.crop,
+            })),
+        };
+      }),
       faceToPage(store.insideBackCover),
     ],
     front: faceToCover(store.frontCover),
