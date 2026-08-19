@@ -9,7 +9,7 @@
 // (1 pt = 1/72 inch).
 
 import { BLEED_MM, type BookSize } from "./book-sizes";
-import { computeLayout, whitespaceToDensity } from "./layout";
+import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
 import { resolveCells } from "./layouts";
 import type { FontThemeId } from "./themes";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
@@ -141,20 +141,25 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     h: trimH - topMargin - margin,
   };
 
+  const gridCells = resolveCells(input.layoutId, input.items.length, input.placement);
   const { cells } = computeLayout(
     input.items.map((i) => ({ ratio: i.ratio })),
     contentBox.w,
     contentBox.h,
-    resolveCells(input.layoutId, input.items.length, input.placement),
+    gridCells,
     { density: whitespaceToDensity(input.whitespace) },
   );
 
   const photos: PhotoBox[] = [];
   const captions: TextPlace[] = [];
-  cells.forEach((c, i) => {
-    // Center the photo in its region, exactly like Paper's flex centering.
-    const x = contentBox.x + c.rx + (c.rw - c.w) / 2;
-    const y = contentBox.y + c.ry + (c.rh - c.h) / 2;
+  // Emit in draw order so overlapping custom placements (spec 013 Phase B) layer like the
+  // editor: the painter draws photos in array order, so back-to-front here == on screen.
+  for (const i of drawOrder(gridCells)) {
+    const c = cells[i];
+    if (!c) continue;
+    // Position the photo in its region by the cell's anchor (ox/oy), like Paper.
+    const x = contentBox.x + c.rx + c.ox;
+    const y = contentBox.y + c.ry + c.oy;
     photos.push({ photoId: input.items[i].photoId, x, y, w: c.w, h: c.h });
     const caption = input.items[i].caption.trim();
     if (caption) {
@@ -165,7 +170,7 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
         sizePt: F_CAPTION * trimW * input.scales.caption,
       });
     }
-  });
+  }
 
   const centerX = trimBox.x + trimW / 2;
   const title = hasTitle

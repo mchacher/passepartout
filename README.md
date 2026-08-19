@@ -28,6 +28,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Text size**: set the size of each kind of text (cover title and subtitle, page title and subtitle, caption) with four levels (S/M/L/XL), from one common Style menu. Every page can carry its own title and subtitle.
 - **Reorder pages**: a page navigator rail on the right shows a thumbnail of every page; drag the content pages to reorder them (the four cover faces stay fixed), or click a thumbnail to jump to that page.
 - **Book preview**: read the whole album end to end in double-page spreads, as it will print, with a thumbnail rail to jump anywhere. Read-only, and every photo stays contained (never cropped).
+- **Arrange freely on a grid**: layouts rest on a 12 x 12 page grid; an "Edit layout" mode lets you move and resize any photo on the grid, overlap photos and choose their front-to-back order. Photos are always contained, never cropped.
 - **Local and private**: everything runs in your browser. Photos never leave your machine.
 
 ## Getting started

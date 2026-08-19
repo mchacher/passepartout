@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { computeLayout, whitespaceToDensity } from "../lib/layout";
+import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
@@ -91,13 +91,15 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
   const contentW = w - 2 * padX;
   const contentH = h - padTop - padBottom;
 
+  const gridCells = resolveCells(layoutId, photos.length, placement);
   const { cells } = computeLayout(
     photos.map((p) => ({ ratio: p.ratio })),
     contentW,
     contentH,
-    resolveCells(layoutId, photos.length, placement),
+    gridCells,
     { density: whitespaceToDensity(whitespace) },
   );
+  const order = drawOrder(gridCells);
 
   return (
     <>
@@ -124,15 +126,20 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
 
       <div className="absolute" style={{ left: padX, top: padTop, width: contentW, height: contentH }}>
         <div className="relative h-full w-full">
-          {cells.map((cell, i) => {
+          {order.map((i) => {
+            const cell = cells[i];
             const photo = photos[i];
+            if (!cell) return null;
             return (
               <div
                 key={photo.id}
-                className="absolute flex flex-col items-center justify-center"
+                className="absolute"
                 style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
               >
-                <div className="flex flex-col items-center gap-[5px]">
+                <div
+                  className="absolute flex flex-col items-center gap-[5px]"
+                  style={{ left: cell.ox, top: cell.oy, width: cell.w }}
+                >
                   <img
                     src={photo.url}
                     alt=""
