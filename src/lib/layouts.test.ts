@@ -1,21 +1,61 @@
 import { describe, it, expect } from "vitest";
 import {
   CATALOG,
-  autoTemplate,
+  GRID_COLS,
+  GRID_ROWS,
+  autoCells,
   defaultLayoutId,
   getLayout,
   layoutsForCount,
-  leafCount,
+  resolveCells,
 } from "./layouts";
+import type { CellRect } from "../types";
 
-describe("layout catalog", () => {
-  it("every template's leaf count matches its declared count", () => {
+// Mark every grid unit a set of cells covers; returns false if any two cells overlap.
+function noOverlap(cells: CellRect[]): boolean {
+  const seen = new Set<string>();
+  for (const c of cells) {
+    for (let x = c.col; x < c.col + c.colSpan; x++) {
+      for (let y = c.row; y < c.row + c.rowSpan; y++) {
+        const key = `${x},${y}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+      }
+    }
+  }
+  return true;
+}
+
+const withinGrid = (c: CellRect) =>
+  c.col >= 0 &&
+  c.row >= 0 &&
+  c.colSpan > 0 &&
+  c.rowSpan > 0 &&
+  c.col + c.colSpan <= GRID_COLS &&
+  c.row + c.rowSpan <= GRID_ROWS;
+
+describe("layout catalog (grid)", () => {
+  it("every template has as many cells as its declared count", () => {
     for (const tpl of CATALOG) {
-      expect(leafCount(tpl.node)).toBe(tpl.count);
+      expect(tpl.cells).toHaveLength(tpl.count);
     }
   });
 
-  it("has unique, stable ids", () => {
+  it("every template's cells stay inside the 12 x 12 grid", () => {
+    for (const tpl of CATALOG) {
+      for (const c of tpl.cells) {
+        expect(withinGrid(c), `${tpl.id} has an out-of-bounds cell`).toBe(true);
+      }
+    }
+  });
+
+  it("no template overlaps its own cells", () => {
+    for (const tpl of CATALOG) {
+      expect(noOverlap(tpl.cells), `${tpl.id} overlaps`).toBe(true);
+    }
+  });
+
+  it("has unique ids", () => {
     const ids = CATALOG.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -28,8 +68,7 @@ describe("layout catalog", () => {
 
   it("defaultLayoutId(n) returns a template of that count for 1..6", () => {
     for (let n = 1; n <= 6; n++) {
-      const tpl = getLayout(defaultLayoutId(n));
-      expect(tpl?.count).toBe(n);
+      expect(getLayout(defaultLayoutId(n))?.count).toBe(n);
     }
   });
 
@@ -38,14 +77,43 @@ describe("layout catalog", () => {
     expect(defaultLayoutId(7)).toBe("auto");
     expect(getLayout("auto")).toBeUndefined();
   });
+});
 
-  it("autoTemplate produces exactly n slots (min 1) for any n", () => {
-    for (const n of [0, 1, 2, 5, 7, 10]) {
-      expect(leafCount(autoTemplate(n))).toBe(n <= 1 ? 1 : n);
+describe("autoCells", () => {
+  it("produces exactly n cells (min 1), in bounds and non-overlapping", () => {
+    for (const n of [1, 2, 3, 5, 7, 9, 40, 100]) {
+      const cells = autoCells(n);
+      expect(cells).toHaveLength(n <= 1 ? 1 : n);
+      for (const c of cells) expect(withinGrid(c)).toBe(true);
+      expect(noOverlap(cells)).toBe(true);
     }
   });
 
-  it("autoTemplate(1) is a single slot", () => {
-    expect(autoTemplate(1)).toEqual({ kind: "slot" });
+  it("autoCells(1) is a single full-grid cell", () => {
+    expect(autoCells(1)).toEqual([{ col: 0, row: 0, colSpan: GRID_COLS, rowSpan: GRID_ROWS }]);
+  });
+});
+
+describe("resolveCells", () => {
+  const custom: CellRect[] = [
+    { col: 0, row: 0, colSpan: 8, rowSpan: 12 },
+    { col: 8, row: 0, colSpan: 4, rowSpan: 12 },
+  ];
+
+  it("prefers a valid custom placement over the template", () => {
+    expect(resolveCells("two-row", 2, custom)).toBe(custom);
+  });
+
+  it("ignores a placement whose length does not match the count", () => {
+    expect(resolveCells("two-row", 2, [custom[0]])).toEqual(getLayout("two-row")!.cells);
+  });
+
+  it("uses the named template when it matches the count", () => {
+    expect(resolveCells("grid-2x2", 4)).toEqual(getLayout("grid-2x2")!.cells);
+  });
+
+  it("falls back to autoCells for an unknown id or a count mismatch", () => {
+    expect(resolveCells("nope", 3)).toEqual(autoCells(3));
+    expect(resolveCells("grid-2x2", 5)).toEqual(autoCells(5)); // template is count 4
   });
 });

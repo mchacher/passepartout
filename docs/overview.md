@@ -30,9 +30,11 @@ photo to cover the page; it is off by default and still never distorts.
 - **Print export** (`src/lib/print.ts` pure + `src/lib/pdf-export.ts` impure): reuses the
   engine to paint a Blurb-ready cover-wrap PDF and interior PDF at 300 DPI, sRGB, with
   bleed. Photos embed at full resolution and stay contain-fit; the paper bleeds.
-- **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
-  box (`slot`, or a `split` along an axis into weighted children). The catalog is pure
-  data versioned with the app; a page persists only the `layoutId` that references it.
+- **Layout template** (`src/lib/layouts.ts`, spec 013): a named set of cell rectangles on
+  a fixed 12 x 12 page grid (one rectangle per photo). The catalog is pure data versioned
+  with the app; a page persists a `layoutId` and, once detached by the free-placement
+  editor, an explicit `placement` of cell rectangles. This grid is the shared model for
+  templates and free placement.
 - **Album theme** (`src/lib/themes.ts`): two project-level choices, a `fontTheme`
   (a system-font stack applied to album text) and a `colorTheme` (the album's paper +
   ink print colors plus an accent that also recolors the app chrome). Both default so
@@ -61,17 +63,16 @@ Import / demo
     -> store.pages (auto-distributed, DEFAULT_PER_PAGE per page)
       -> PageCard controls (title, count 1-6, layout picker, whitespace, delete)
         -> Paper measures its content box in pixels
-          -> computeLayout(items, w, h, node, { density })  [pure]
-            -> one fixed region per slot, each photo contained + centered
+          -> computeLayout(items, w, h, cells, { density })  [pure]
+            -> one fixed region per cell, each photo contained + centered
 ```
 
 ## The layout engine
 
-`computeLayout(items, contentW, contentH, node, { density })`:
+`computeLayout(items, contentW, contentH, cells, { density })`:
 
-1. Walk the template `node` over the content box, collecting one **region rect** per
-   slot (leaves in order). Siblings are separated by a fixed structural gap and sized
-   by optional weights. This structure is **independent of density**.
+1. `gridRegions` maps each cell rectangle to a **region rect** on the fixed 12 x 12 grid
+   (equal tracks with a gutter between them). This structure is **independent of density**.
 2. Inside each region, contain-fit the photo (`boxH = min(rh, rw / ratio)`), scale it
    by a `fillFraction` (0.60 .. 1.00) driven by the page's whitespace level (mapped to
    density by `whitespaceToDensity`), and center it. Never above the contain fit: the

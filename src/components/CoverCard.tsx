@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
-import { autoTemplate } from "../lib/layouts";
+import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
 
@@ -52,7 +52,7 @@ export function CoverCard({ which }: CoverCardProps) {
       [{ ratio: photo.ratio }],
       cw,
       ch,
-      autoTemplate(1),
+      resolveCells("single", 1),
       { density: whitespaceToDensity(cover.whitespace) },
     );
     const cell = res.cells[0];

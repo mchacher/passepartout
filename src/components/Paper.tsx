@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type PageFill, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity, type PlacedCell } from "../lib/layout";
-import { resolveNode } from "../lib/layouts";
+import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
 
@@ -41,13 +41,13 @@ export function Paper({ page }: PaperProps) {
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
-    const node = resolveNode(layoutId, items.length);
-    const res = computeLayout(items, cw, ch, node, { density });
+    const cells = resolveCells(layoutId, items.length, page.placement);
+    const res = computeLayout(items, cw, ch, cells, { density });
     setCells(res.cells);
     // items, density and layout are the real inputs; recomputed via the effect below.
     // fullPage is included so toggling it re-attaches the observer to the (re)mounted box.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [density, layoutId, page.photoIds.join(","), aspect, fullPage]);
+  }, [density, layoutId, page.photoIds.join(","), aspect, fullPage, page.placement]);
 
   useLayoutEffect(() => {
     measure();

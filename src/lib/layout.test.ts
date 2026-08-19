@@ -5,11 +5,11 @@ import {
   type LayoutItem,
   type PlacedCell,
 } from "./layout";
-import { autoTemplate, getLayout, type LayoutNode } from "./layouts";
-import { WHITESPACE_LEVELS } from "../types";
+import { autoCells, getLayout } from "./layouts";
+import { WHITESPACE_LEVELS, type CellRect } from "../types";
 
 const item = (ratio: number): LayoutItem => ({ ratio });
-const node = (id: string): LayoutNode => getLayout(id)!.node;
+const cellsOf = (id: string): CellRect[] => getLayout(id)!.cells;
 
 // The single invariant that matters most: a photo's aspect ratio is never altered.
 // Everything else (size, gap, whitespace) is negotiable; the ratio is not. These
@@ -22,15 +22,15 @@ const EPS = 0.5;
 
 describe("computeLayout", () => {
   it("returns nothing for an empty page or a zero-sized box", () => {
-    expect(computeLayout([], 500, 500, node("single"), { density: 50 }).cells).toHaveLength(0);
+    expect(computeLayout([], 500, 500, cellsOf("single"), { density: 50 }).cells).toHaveLength(0);
     expect(
-      computeLayout([item(1.5)], 0, 500, node("single"), { density: 50 }).cells,
+      computeLayout([item(1.5)], 0, 500, cellsOf("single"), { density: 50 }).cells,
     ).toHaveLength(0);
   });
 
   it("preserves each photo's aspect ratio exactly (no crop, no distortion)", () => {
     const ratios = [2 / 3, 3 / 2, 1, 16 / 9];
-    const cells = computeLayout(ratios.map(item), 600, 600, node("grid-2x2"), {
+    const cells = computeLayout(ratios.map(item), 600, 600, cellsOf("grid-2x2"), {
       density: 50,
     }).cells;
     expect(cells).toHaveLength(ratios.length);
@@ -45,7 +45,7 @@ describe("computeLayout", () => {
       const count = getLayout(tpl)!.count;
       const items = ratios.slice(0, count).map(item);
       for (const density of [0, 50, 100]) {
-        const cells = computeLayout(items, 640, 480, node(tpl), { density }).cells;
+        const cells = computeLayout(items, 640, 480, cellsOf(tpl), { density }).cells;
         for (const cell of cells) {
           expect(ratioOf(cell.w, cell.h)).toBeCloseTo(cell.item.ratio, 6);
         }
@@ -58,7 +58,7 @@ describe("computeLayout", () => {
       [item(16 / 9), item(2 / 3), item(1), item(3 / 2)],
       600,
       600,
-      node("grid-2x2"),
+      cellsOf("grid-2x2"),
       { density: 100 },
     ).cells;
     for (const cell of cells) {
@@ -72,7 +72,7 @@ describe("computeLayout", () => {
       [item(1), item(1), item(1), item(1)],
       500,
       700,
-      node("one-over-three"),
+      cellsOf("one-over-three"),
       { density: 60 },
     ).cells;
     for (const c of cells) {
@@ -84,7 +84,7 @@ describe("computeLayout", () => {
   });
 
   it("keeps a very wide panorama contained inside its slot by scaling, not cropping", () => {
-    const cells = computeLayout([item(16 / 7)], 600, 600, node("single"), {
+    const cells = computeLayout([item(16 / 7)], 600, 600, cellsOf("single"), {
       density: 100,
     }).cells;
     const cell = cells[0];
@@ -94,16 +94,16 @@ describe("computeLayout", () => {
   });
 
   it("gives bigger photos at higher density, same template", () => {
-    const airy = computeLayout([item(1)], 600, 600, node("single"), { density: 20 });
-    const dense = computeLayout([item(1)], 600, 600, node("single"), { density: 80 });
+    const airy = computeLayout([item(1)], 600, 600, cellsOf("single"), { density: 20 });
+    const dense = computeLayout([item(1)], 600, 600, cellsOf("single"), { density: 80 });
     expect(dense.cells[0].h).toBeGreaterThan(airy.cells[0].h);
   });
 
   it("fills the region at the tightest level and keeps a raised floor at the airiest (spec 010)", () => {
     // Single slot on a square box: the region is the whole content box (600x600), so a
     // square photo's contain-fit height is 600. Fill is 1.0 at density 100 and 0.6 at 0.
-    const tight = computeLayout([item(1)], 600, 600, node("single"), { density: 100 }).cells[0];
-    const airy = computeLayout([item(1)], 600, 600, node("single"), { density: 0 }).cells[0];
+    const tight = computeLayout([item(1)], 600, 600, cellsOf("single"), { density: 100 }).cells[0];
+    const airy = computeLayout([item(1)], 600, 600, cellsOf("single"), { density: 0 }).cells[0];
     expect(tight.h).toBeCloseTo(600, 4); // fill 1.0 -> maximized, ratio intact
     expect(tight.w / tight.h).toBeCloseTo(1, 6);
     expect(airy.h).toBeCloseTo(360, 1); // fill 0.6 (was 300 at the old 0.5 floor)
@@ -116,7 +116,7 @@ describe("computeLayout", () => {
       [item(1), item(1), item(1), item(1)],
       600,
       600,
-      node("grid-2x2"),
+      cellsOf("grid-2x2"),
       { density: 50 },
     ).cells;
     const gap = cells[1].rx - (cells[0].rx + cells[0].rw);
@@ -127,8 +127,8 @@ describe("computeLayout", () => {
 
   it("leaves the region structure identical across densities (layout is frozen)", () => {
     const items = [item(3 / 2), item(2 / 3), item(1)];
-    const lo = computeLayout(items, 600, 600, node("one-beside-two"), { density: 10 }).cells;
-    const hi = computeLayout(items, 600, 600, node("one-beside-two"), { density: 90 }).cells;
+    const lo = computeLayout(items, 600, 600, cellsOf("one-beside-two"), { density: 10 }).cells;
+    const hi = computeLayout(items, 600, 600, cellsOf("one-beside-two"), { density: 90 }).cells;
     for (let i = 0; i < lo.length; i++) {
       expect(hi[i].rx).toBeCloseTo(lo[i].rx, 6);
       expect(hi[i].ry).toBeCloseTo(lo[i].ry, 6);
@@ -142,7 +142,7 @@ describe("computeLayout", () => {
       [item(1), item(1), item(1), item(1)],
       600,
       600,
-      node("grid-2x2"),
+      cellsOf("grid-2x2"),
       { density: 50 },
     ).cells;
     const cx = (c: PlacedCell<LayoutItem>) => c.rx + c.rw / 2;
@@ -154,17 +154,25 @@ describe("computeLayout", () => {
     expect(cy(cells[1])).toBeLessThan(cy(cells[3]));
   });
 
-  it("makes the hero region wider in one-beside-two (weighted split)", () => {
+  it("makes the hero region wider in one-beside-two", () => {
     const cells = computeLayout(
       [item(1), item(1), item(1)],
       600,
       600,
-      node("one-beside-two"),
+      cellsOf("one-beside-two"),
       { density: 50 },
     ).cells;
     // Left hero region is wider than each right-hand region.
     expect(cells[0].rw).toBeGreaterThan(cells[1].rw);
     expect(cells[0].rw).toBeGreaterThan(cells[2].rw);
+  });
+
+  it("makes a single full-grid cell fill the whole content box", () => {
+    const c = computeLayout([item(1)], 640, 480, cellsOf("single"), { density: 50 }).cells[0];
+    expect(c.rx).toBeCloseTo(0, 6);
+    expect(c.ry).toBeCloseTo(0, 6);
+    expect(c.rw).toBeCloseTo(640, 4); // internal gutters are absorbed into the spanning cell
+    expect(c.rh).toBeCloseTo(480, 4);
   });
 });
 
@@ -187,21 +195,21 @@ describe("whitespaceToDensity", () => {
 
   it("makes bigger photos at a lower whitespace level (via the engine)", () => {
     const item = (ratio: number): LayoutItem => ({ ratio });
-    const airy = computeLayout([item(1)], 600, 600, node("single"), {
+    const airy = computeLayout([item(1)], 600, 600, cellsOf("single"), {
       density: whitespaceToDensity(8),
     });
-    const full = computeLayout([item(1)], 600, 600, node("single"), {
+    const full = computeLayout([item(1)], 600, 600, cellsOf("single"), {
       density: whitespaceToDensity(1),
     });
     expect(full.cells[0].h).toBeGreaterThan(airy.cells[0].h);
   });
 });
 
-describe("autoTemplate fallback", () => {
+describe("autoCells fallback", () => {
   it("places any count of items when there is no catalog entry", () => {
     for (const count of [5, 7]) {
       const items = Array.from({ length: count }, () => item(1));
-      const cells = computeLayout(items, 800, 600, autoTemplate(count), {
+      const cells = computeLayout(items, 800, 600, autoCells(count), {
         density: 60,
       }).cells;
       expect(cells).toHaveLength(count);

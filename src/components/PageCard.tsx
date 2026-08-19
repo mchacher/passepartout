@@ -100,7 +100,7 @@ export function PageCard({ page, index }: PageCardProps) {
                         : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
                     }`}
                   >
-                    <LayoutThumb node={tpl.node} active={active} />
+                    <LayoutThumb cells={tpl.cells} active={active} />
                   </button>
                 );
               })}

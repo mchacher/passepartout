@@ -30,7 +30,7 @@ src/
 ├── persistence.ts      # IMPURE IndexedDB adapter: project docs + image blobs
 ├── lib/
 │   ├── layout.ts       # PURE engine: template -> regions -> contain-fit cells; whitespaceToDensity
-│   ├── layouts.ts      # PURE layout template catalog (nested split trees) + helpers
+│   ├── layouts.ts      # PURE layout catalog on a fixed 12x12 grid (CellRect templates) + resolveCells
 │   ├── project.ts      # PURE project helpers: ProjectDoc, serialize/hydrate/duplicate, spine
 │   ├── book-sizes.ts   # PURE physical book-size catalog (Blurb trim sizes) + print constants
 │   ├── print.ts        # PURE print geometry (media/trim/content boxes, spine) in PDF points
@@ -93,12 +93,14 @@ Three hard boundaries:
 - **Spine** (`Spine` in `src/types.ts`): the bound edge, a `title` that defaults to the
   front cover title when empty (`effectiveSpineTitle`). Prepared here; painted in the
   cover wrap by the export (spec 009).
-- **Layout template** (`src/lib/layouts.ts`): a named, nested split tree of the page
-  box. A node is either a `slot` (holds one photo) or a `split` along an axis
-  (`h` = side-by-side columns, `v` = stacked rows) into weighted children. Leaves
-  are visited in order and mapped to the page's photos in order. The catalog is pure
-  data versioned with the app; a page persists only the `layoutId` that references it
-  (unknown ids and counts outside 1-6 resolve to a balanced `autoTemplate`).
+- **Layout template** (`src/lib/layouts.ts`, spec 013): a named set of `CellRect`s on a
+  fixed 12 x 12 page grid (`GRID_COLS`/`GRID_ROWS`). Each rectangle (col/row/colSpan/
+  rowSpan) holds one photo; rectangles are mapped to the page's photos in order. The
+  catalog is pure data versioned with the app; a page persists a `layoutId` and, once the
+  free-placement editor detaches it, an explicit `placement: CellRect[]`. `resolveCells`
+  returns a valid `placement`, else the named template, else a balanced `autoCells(count)`
+  (unknown ids and counts outside 1-6). This grid substrate is the shared model for the
+  layout catalog and a future free-placement editor (Phase B).
 - **Project** (`src/lib/project.ts`): one album. `ProjectDoc` = meta (`id`, `name`,
   `createdAt`, `updatedAt`) + `bookSize` + `spine` + `fontTheme` + `colorTheme` + `pages` +
   `StoredPhoto[]` (`Photo` minus the runtime `url`) + the four covers (`frontCover`,
@@ -154,8 +156,8 @@ count (`setPageCount`, `placeOnPage`, `removeFromPage`) to keep `layoutId` valid
 `App` renders the four cover faces in booklet order: **front cover** then **inside
 front cover**, the pages, then **inside back cover** then **back cover**, so a project
 reads as a complete booklet. A cover's photo goes through the same engine with a single
-slot (`computeLayout([{ratio}], w, h, autoTemplate(1), ...)`), so it is contained
-exactly like a page photo, never cropped.
+full-grid cell (`resolveCells("single", 1)`), so it is contained exactly like a page
+photo, never cropped.
 
 ## Persistence and projects
 
@@ -180,12 +182,12 @@ duplication copies each blob under a new photo id so projects never share image 
 
 ## The layout engine (`src/lib/layout.ts`)
 
-`computeLayout(items, contentW, contentH, node, { density })`:
+`computeLayout(items, contentW, contentH, cells, { density })`:
 
-1. **Regions**: walk the template `node` over the content box, collecting one region
-   rect per slot (leaves in order). Siblings are separated by a fixed structural gap
-   and sized by optional weights. This structure is a pure function of the template
-   and the box, **independent of density**.
+1. **Regions**: `gridRegions(cells, contentW, contentH)` maps each `CellRect` to a pixel
+   region on the fixed 12 x 12 grid (equal tracks, a gutter between them, so a full-grid
+   single cell equals the content box and adjacent cells are separated by one gutter).
+   This structure is a pure function of the cells and the box, **independent of density**.
 2. **Fit**: inside each region, contain-fit the photo (`boxH = min(rh, rw / ratio)`),
    scale it by `fillFraction = 0.6 + 0.4 * density/100` (range 0.60 .. 1.00) and
    center it. Never above the contain fit, so the ratio is kept and the fixed
@@ -213,9 +215,10 @@ Dragging whitespace never re-groups photos.
 
 ## Where things go (extension points)
 
-- **A new layout template**: add a `LayoutTemplate` to `CATALOG` in
-  `src/lib/layouts.ts` with a stable new `id` (never rename an existing id, pages
-  persist it). No engine change needed; `LayoutThumb` and `Paper` render it for free.
+- **A new layout template**: add a `GridTemplate` to `CATALOG` in `src/lib/layouts.ts`
+  with a stable new `id` (never rename an existing id, pages persist it) and its `cells`
+  as `CellRect`s on the 12 x 12 grid (spans sum to 12 per axis). No engine change needed;
+  `LayoutThumb` and `Paper` render it for free.
 - **A new page control**: add the field to `AlbumPage` (`src/types.ts`), a store
   action, and a control in `PageCard.tsx`. Keep it per-page unless it is truly global.
 - **A new book size**: add a `BookSize` (real trim mm + orientation) to `BOOK_SIZES` in

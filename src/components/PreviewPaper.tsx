@@ -1,8 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
-import { resolveNode, autoTemplate } from "../lib/layouts";
+import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
-import { DEFAULT_CROP_FOCUS, type CropFocus, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
 
 // A read-only, faithful render of one book leaf (a page or a cover face) at an exact
 // pixel width, for the in-app book preview (spec 011). It reuses the pure layout engine
@@ -33,6 +33,7 @@ interface PagePreviewProps {
   photos: PreviewPhoto[];
   fullPage?: PageFill;
   focus?: CropFocus;
+  placement?: CellRect[];
 }
 
 interface CoverPreviewProps {
@@ -63,7 +64,7 @@ export function PreviewPaper(props: PreviewPaperProps) {
 
 // A content page: title/subtitle header, photos placed by the engine, per-photo
 // captions. Blank when the page has no photos (a faithful blank printed page).
-function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, focus, w, h }: PagePreviewProps & { w: number; h: number }) {
+function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, focus, placement, w, h }: PagePreviewProps & { w: number; h: number }) {
   // Full-page mode (spec 012): the single photo fills the page edge to edge, contained
   // (Fit) or covered (Fill, cropped at the focus). No header/captions. Never distorted.
   if (fullPage && photos.length === 1) {
@@ -90,12 +91,11 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
   const contentW = w - 2 * padX;
   const contentH = h - padTop - padBottom;
 
-  const node = resolveNode(layoutId, photos.length);
   const { cells } = computeLayout(
     photos.map((p) => ({ ratio: p.ratio })),
     contentW,
     contentH,
-    node,
+    resolveCells(layoutId, photos.length, placement),
     { density: whitespaceToDensity(whitespace) },
   );
 
@@ -179,7 +179,7 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
-    const { cells } = computeLayout([{ ratio: photo.ratio }], cw, ch, autoTemplate(1), {
+    const { cells } = computeLayout([{ ratio: photo.ratio }], cw, ch, resolveCells("single", 1), {
       density: whitespaceToDensity(whitespace),
     });
     const c = cells[0];
