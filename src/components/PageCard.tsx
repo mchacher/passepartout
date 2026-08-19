@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { WHITESPACE_LEVELS, type AlbumPage } from "../types";
 import { layoutsForCount } from "../lib/layouts";
-import { Paper } from "./Paper";
+import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
+import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
 
 interface PageCardProps {
@@ -15,13 +16,22 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 // One album page: the control header (title, photo count, delete), a controls row
 // (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, deletePage } =
+  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, deletePage } =
     useAlbum();
+  const photos = useAlbum((s) => s.photos);
   const count = page.photoIds.length;
   const layouts = layoutsForCount(count);
   const isFullPage = page.fullPage !== undefined;
   const [editing, setEditing] = useState(false);
   const canArrange = count >= 1 && !isFullPage;
+
+  // The selected photo (reported by Paper) drives the Edit-layout toolbar, and which photo
+  // the crop editor opens (spec 015).
+  const paperRef = useRef<PaperHandle>(null);
+  const [sel, setSel] = useState<PaperSelection | null>(null);
+  const [cropping, setCropping] = useState<string | null>(null);
+  const onSelection = useCallback((s: PaperSelection | null) => setSel(s), []);
+  const croppingPhoto = cropping ? photos.find((p) => p.id === cropping) : undefined;
 
   // Full-page choices for a single-photo page (spec 012). Off = normal page; Fit fills the
   // page without cropping; Fill fills the page by cropping to the page ratio.
@@ -104,7 +114,57 @@ export function PageCard({ page, index }: PageCardProps) {
         )}
 
         {editing ? (
-          <span className="text-[11px] text-muted">Click a photo to select it, then use its toolbar (crop, layer, remove). Drag to move, corners to resize.</span>
+          sel ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={() => setCropping(sel.photoId)}
+                title="Crop the photo"
+                className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
+              >
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                  <path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" />
+                </svg>
+                Crop
+              </button>
+              {sel.overlaps && (
+                <>
+                  <button
+                    onClick={() => paperRef.current?.restackSelected("front")}
+                    title="Bring to front"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
+                  >
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                      <path d="M12 19V5M6 11l6-6 6 6" />
+                    </svg>
+                    Front
+                  </button>
+                  <button
+                    onClick={() => paperRef.current?.restackSelected("back")}
+                    title="Send to back"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
+                  >
+                    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                      <path d="M12 5v14M6 13l6 6 6-6" />
+                    </svg>
+                    Back
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => removeFromPage(sel.photoId)}
+                title="Remove from page"
+                className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
+              >
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                  <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" />
+                </svg>
+                Remove
+              </button>
+              <span className="ml-1 text-[11px] text-muted">Drag to move, corners to resize.</span>
+            </div>
+          ) : (
+            <span className="text-[11px] text-muted">Click a photo to edit it.</span>
+          )
         ) : (
         <>
         {layouts.length > 1 && (
@@ -194,7 +254,18 @@ export function PageCard({ page, index }: PageCardProps) {
         )}
       </div>
 
-      <Paper page={page} editing={editing && canArrange} />
+      <Paper page={page} editing={editing && canArrange} ref={paperRef} onSelection={onSelection} />
+
+      {croppingPhoto && (
+        <CropEditor
+          photo={croppingPhoto}
+          onApply={(crop) => {
+            setPhotoCrop(croppingPhoto.id, crop);
+            setCropping(null);
+          }}
+          onClose={() => setCropping(null)}
+        />
+      )}
     </div>
   );
 }

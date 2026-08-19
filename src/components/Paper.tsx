@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
@@ -8,23 +8,35 @@ import { effectiveRatio } from "../lib/crop";
 import { useView } from "../viewStore";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { CroppedImg } from "./CroppedImg";
-import { CropEditor } from "./CropEditor";
 import { PHOTO_DND_TYPE } from "./dnd";
+
+// The selected photo's context, reported up so the page controls can show its toolbar.
+export interface PaperSelection {
+  photoId: string;
+  overlaps: boolean; // the selected cell overlaps another (front/back is meaningful)
+}
+
+// Imperative actions the page toolbar drives on the current selection.
+export interface PaperHandle {
+  restackSelected: (where: "front" | "back") => void;
+}
 
 interface PaperProps {
   page: AlbumPage;
   // "Edit layout" mode (spec 013 Phase B): move/resize photos on the grid.
   editing?: boolean;
+  onSelection?: (sel: PaperSelection | null) => void;
 }
+
+const rectsOverlap = (a: CellRect, b: CellRect) =>
+  a.col < b.col + b.colSpan && b.col < a.col + a.colSpan && a.row < b.row + b.rowSpan && b.row < a.row + a.rowSpan;
 
 // The printable page. Photos are laid out by measuring the actual content box in pixels,
 // then asking the pure engine to place each one inside its grid cell. Nothing is cropped:
 // each photo is contain-fit in its region. In edit mode the cells become draggable /
 // resizable on the grid (writing the page's custom placement).
-export function Paper({ page, editing = false }: PaperProps) {
-  const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement, setPhotoCrop } = useAlbum();
-  // The photo id being cropped (spec 015), or null. Opens the crop editor overlay.
-  const [cropping, setCropping] = useState<string | null>(null);
+export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, editing = false, onSelection }, ref) {
+  const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement } = useAlbum();
   const showGrid = useView((s) => s.showGrid);
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const density = whitespaceToDensity(page.whitespace);
@@ -71,6 +83,12 @@ export function Paper({ page, editing = false }: PaperProps) {
   );
   const order = useMemo(() => drawOrder(gridCells), [gridKey]);
   const selCell = selected != null ? placed[selected] : undefined;
+  const selOverlaps = useMemo(() => {
+    if (selected == null) return false;
+    const a = gridCells[selected];
+    return !!a && gridCells.some((b, i) => i !== selected && rectsOverlap(a, b));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridKey, selected]);
 
   const measure = useCallback(() => {
     const el = innerRef.current;
@@ -143,6 +161,23 @@ export function Paper({ page, editing = false }: PaperProps) {
     setEditCells(next);
     setPagePlacement(page.id, next);
   };
+
+  // Report the current selection up so the page controls can render its toolbar.
+  useEffect(() => {
+    onSelection?.(canEdit && selCell ? { photoId: selCell.item.id, overlaps: selOverlaps } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canEdit, selCell?.item.id, selOverlaps]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      restackSelected: (where) => {
+        if (selected != null) restackCell(selected, where);
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, editCells],
+  );
 
   // Hold Shift while editing to pan a photo inside its cell (hand cursor).
   const [shiftHeld, setShiftHeld] = useState(false);
@@ -259,69 +294,10 @@ export function Paper({ page, editing = false }: PaperProps) {
             </div>
           </>
         )}
-
-        {canEdit && selected != null && selCell && (
-          <div className="absolute left-1/2 top-2 z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-lg bg-ink px-1.5 py-1 text-paper shadow-soft">
-            <button
-              onClick={() => setCropping(selCell.item.id)}
-              title="Crop the photo"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] hover:bg-white/15"
-            >
-              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}>
-                <path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" />
-              </svg>
-              Crop
-            </button>
-            <span className="mx-0.5 h-4 w-px bg-white/20" />
-            <button
-              onClick={() => restackCell(selected, "front")}
-              title="Bring to front"
-              className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/15"
-            >
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}>
-                <path d="M12 19V5M6 11l6-6 6 6" />
-              </svg>
-            </button>
-            <button
-              onClick={() => restackCell(selected, "back")}
-              title="Send to back"
-              className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/15"
-            >
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}>
-                <path d="M12 5v14M6 13l6 6 6-6" />
-              </svg>
-            </button>
-            <button
-              onClick={() => removeFromPage(selCell.item.id)}
-              title="Remove from page"
-              className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/15"
-            >
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" />
-              </svg>
-            </button>
-          </div>
-        )}
       </div>
-
-      {cropping &&
-        (() => {
-          const p = photos.find((ph) => ph.id === cropping);
-          if (!p) return null;
-          return (
-            <CropEditor
-              photo={p}
-              onApply={(crop) => {
-                setPhotoCrop(p.id, crop);
-                setCropping(null);
-              }}
-              onClose={() => setCropping(null)}
-            />
-          );
-        })()}
     </div>
   );
-}
+});
 
 interface CellProps {
   photo: Photo;
