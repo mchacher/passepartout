@@ -212,6 +212,31 @@ describe("coverWrapGeometry", () => {
     expect(g.spineLines).toHaveLength(0);
   });
 
+  it("keeps the cover photo size independent of the title font size (fixed top band)", () => {
+    const base = { size, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "" };
+    const small = coverWrapGeometry({ ...base, front: face("f"), scales: { coverTitle: 0.85, coverSubtitle: 1 } });
+    const large = coverWrapGeometry({ ...base, front: face("f"), scales: { coverTitle: 1.45, coverSubtitle: 1 } });
+    // The title grows from S to XL, but the photo box does not move or shrink.
+    expect(large.front.photo!.h).toBeCloseTo(small.front.photo!.h, 5);
+    expect(large.front.photo!.w).toBeCloseTo(small.front.photo!.w, 5);
+    expect(large.front.photo!.y).toBeCloseTo(small.front.photo!.y, 5);
+  });
+
+  it("gives a subtitle-less cover a larger photo, at every font size", () => {
+    const titled = (subtitle: string) => ({
+      title: "Summer",
+      subtitle,
+      photo: { photoId: "f", ratio: 0.7 }, // portrait: bound by the band height
+      whitespace: 4,
+    });
+    for (const coverTitle of [0.85, 1, 1.45]) {
+      const base = { size, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "", scales: { coverTitle, coverSubtitle: 1 } };
+      const withSub = coverWrapGeometry({ ...base, front: titled("2026") });
+      const noSub = coverWrapGeometry({ ...base, front: titled("") });
+      expect(noSub.front.photo!.h).toBeGreaterThan(withSub.front.photo!.h);
+    }
+  });
+
   it("puts the title alone, or title + subtitle, on the spine", () => {
     const base = { size, spineWidthPt: mmToPt(10), front: face(null), back: face(null), scales: { coverTitle: 1, coverSubtitle: 1 } };
     const titleOnly = coverWrapGeometry({ ...base, spineTitle: "Solio", spineSubtitle: "" });
