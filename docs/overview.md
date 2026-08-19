@@ -10,7 +10,9 @@ A photo's aspect ratio is never changed and the photo is never clipped. The layo
 engine may only pick a photo's **size** and the **whitespace** around it. This rule
 is enforced in code (`src/lib/layout.ts` returns cells whose `w/h` always equals the
 photo's `ratio`) and guarded by tests (`src/lib/layout.test.ts`). Even inside a fixed
-grid slot a photo is *contained* (fit + centered), never stretched to fill.
+grid slot a photo is *contained* (fit + centered), never stretched to fill. The one
+deliberate exception is a page's opt-in **Fill** mode (spec 012), which crops a single
+photo to cover the page; it is off by default and still never distorts.
 
 ## Data model
 
@@ -18,8 +20,9 @@ grid slot a photo is *contained* (fit + centered), never stretched to fill.
   `caption`, capture `time`, and which page it sits on (`pageId`, or `null` when it is
   still in the library).
 - **AlbumPage**: an ordered list of photo ids, an optional `title` and `subtitle`, a
-  per-page `whitespace` level (1 .. `WHITESPACE_LEVELS`), and a `layoutId` (which
-  arrangement template is applied).
+  per-page `whitespace` level (1 .. `WHITESPACE_LEVELS`), a `layoutId` (which
+  arrangement template is applied), and optional full-page fields (`fullPage` Fit/Fill,
+  `fullPageFocus` for the Fill crop; spec 012).
 - **Book size** (`src/lib/book-sizes.ts`): a real Blurb trim size (mm + orientation)
   whose ratio drives the page, so the preview matches the printed page. Carries the
   print constants the export will reuse. Superseded the abstract `PageFormat`.

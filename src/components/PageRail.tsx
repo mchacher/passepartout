@@ -90,7 +90,7 @@ export function PageRail() {
               onDragEnd={endDrag}
               onDragOver={(e) => onPageDragOver(e, i)}
             >
-              <Thumb photos={pagePhotos(pg.photoIds)} layoutId={pg.layoutId} whitespace={pg.whitespace} bookSize={bookSize} />
+              <Thumb photos={pagePhotos(pg.photoIds)} layoutId={pg.layoutId} whitespace={pg.whitespace} bookSize={bookSize} fullPage={pg.fullPage} focus={pg.fullPageFocus} />
             </RailEntry>
           </Fragment>
         ))}

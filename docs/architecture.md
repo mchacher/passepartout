@@ -10,8 +10,13 @@ gentle intro read [overview.md](overview.md); for stack and conventions read
 A photo's aspect ratio is never changed and a photo is never clipped. The engine
 may only choose a photo's **size** and the **whitespace** around it. Every layer
 below exists to honour this: even inside a fixed grid slot a photo is *contained*
-(fit + centered), never stretched to fill. Anything that would crop, clip, or
-non-proportionally resize a photo is out of scope by definition.
+(fit + centered), never stretched to fill. Anything that would non-proportionally
+resize a photo is out of scope by definition.
+
+The one deliberate, opt-in exception (spec 012) is a page's **Fill** mode, which
+crops a single photo to cover the page. It is off by default, per page, clearly
+labelled, and still never *distorts* (the crop is proportional). Every other
+surface, and every un-opted photo, keeps the full no-crop guarantee.
 
 ## Module map
 
@@ -35,6 +40,7 @@ src/
 │   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   ├── preview.ts      # PURE book-preview helpers: booklet leaf order, spread pairing, fit-to-stage sizing
+│   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
 └── components/
@@ -75,7 +81,10 @@ Three hard boundaries:
   capture `time`, and `pageId` (`null` while still in the library).
 - **AlbumPage**: ordered `photoIds`, optional `title` and `subtitle` (both rendered on
   the paper, contained in whitespace, never on a photo), a `whitespace` level
-  (`1 .. WHITESPACE_LEVELS`, currently 8), and a `layoutId`.
+  (`1 .. WHITESPACE_LEVELS`, currently 8), a `layoutId`, and optional full-page fields
+  (spec 012): `fullPage` (`"contain"` = Fit, no crop; `"cover"` = Fill, cropped;
+  effective only with one photo, cleared otherwise by `syncLayout`) and `fullPageFocus`
+  (`{x,y}` in 0..1, the Fill crop focus, default centered).
 - **Book size** (`src/lib/book-sizes.ts`): the physical print size a project targets,
   one of a curated set of real Blurb trim sizes (mm + orientation). Its ratio drives the
   page and cover preview, so what you see is what prints. Carries the print constants
@@ -228,6 +237,14 @@ Dragging whitespace never re-groups photos.
   its exact contain-fit box (never cropped), text as vector. Same math, different
   surface: this is why the engine is pure. `Thumb.tsx` is the same reuse at screen
   scale. A project-file export/import would build on `ProjectDoc` + the `images` blobs.
+- **Full-page photo** (shipped, spec 012): a per-page `fullPage` mode for a single-photo
+  page. `Fit` (`contain`) contain-fits the photo to the whole page (into the print bleed),
+  no crop; `Fill` (`cover`) covers the page, cropped to the page ratio at `fullPageFocus`.
+  On screen every surface uses CSS `object-fit` (+ `object-position` for Fill), so nothing
+  distorts; the editor page lets Fill pan to set the focus. In print, `interiorPageGeometry`
+  returns the media box as the content box and flags a `cover` photo; `pdf-export`
+  re-encodes the crop with `coverSourceRect` (`src/lib/fit.ts`), so the exported JPEG
+  matches the on-screen crop with no PDF clipping. The engine is untouched.
 - **Book preview** (shipped, spec 011): a full-screen, read-only viewer
   (`BookPreview.tsx` + `PreviewPaper.tsx`) that reads the whole book in double-page
   spreads. `src/lib/preview.ts` (pure) gives the booklet leaf order, the spread pairing

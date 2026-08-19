@@ -6,6 +6,8 @@ import {
   type AlbumPage,
   type Cover,
   type CoverFace,
+  type CropFocus,
+  type PageFill,
   type Photo,
   type Spine,
 } from "./types";
@@ -77,6 +79,11 @@ function syncLayout(page: AlbumPage): void {
   if (!tpl || tpl.count !== count) {
     page.layoutId = defaultLayoutId(count);
   }
+  // Full-page mode is only meaningful for a single photo; drop it otherwise so a page
+  // reverts to its normal layout when it gains or loses photos (spec 012).
+  if (count !== 1 && page.fullPage !== undefined) {
+    page.fullPage = undefined;
+  }
 }
 
 // Revoke the object URLs of a set of photos before we drop or replace them, so we
@@ -139,6 +146,8 @@ interface AlbumState {
   setPageSubtitle: (pageId: string, subtitle: string) => void;
   setPageWhitespace: (pageId: string, whitespace: number) => void;
   setPageLayout: (pageId: string, layoutId: string) => void;
+  setPageFullPage: (pageId: string, mode: PageFill | null) => void;
+  setPageFullPageFocus: (pageId: string, focus: CropFocus) => void;
   setCaption: (photoId: string, caption: string) => void;
 
   setBookSize: (bookSize: BookSizeId) => void;
@@ -642,6 +651,24 @@ export const useAlbum = create<AlbumState>((set, get) => {
     setPageLayout: (pageId, layoutId) => {
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId } : pg)),
+      }));
+      scheduleSave();
+    },
+
+    setPageFullPage: (pageId, mode) => {
+      set((s) => ({
+        pages: s.pages.map((pg) =>
+          pg.id === pageId ? { ...pg, fullPage: mode ?? undefined } : pg,
+        ),
+      }));
+      scheduleSave();
+    },
+
+    setPageFullPageFocus: (pageId, focus) => {
+      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+      const f = { x: clamp01(focus.x), y: clamp01(focus.y) };
+      set((s) => ({
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, fullPageFocus: f } : pg)),
       }));
       scheduleSave();
     },
