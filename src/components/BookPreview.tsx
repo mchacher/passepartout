@@ -94,22 +94,22 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     photoIds
       .map((id) => photoById(id))
       .filter((p): p is NonNullable<typeof p> => p !== undefined)
-      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, caption: p.caption }));
+      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, caption: p.caption, crop: p.crop }));
 
   const coverPreviewPhoto = (cover: Cover): PreviewPhoto | null => {
     const p = photoById(cover.photoId);
-    return p ? { id: p.id, url: p.url, ratio: p.ratio, caption: "" } : null;
+    return p ? { id: p.id, url: p.url, ratio: p.ratio, caption: "", crop: p.crop } : null;
   };
 
   const pageThumbPhotos = (photoIds: string[]): ThumbPhoto[] =>
     photoIds
       .map((id) => photoById(id))
       .filter((p): p is NonNullable<typeof p> => p !== undefined)
-      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio }));
+      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, crop: p.crop }));
 
   const coverThumbPhotos = (cover: Cover): ThumbPhoto[] => {
     const p = photoById(cover.photoId);
-    return p ? [{ id: p.id, url: p.url, ratio: p.ratio }] : [];
+    return p ? [{ id: p.id, url: p.url, ratio: p.ratio, crop: p.crop }] : [];
   };
 
   // Derive a clamped index at render so a shrunk `spreads` (pages removed while open) can

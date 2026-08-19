@@ -8,10 +8,12 @@ import {
   type Cover,
   type CoverFace,
   type CropFocus,
+  type CropRect,
   type PageFill,
   type Photo,
   type Spine,
 } from "./types";
+import { clampCrop } from "./lib/crop";
 import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
@@ -156,6 +158,7 @@ interface AlbumState {
   setPageFullPage: (pageId: string, mode: PageFill | null) => void;
   setPageFullPageFocus: (pageId: string, focus: CropFocus) => void;
   setCaption: (photoId: string, caption: string) => void;
+  setPhotoCrop: (photoId: string, crop: CropRect | null) => void;
 
   setBookSize: (bookSize: BookSizeId) => void;
   setSpineTitle: (title: string) => void;
@@ -706,6 +709,14 @@ export const useAlbum = create<AlbumState>((set, get) => {
     setCaption: (photoId, caption) => {
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, caption } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoCrop: (photoId, crop) => {
+      const next = crop ? clampCrop(crop) : undefined;
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, crop: next } : p)),
       }));
       scheduleSave();
     },

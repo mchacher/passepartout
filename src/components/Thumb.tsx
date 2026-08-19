@@ -1,12 +1,14 @@
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
+import { effectiveRatio, cropImgBox } from "../lib/crop";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
 
 export interface ThumbPhoto {
   id: string;
   url: string;
   ratio: number;
+  crop?: CropRect;
 }
 
 interface ThumbProps {
@@ -34,7 +36,7 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
   const NW = NH * aspect;
   const gridCells = resolveCells(layoutId, photos.length, placement);
   const { cells } = computeLayout(
-    photos.map((p) => ({ ratio: p.ratio })),
+    photos.map((p) => ({ ratio: effectiveRatio(p.ratio, p.crop) })),
     NW,
     NH,
     gridCells,
@@ -82,18 +84,28 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
                 height: `${(c.rh / NH) * 100}%`,
               }}
             >
-              <img
-                src={photos[i].url}
-                alt=""
-                draggable={false}
+              <div
+                className="absolute overflow-hidden"
                 style={{
                   left: `${(c.ox / c.rw) * 100}%`,
                   top: `${(c.oy / c.rh) * 100}%`,
                   width: `${(c.w / c.rw) * 100}%`,
                   height: `${(c.h / c.rh) * 100}%`,
                 }}
-                className="absolute block"
-              />
+              >
+                {(() => {
+                  const cb = cropImgBox(photos[i].crop, 100, 100);
+                  return (
+                    <img
+                      src={photos[i].url}
+                      alt=""
+                      draggable={false}
+                      style={{ left: `${cb.ox}%`, top: `${cb.oy}%`, width: `${cb.w}%`, height: `${cb.h}%`, maxWidth: "none" }}
+                      className="absolute block"
+                    />
+                  );
+                })()}
+              </div>
             </div>
           );
         })}

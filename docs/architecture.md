@@ -13,10 +13,11 @@ below exists to honour this: even inside a fixed grid slot a photo is *contained
 (fit + centered), never stretched to fill. Anything that would non-proportionally
 resize a photo is out of scope by definition.
 
-The one deliberate, opt-in exception (spec 012) is a page's **Fill** mode, which
-crops a single photo to cover the page. It is off by default, per page, clearly
-labelled, and still never *distorts* (the crop is proportional). Every other
-surface, and every un-opted photo, keeps the full no-crop guarantee.
+No-crop is the **default**, not a ban. The deliberate, opt-in exceptions are a page's
+**Fill** mode (spec 012, crop a single photo to cover the page) and the per-photo **crop
+tool** (spec 015, keep a chosen rectangle of a photo). Both are off by default, explicit,
+and never *distort* (the crop is proportional; the kept region is shown contain-fit). Every
+un-opted photo keeps the full no-crop guarantee.
 
 ## Module map
 
@@ -42,6 +43,7 @@ src/
 │   ├── preview.ts      # PURE book-preview helpers: booklet leaf order, spread pairing, fit-to-stage sizing
 │   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
 │   ├── grid-edit.ts    # PURE move/resize/restack helpers for free placement (spec 013 Phase B)
+│   ├── crop.ts         # PURE photo-crop geometry: effectiveRatio, crop-rect edit, cropImgBox (spec 015)
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
 ├── viewStore.ts        # Ephemeral view prefs (e.g. showGrid), localStorage-persisted, not album data
@@ -61,6 +63,8 @@ src/
     ├── BookPreview.tsx # Full-screen read-only viewer: double-page spreads + thumbnail rail (spec 011)
     ├── PreviewPaper.tsx# Read-only faithful leaf render for the preview (reuses the engine, no crop)
     ├── PageRail.tsx    # Right rail: page thumbnails, drag-to-reorder, click-to-scroll
+    ├── CroppedImg.tsx  # Render a photo into a box, showing only its crop region (spec 015)
+    ├── CropEditor.tsx  # Full-screen crop editor: image + draggable crop rectangle (spec 015)
     └── dnd.ts          # Shared drag-and-drop payload keys (photo + page)
 ```
 
@@ -79,8 +83,10 @@ Three hard boundaries:
 
 ## Data model (`src/types.ts`)
 
-- **Photo**: one imported image. Native size, `ratio` (the sacred value), `caption`,
-  capture `time`, and `pageId` (`null` while still in the library).
+- **Photo**: one imported image. Native size, `ratio`, `caption`, capture `time`, `pageId`
+  (`null` while still in the library), and an optional `crop` (spec 015): a normalized kept
+  sub-rectangle. Absent = the whole image (no crop, the default). The kept region's ratio is
+  the photo's **effective ratio** (`src/lib/crop.ts`), which drives the layout.
 - **AlbumPage**: ordered `photoIds`, optional `title` and `subtitle` (both rendered on
   the paper, contained in whitespace, never on a photo), a `whitespace` level
   (`1 .. WHITESPACE_LEVELS`, currently 8), a `layoutId`, and optional full-page fields
@@ -260,6 +266,13 @@ Dragging whitespace never re-groups photos.
   returns the media box as the content box and flags a `cover` photo; `pdf-export`
   re-encodes the crop with `coverSourceRect` (`src/lib/fit.ts`), so the exported JPEG
   matches the on-screen crop with no PDF clipping. The engine is untouched.
+- **Photo crop** (shipped, spec 015): a `Crop` button in Edit layout opens `CropEditor`
+  (the full image + a draggable crop rectangle, free aspect). It writes `Photo.crop` via
+  `store.setPhotoCrop`. Every renderer lays out by `effectiveRatio(photo)` and draws the
+  crop with `CroppedImg` (or, in `Thumb`, the same percent math); `pdf-export` crops the
+  source at re-encode (9-arg `drawImage`). An un-cropped photo is the whole image, contained.
+  `Photo.crop` travels in `StoredPhoto` (no `project.ts` change). Full-page mode (spec 012)
+  currently shows the whole image (crop composes with cells, not with full-page cover).
 - **Book preview** (shipped, spec 011): a full-screen, read-only viewer
   (`BookPreview.tsx` + `PreviewPaper.tsx`) that reads the whole book in double-page
   spreads. `src/lib/preview.ts` (pure) gives the booklet leaf order, the spread pairing

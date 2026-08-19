@@ -1,16 +1,29 @@
 // Core domain types. A Photo keeps its native aspect ratio forever: the layout
 // engine only ever chooses its size and the whitespace around it, never a crop.
 
+// A normalized sub-rectangle of a photo's source (spec 015): the region the user chose to
+// keep, in 0..1 fractions of the source. Absent = the whole image (no crop, the default).
+export interface CropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface Photo {
   id: string;
   url: string; // object URL or data URL, lives only in this browser session
   w: number; // natural pixel width
   h: number; // natural pixel height
-  ratio: number; // w / h, the sacred value we never violate
+  ratio: number; // w / h of the source; the KEPT region's ratio is the effective ratio
   time: number; // capture time (EXIF DateTimeOriginal, else file mtime), ms epoch
   name: string;
   caption: string;
   pageId: string | null; // null = still in the library, not placed
+  // Opt-in crop (spec 015): the kept sub-rectangle of the source, normalized. Absent = the
+  // whole image. The kept region is shown contain-fit (undistorted); its ratio is the
+  // photo's effective ratio (see src/lib/crop.ts). No-crop stays the default.
+  crop?: CropRect;
 }
 
 // Full-page mode for a single-photo page (spec 012). `contain` (Fit) maximizes the photo

@@ -2,7 +2,9 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
+import { effectiveRatio } from "../lib/crop";
+import { CroppedImg } from "./CroppedImg";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
 
 // A read-only, faithful render of one book leaf (a page or a cover face) at an exact
 // pixel width, for the in-app book preview (spec 011). It reuses the pure layout engine
@@ -15,6 +17,7 @@ export interface PreviewPhoto {
   url: string;
   ratio: number;
   caption: string;
+  crop?: CropRect;
 }
 
 // Page margins mirror Paper.tsx / print.ts (percentages of the page width).
@@ -93,7 +96,7 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
 
   const gridCells = resolveCells(layoutId, photos.length, placement);
   const { cells } = computeLayout(
-    photos.map((p) => ({ ratio: p.ratio })),
+    photos.map((p) => ({ ratio: effectiveRatio(p.ratio, p.crop) })),
     contentW,
     contentH,
     gridCells,
@@ -140,13 +143,7 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
                   className="absolute flex flex-col items-center gap-[5px]"
                   style={{ left: cell.ox, top: cell.oy, width: cell.w }}
                 >
-                  <img
-                    src={photo.url}
-                    alt=""
-                    draggable={false}
-                    style={{ width: `${cell.w}px`, height: `${cell.h}px` }}
-                    className="block rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]"
-                  />
+                  <CroppedImg url={photo.url} name="" crop={photo.crop} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
                   {photo.caption.trim().length > 0 && (
                     <div
                       className="max-w-full break-words text-center font-album leading-tight"
@@ -186,13 +183,13 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
-    const { cells } = computeLayout([{ ratio: photo.ratio }], cw, ch, resolveCells("single", 1), {
+    const { cells } = computeLayout([{ ratio: effectiveRatio(photo.ratio, photo.crop) }], cw, ch, resolveCells("single", 1), {
       density: whitespaceToDensity(whitespace),
     });
     const c = cells[0];
     setBox(c ? { w: c.w, h: c.h } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo?.id, photo?.ratio, whitespace, h]);
+  }, [photo?.id, photo?.ratio, photo?.crop, whitespace, h]);
 
   useLayoutEffect(() => {
     measure();
@@ -226,13 +223,7 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
 
       <div ref={boxRef} className="relative flex min-h-0 flex-1 items-center justify-center p-[9%]">
         {photo && box && (
-          <img
-            src={photo.url}
-            alt=""
-            draggable={false}
-            style={{ width: `${box.w}px`, height: `${box.h}px` }}
-            className="block rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]"
-          />
+          <CroppedImg url={photo.url} name="" crop={photo.crop} w={box.w} h={box.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
         )}
       </div>
     </div>

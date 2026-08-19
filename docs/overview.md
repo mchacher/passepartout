@@ -10,9 +10,9 @@ A photo's aspect ratio is never changed and the photo is never clipped. The layo
 engine may only pick a photo's **size** and the **whitespace** around it. This rule
 is enforced in code (`src/lib/layout.ts` returns cells whose `w/h` always equals the
 photo's `ratio`) and guarded by tests (`src/lib/layout.test.ts`). Even inside a fixed
-grid slot a photo is *contained* (fit + centered), never stretched to fill. The one
-deliberate exception is a page's opt-in **Fill** mode (spec 012), which crops a single
-photo to cover the page; it is off by default and still never distorts.
+grid slot a photo is *contained* (fit + centered), never stretched to fill. The deliberate,
+opt-in exceptions are a page's **Fill** mode (spec 012) and the per-photo **crop tool**
+(spec 015); both are off by default and never distort (the kept region is shown contained).
 
 ## Data model
 
