@@ -13,6 +13,7 @@ designs live under `specs/`.
 - Real Blurb book sizes + spine (008)
 - Print-ready PDF export: cover wrap + interior, 300 DPI, sRGB, bleed; spine carries the
   title or title + subtitle (009)
+- Larger photos: tighter whitespace levers + photos maximized by default (spec 010)
 
 ## Requested (this round)
 
@@ -20,12 +21,15 @@ designs live under `specs/`.
    interface (turn/scroll the pages as they will print), distinct from the editor and
    from the PDF. Reuses the same pure engine numbers as `Paper` / `Thumb` / `print.ts`.
 
-2. **Maximize photo size (less whitespace).** Photos should be able to fill more of the
-   page; the current whitespace can still feel too large. The lever exists in the engine
-   (`fillFraction = 0.5 + 0.5 * density/100`, i.e. photos never exceed 50 %..100 % of
-   their region) and in the `WHITESPACE_LEVELS` mapping. Options: raise the top end of
-   the fill range, add a "tight" whitespace level, or reduce the structural inter-region
-   gap. Must stay ratio-preserving (no crop).
+2. **Full-page photos.** A way to let a photo fill the whole page (edge to edge /
+   full-bleed), for the "one big photo per page" look.
+   > **No-crop caveat.** A photo can only fill the *entire* page without cropping when
+   > its ratio matches the page's; otherwise full-page means either cropping (conflicts
+   > with the founding rule) or letterboxing (not truly full-page). Ways to reconcile,
+   > to decide when this becomes a spec: (a) full-bleed only when the photo ratio is
+   > close enough to the page, else contain-fit; (b) an explicit per-photo full-bleed opt-in
+   > that accepts a crop (ties into item 5); (c) let the page adapt toward the photo's
+   > ratio. Related to the shipped "maximize photos" (010) and to free placement (3).
 
 3. **Free placement.** Let a photo be positioned freely on the page rather than only in
    the fixed layout-template regions. This is a significant model change: today a page is

@@ -99,6 +99,32 @@ describe("computeLayout", () => {
     expect(dense.cells[0].h).toBeGreaterThan(airy.cells[0].h);
   });
 
+  it("fills the region at the tightest level and keeps a raised floor at the airiest (spec 010)", () => {
+    // Single slot on a square box: the region is the whole content box (600x600), so a
+    // square photo's contain-fit height is 600. Fill is 1.0 at density 100 and 0.6 at 0.
+    const tight = computeLayout([item(1)], 600, 600, node("single"), { density: 100 }).cells[0];
+    const airy = computeLayout([item(1)], 600, 600, node("single"), { density: 0 }).cells[0];
+    expect(tight.h).toBeCloseTo(600, 4); // fill 1.0 -> maximized, ratio intact
+    expect(tight.w / tight.h).toBeCloseTo(1, 6);
+    expect(airy.h).toBeCloseTo(360, 1); // fill 0.6 (was 300 at the old 0.5 floor)
+  });
+
+  it("uses a tighter inter-region gap than the old 3% formula", () => {
+    // grid-2x2 on a 600x600 box: cells 0 and 1 share a row (see the grid test below),
+    // so the horizontal space between them is the structural gap, now ~2% of the box.
+    const cells = computeLayout(
+      [item(1), item(1), item(1), item(1)],
+      600,
+      600,
+      node("grid-2x2"),
+      { density: 50 },
+    ).cells;
+    const gap = cells[1].rx - (cells[0].rx + cells[0].rw);
+    expect(gap).toBeGreaterThan(0); // regions never overlap
+    expect(gap).toBeLessThan(600 * 0.03); // tighter than the previous 3% gap
+    expect(gap).toBeCloseTo(600 * 0.02, 1);
+  });
+
   it("leaves the region structure identical across densities (layout is frozen)", () => {
     const items = [item(3 / 2), item(2 / 3), item(1)];
     const lo = computeLayout(items, 600, 600, node("one-beside-two"), { density: 10 }).cells;

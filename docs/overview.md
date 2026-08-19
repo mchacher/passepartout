@@ -70,7 +70,7 @@ Import / demo
    slot (leaves in order). Siblings are separated by a fixed structural gap and sized
    by optional weights. This structure is **independent of density**.
 2. Inside each region, contain-fit the photo (`boxH = min(rh, rw / ratio)`), scale it
-   by a `fillFraction` (0.50 .. 1.00) driven by the page's whitespace level (mapped to
+   by a `fillFraction` (0.60 .. 1.00) driven by the page's whitespace level (mapped to
    density by `whitespaceToDensity`), and center it. Never above the contain fit: the
    ratio is kept and the fixed inter-region gap is the guaranteed minimum whitespace.
 
@@ -94,7 +94,8 @@ paint a 300 DPI PDF page: same math, different canvas.
 - **Layout picker** offers the arrangements available for the current count (rows and
   grids); picking one reshapes the page without touching the photos' framing.
 - **Whitespace levels (1-8)** scale the photos inside the fixed layout (level 1 fills
-  the region, 8 is airiest); they never re-group.
+  the region, 8 is airiest); they never re-group. A fresh page starts at level 1, so
+  photos are maximized by default (spec 010).
 - **Title** is edited in the page header and shown centered on the page.
 - **Caption** is edited inline under each photo.
 - **Page rail** (right side, wide screens) shows a faithful thumbnail of every cover

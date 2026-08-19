@@ -51,8 +51,9 @@ export type CoverFace = "front" | "insideFront" | "insideBack" | "back";
 // density (see whitespaceToDensity in src/lib/layout.ts).
 export const WHITESPACE_LEVELS = 8;
 
-// Whitespace level a fresh page starts with.
-export const DEFAULT_WHITESPACE = 4;
+// Whitespace level a fresh page (and cover) starts with. 1 is the tightest, so photos
+// are maximized to their contain-fit by default (spec 010); the slider adds whitespace.
+export const DEFAULT_WHITESPACE = 1;
 
 // The layout a page falls back to before any photos land on it (a single slot).
 export const DEFAULT_LAYOUT_ID = "single";

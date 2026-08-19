@@ -175,7 +175,7 @@ duplication copies each blob under a new photo id so projects never share image 
    and sized by optional weights. This structure is a pure function of the template
    and the box, **independent of density**.
 2. **Fit**: inside each region, contain-fit the photo (`boxH = min(rh, rw / ratio)`),
-   scale it by `fillFraction = 0.5 + 0.5 * density/100` (range 0.50 .. 1.00) and
+   scale it by `fillFraction = 0.6 + 0.4 * density/100` (range 0.60 .. 1.00) and
    center it. Never above the contain fit, so the ratio is kept and the fixed
    inter-region gap is the guaranteed minimum whitespace.
 

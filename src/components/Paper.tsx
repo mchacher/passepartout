@@ -99,7 +99,7 @@ export function Paper({ page }: PaperProps) {
         <div
           ref={innerRef}
           className="absolute inset-0"
-          style={{ padding: "7%", paddingTop: hasSubtitle ? "16%" : hasTitle ? "13%" : "7%" }}
+          style={{ padding: "5%", paddingTop: hasSubtitle ? "14%" : hasTitle ? "11%" : "5%" }}
         >
           {items.length === 0 ? (
             <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">

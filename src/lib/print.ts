@@ -54,9 +54,9 @@ export interface PageGeometry {
 
 // The page margin and header offsets mirror the on-screen Paper (percentages of the
 // page width, matching CSS padding %). Keeping them identical makes preview == print.
-const MARGIN = 0.07;
-const TOP_TITLE = 0.13;
-const TOP_SUBTITLE = 0.16;
+const MARGIN = 0.05;
+const TOP_TITLE = 0.11;
+const TOP_SUBTITLE = 0.14;
 
 // Text sizes as a fraction of the trim width, mirroring the on-screen cqw-based clamps
 // (e.g. a page title is clamp(.., 3.1cqw, ..) = 3.1% of the page width). Multiplied by
