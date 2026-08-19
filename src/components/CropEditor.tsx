@@ -72,7 +72,7 @@ export function CropEditor({ photo, onApply, onClose }: CropEditorProps) {
         <span className="font-display text-[14px]">Crop photo</span>
         <span className="text-[12.5px] text-white/55">Drag the corners or edges; drag inside to move.</span>
         <button
-          onClick={() => onApply(null)}
+          onClick={() => setCrop(DEFAULT_CROP)}
           className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-[12.5px] text-white/85 hover:bg-white/10"
         >
           Reset
