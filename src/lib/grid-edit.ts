@@ -19,6 +19,18 @@ export function panAnchor(startA: number, dPx: number, freePx: number): number {
   return clamp01(startA + dPx / freePx);
 }
 
+/**
+ * Soft magnetism for the pan: snap an anchor to the nearest edge/center (0, 0.5, 1) when it
+ * is within `threshold`, otherwise leave it free, so placement stays free between the snap
+ * zones but is gently attracted to the middle and the edges.
+ */
+export function snapAnchor(a: number, threshold = 0.07): number {
+  for (const t of [0, 0.5, 1]) {
+    if (Math.abs(a - t) <= threshold) return t;
+  }
+  return a;
+}
+
 /** Translate a cell by whole grid units, clamped so it stays fully inside the grid. */
 export function moveCell(rect: CellRect, dCol: number, dRow: number): CellRect {
   const col = clampInt(rect.col + dCol, 0, GRID_COLS - rect.colSpan);

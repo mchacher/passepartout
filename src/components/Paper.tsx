@@ -3,7 +3,7 @@ import { useAlbum } from "../store";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells, GRID_COLS, GRID_ROWS } from "../lib/layouts";
-import { moveCell, resizeCell, restack, panAnchor, type Corner } from "../lib/grid-edit";
+import { moveCell, resizeCell, restack, panAnchor, snapAnchor, type Corner } from "../lib/grid-edit";
 import { useView } from "../viewStore";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
@@ -104,8 +104,8 @@ export function Paper({ page, editing = false }: PaperProps) {
       } else {
         nextRect = {
           ...start,
-          ax: panAnchor(start.ax ?? 0.5, ev.clientX - startX, freeX),
-          ay: panAnchor(start.ay ?? 0.5, ev.clientY - startY, freeY),
+          ax: snapAnchor(panAnchor(start.ax ?? 0.5, ev.clientX - startX, freeX)),
+          ay: snapAnchor(panAnchor(start.ay ?? 0.5, ev.clientY - startY, freeY)),
         };
       }
       const next = base.map((c, i) => (i === index ? nextRect : c));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { moveCell, resizeCell, restack, panAnchor } from "./grid-edit";
+import { moveCell, resizeCell, restack, panAnchor, snapAnchor } from "./grid-edit";
 import type { CellRect } from "../types";
 
 const cell = (col: number, row: number, colSpan: number, rowSpan: number): CellRect => ({
@@ -81,5 +81,18 @@ describe("panAnchor", () => {
 
   it("cannot move when the axis has no free space", () => {
     expect(panAnchor(0.3, 100, 0)).toBe(0.3);
+  });
+});
+
+describe("snapAnchor", () => {
+  it("attracts to the nearest edge/center within the threshold", () => {
+    expect(snapAnchor(0.03)).toBe(0); // left/top edge
+    expect(snapAnchor(0.47)).toBe(0.5); // center
+    expect(snapAnchor(0.95)).toBe(1); // right/bottom edge
+  });
+
+  it("leaves placement free between the snap zones", () => {
+    expect(snapAnchor(0.3)).toBe(0.3);
+    expect(snapAnchor(0.68)).toBe(0.68);
   });
 });
