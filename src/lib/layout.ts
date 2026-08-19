@@ -111,10 +111,11 @@ export function computeLayout<T extends LayoutItem>(
   // Fill fraction: how much of its region the photo occupies. Higher density = more
   // fill (less white). At the top end the photo fills its region's constraining
   // dimension (fill = 1); it is never scaled above the contain fit, so the ratio is
-  // kept and the fixed gap between regions is the guaranteed minimum whitespace.
-  const fill = 0.5 + 0.5 * (density / 100);
+  // kept and the fixed gap between regions is the guaranteed minimum whitespace. The
+  // floor keeps even the airiest level from shrinking photos too far (spec 010).
+  const fill = 0.6 + 0.4 * (density / 100);
   // A small, density-independent gap between sibling regions keeps the structure airy.
-  const gap = Math.max(6, Math.min(contentW, contentH) * 0.03);
+  const gap = Math.max(4, Math.min(contentW, contentH) * 0.02);
 
   const regions: Rect[] = [];
   collectRegions(node, { x: 0, y: 0, w: contentW, h: contentH }, gap, regions);
