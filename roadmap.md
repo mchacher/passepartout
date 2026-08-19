@@ -20,13 +20,15 @@ designs live under `specs/`.
   draggable crop focus for Fill; no-crop is the default (spec 012)
 - Grid layout substrate (spec 013, Phase A): the catalog rests on a fixed 12 x 12 grid
   (templates are `CellRect`s); groundwork for free placement on the same model
+- Free placement (spec 013, Phase B): a per-page "Edit layout" mode to move and resize
+  photos on the grid, overlap them with a front/back stacking order, writing a custom
+  `placement`; never crops
 
 ## Requested (this round)
 
-1. **Free placement** (spec 013 Phase B). Let a photo be moved and resized on the page,
-   snapped to the 12 x 12 grid, writing a per-page `placement` that detaches from the
-   named template. Phase A shipped the grid substrate; this adds the editor. (Phase C,
-   later: adjustable grid resolution, overlaps, spanning a double-page spread.)
+1. **Grid free placement, Phase C** (later). Adjustable grid resolution, multi-select /
+   group move, and spanning a single photo across a double-page spread. Phases A (grid
+   substrate) and B (move/resize/overlap editor) have shipped.
 
 2. **Image editing (crop / format / masks).**
    > ⚠️ **Direct tension with the founding rule.** The product's one rule is *"a photo's

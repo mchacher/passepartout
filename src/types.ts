@@ -36,6 +36,10 @@ export interface CellRect {
   row: number;
   colSpan: number;
   rowSpan: number;
+  // Stacking order for overlapping custom placements (spec 013 Phase B): higher draws in
+  // front. Templates omit it (no overlap); the layout engine ignores it (geometry only);
+  // renderers and the print painter use it to layer overlapping cells (see drawOrder).
+  z?: number;
 }
 
 export interface AlbumPage {

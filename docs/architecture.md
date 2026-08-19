@@ -41,6 +41,7 @@ src/
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   ├── preview.ts      # PURE book-preview helpers: booklet leaf order, spread pairing, fit-to-stage sizing
 │   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
+│   ├── grid-edit.ts    # PURE move/resize/restack helpers for free placement (spec 013 Phase B)
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
 ├── viewStore.ts        # Ephemeral view prefs (e.g. showGrid), localStorage-persisted, not album data
@@ -227,6 +228,14 @@ Dragging whitespace never re-groups photos.
 - **A new album font or color palette**: add a `FontTheme` / `ColorTheme` (with a stable
   new id) to the catalog in `src/lib/themes.ts`. `ThemeMenu`, `theme-vars.ts` and
   `useApplyTheme` pick it up for free; no engine or store change.
+- **Free placement** (shipped, spec 013 Phase B): a per-page "Edit layout" mode (local to
+  `PageCard`) turns `Paper` into an editor: dragging a cell moves it and corner handles
+  resize it, snapped to the grid (`src/lib/grid-edit.ts`, pure), writing `page.placement`
+  via `store.setPagePlacement`. Overlap is allowed; a per-cell `z` (front/back) drives a
+  pure `drawOrder(cells)` that `Paper` / `Thumb` / `PreviewPaper` / `print.ts` all paint
+  in, so layers match everywhere. The first edit detaches the page from its template;
+  `removeFromPage` / `placeOnPage` reconcile `placement` by index. The engine is unchanged
+  (still contain-fit, no crop).
 - **A new text role or size level**: extend `TEXT_ROLES` / `TEXT_SIZE_LEVELS` in
   `src/lib/text-sizes.ts` and add the matching `--<role>-scale` var to the text site.
   `ThemeMenu` renders the new row/level automatically.

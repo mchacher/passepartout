@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAlbum } from "../store";
 import { WHITESPACE_LEVELS, type AlbumPage } from "../types";
 import { layoutsForCount } from "../lib/layouts";
@@ -19,6 +20,8 @@ export function PageCard({ page, index }: PageCardProps) {
   const count = page.photoIds.length;
   const layouts = layoutsForCount(count);
   const isFullPage = page.fullPage !== undefined;
+  const [editing, setEditing] = useState(false);
+  const canArrange = count >= 1 && !isFullPage;
 
   // Full-page choices for a single-photo page (spec 012). Off = normal page; Fit fills the
   // page without cropping; Fill fills the page by cropping to the page ratio.
@@ -82,6 +85,28 @@ export function PageCard({ page, index }: PageCardProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-3 py-2">
+        {canArrange && (
+          <button
+            onClick={() => setEditing((v) => !v)}
+            aria-pressed={editing}
+            title={editing ? "Finish arranging" : "Move and resize photos on the grid"}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-[5px] text-[11.5px] transition-colors ${
+              editing
+                ? "border-accent bg-accent text-white"
+                : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
+            }`}
+          >
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+              <path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" />
+            </svg>
+            {editing ? "Done" : "Arrange"}
+          </button>
+        )}
+
+        {editing ? (
+          <span className="text-[11px] text-muted">Drag to move, corners to resize; use the buttons to layer or remove.</span>
+        ) : (
+        <>
         {layouts.length > 1 && (
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted">Layout</span>
@@ -165,9 +190,11 @@ export function PageCard({ page, index }: PageCardProps) {
           </span>
         </label>
         )}
+        </>
+        )}
       </div>
 
-      <Paper page={page} />
+      <Paper page={page} editing={editing && canArrange} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { computeLayout, whitespaceToDensity } from "../lib/layout";
+import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
@@ -32,13 +32,15 @@ const NH = 100;
 export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus, placement }: ThumbProps) {
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const NW = NH * aspect;
+  const gridCells = resolveCells(layoutId, photos.length, placement);
   const { cells } = computeLayout(
     photos.map((p) => ({ ratio: p.ratio })),
     NW,
     NH,
-    resolveCells(layoutId, photos.length, placement),
+    gridCells,
     { density: whitespaceToDensity(whitespace) },
   );
+  const order = drawOrder(gridCells);
 
   // Full-page mode: the single photo fills the whole thumbnail edge to edge, contained
   // (Fit, no crop) or covered (Fill, cropped at the focus). Never distorted.
@@ -66,26 +68,30 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
       style={{ aspectRatio: String(aspect) }}
     >
       <div className="absolute" style={{ inset: "7%" }}>
-        {cells.map((c, i) => (
-          <div
-            key={photos[i].id}
-            className="absolute flex items-center justify-center"
-            style={{
-              left: `${(c.rx / NW) * 100}%`,
-              top: `${(c.ry / NH) * 100}%`,
-              width: `${(c.rw / NW) * 100}%`,
-              height: `${(c.rh / NH) * 100}%`,
-            }}
-          >
-            <img
-              src={photos[i].url}
-              alt=""
-              draggable={false}
-              style={{ width: `${(c.w / c.rw) * 100}%`, height: `${(c.h / c.rh) * 100}%` }}
-              className="block"
-            />
-          </div>
-        ))}
+        {order.map((i) => {
+          const c = cells[i];
+          if (!c) return null;
+          return (
+            <div
+              key={photos[i].id}
+              className="absolute flex items-center justify-center"
+              style={{
+                left: `${(c.rx / NW) * 100}%`,
+                top: `${(c.ry / NH) * 100}%`,
+                width: `${(c.rw / NW) * 100}%`,
+                height: `${(c.rh / NH) * 100}%`,
+              }}
+            >
+              <img
+                src={photos[i].url}
+                alt=""
+                draggable={false}
+                style={{ width: `${(c.w / c.rw) * 100}%`, height: `${(c.h / c.rh) * 100}%` }}
+                className="block"
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

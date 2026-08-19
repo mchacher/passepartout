@@ -179,12 +179,52 @@ describe("store custom grid placement (spec 013)", () => {
     expect(layoutOf("p1")).toBe("two-col");
   });
 
-  it("syncLayout drops a placement whose length no longer matches the count", () => {
+  it("setPagePlacement stores the placement on the target page only", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", "p1")],
+      pages: [page("p1", ["a", "b"], "two-row")],
+    });
+    useAlbum.getState().setPagePlacement("p1", twoCells);
+    expect(placementOf("p1")).toEqual(twoCells);
+  });
+
+  it("removeFromPage keeps the other cells of a custom placement, aligned by index", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", "p1")],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
+    });
+    useAlbum.getState().removeFromPage("a"); // drops index 0's cell, keeps b's
+    expect(useAlbum.getState().pages[0].photoIds).toEqual(["b"]);
+    expect(placementOf("p1")).toEqual([twoCells[1]]);
+  });
+
+  it("placeOnPage appends a cell so a custom page keeps its other cells", () => {
     useAlbum.setState({
       photos: [photo("a", "p1"), photo("b", "p1"), photo("c", null)],
       pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
     });
-    useAlbum.getState().placeOnPage("c", "p1"); // now 3 photos, placement has 2 rects
+    useAlbum.getState().placeOnPage("c", "p1");
+    const pl = placementOf("p1")!;
+    expect(pl).toHaveLength(3);
+    expect(pl.slice(0, 2)).toEqual(twoCells); // originals kept
+  });
+
+  it("placeOnPage onto a photo's own page is a no-op (keeps the placement)", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", "p1")],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
+    });
+    useAlbum.getState().placeOnPage("a", "p1"); // already on p1
+    expect(useAlbum.getState().pages[0].photoIds).toEqual(["a", "b"]);
+    expect(placementOf("p1")).toEqual(twoCells);
+  });
+
+  it("setPageCount (a coarse reset) drops the custom placement", () => {
+    useAlbum.setState({
+      photos: [photo("a", "p1"), photo("b", "p1"), photo("c", null)],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
+    });
+    useAlbum.getState().setPageCount("p1", 3);
     expect(placementOf("p1")).toBeUndefined();
   });
 });

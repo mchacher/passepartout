@@ -4,6 +4,7 @@ import {
   DEFAULT_LAYOUT_ID,
   DEFAULT_PROJECT_NAME,
   type AlbumPage,
+  type CellRect,
   type Cover,
   type CoverFace,
   type CropFocus,
@@ -151,6 +152,7 @@ interface AlbumState {
   setPageSubtitle: (pageId: string, subtitle: string) => void;
   setPageWhitespace: (pageId: string, whitespace: number) => void;
   setPageLayout: (pageId: string, layoutId: string) => void;
+  setPagePlacement: (pageId: string, placement: CellRect[]) => void;
   setPageFullPage: (pageId: string, mode: PageFill | null) => void;
   setPageFullPageFocus: (pageId: string, focus: CropFocus) => void;
   setCaption: (photoId: string, caption: string) => void;
@@ -525,12 +527,22 @@ export const useAlbum = create<AlbumState>((set, get) => {
         const photo = photos.find((p) => p.id === photoId);
         const target = pages.find((pg) => pg.id === pageId);
         if (!photo || !target) return {};
+        // Dropping a photo onto the page it already sits on is a no-op: reordering it to the
+        // end would needlessly reset its custom placement cell.
+        if (photo.pageId === pageId) return {};
         if (photo.pageId) {
           const old = pages.find((pg) => pg.id === photo.pageId);
-          if (old) old.photoIds = old.photoIds.filter((id) => id !== photoId);
+          if (old) {
+            // Keep a custom placement aligned: drop the moved photo's cell by its index.
+            const oi = old.photoIds.indexOf(photoId);
+            old.photoIds = old.photoIds.filter((id) => id !== photoId);
+            if (oi >= 0 && old.placement) old.placement = old.placement.filter((_, i) => i !== oi);
+          }
         }
         target.photoIds.push(photoId);
         photo.pageId = pageId;
+        // Give the incoming photo a default cell so a custom page keeps its other cells.
+        if (target.placement) target.placement = [...target.placement, { col: 3, row: 3, colSpan: 6, rowSpan: 6 }];
         pages.forEach(syncLayout);
         return { photos, pages };
       });
@@ -544,7 +556,12 @@ export const useAlbum = create<AlbumState>((set, get) => {
         const photo = photos.find((p) => p.id === photoId);
         if (!photo || !photo.pageId) return {};
         const pg = pages.find((x) => x.id === photo.pageId);
-        if (pg) pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
+        if (pg) {
+          // Keep a custom placement aligned: drop the removed photo's cell by its index.
+          const i = pg.photoIds.indexOf(photoId);
+          pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
+          if (i >= 0 && pg.placement) pg.placement = pg.placement.filter((_, idx) => idx !== i);
+        }
         photo.pageId = null;
         pages.forEach(syncLayout);
         return { photos, pages };
@@ -657,6 +674,13 @@ export const useAlbum = create<AlbumState>((set, get) => {
       // Re-selecting a template re-attaches the page: any custom placement is cleared.
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId, placement: undefined } : pg)),
+      }));
+      scheduleSave();
+    },
+
+    setPagePlacement: (pageId, placement) => {
+      set((s) => ({
+        pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, placement } : pg)),
       }));
       scheduleSave();
     },

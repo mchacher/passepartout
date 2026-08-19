@@ -69,6 +69,19 @@ interface Rect {
  * box's smaller side) sits between tracks, so only gutters between adjacent cells are
  * visible and a full-grid single cell equals the content box. Independent of density.
  */
+/**
+ * The order to DRAW cells in so overlapping custom placements (spec 013 Phase B) layer
+ * consistently everywhere (screen, thumbnails, preview, print). Returns cell indices
+ * sorted by `z ?? index`, stable for ties (earlier index stays behind). The cell <-> photo
+ * mapping is by the original index, so drawing follows this order but items[i] is unchanged.
+ */
+export function drawOrder(cells: CellRect[]): number[] {
+  return cells
+    .map((c, i) => ({ i, z: c.z ?? i }))
+    .sort((a, b) => a.z - b.z || a.i - b.i)
+    .map((e) => e.i);
+}
+
 export function gridRegions(cells: CellRect[], contentW: number, contentH: number): Rect[] {
   const gutter = GRID_GUTTER_FRAC * Math.min(contentW, contentH);
   const trackW = (contentW - (GRID_COLS - 1) * gutter) / GRID_COLS;
