@@ -97,6 +97,7 @@ export function ExportPanel() {
               frameText: fp ? undefined : p.frameText,
               frameWidth: fp ? undefined : p.frameWidth,
               frameFocus: fp ? undefined : p.frameFocus,
+              rotation: fp ? undefined : p.rotation,
             })),
         };
       }),

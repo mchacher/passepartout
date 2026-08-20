@@ -18,6 +18,8 @@ interface FramedPhotoProps {
   text?: string;
   width?: number;
   focus?: CropFocus;
+  // Decorative tilt in degrees (spec 020); rotates the whole framed unit about its center.
+  rotation?: number;
   // The frame box in px (the cell the engine chose for the frame's outer ratio).
   w: number;
   h: number;
@@ -27,9 +29,9 @@ interface FramedPhotoProps {
 // clips). Polaroid shows the photo in a square window (cover-cropped at a pannable focus)
 // over a bottom band that holds an optional handwritten note. No rounded corners. Falls back
 // to a plain contained photo if the frame id is unknown.
-export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, color, text, width, focus, w, h }: FramedPhotoProps) {
+export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, color, text, width, focus, rotation, w, h }: FramedPhotoProps) {
   const style = frameById(frame);
-  if (!style) return <CroppedImg url={url} name={name} crop={crop} mask={mask} w={w} h={h} frameClass={FALLBACK_FRAME} />;
+  if (!style) return <CroppedImg url={url} name={name} crop={crop} mask={mask} rotation={rotation} w={w} h={h} frameClass={FALLBACK_FRAME} />;
 
   const c = frameColorOf(color, style.defaultColor);
   const inner = frameInner(style, w, h, borderWidthOf(width));
@@ -59,7 +61,7 @@ export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, 
   const showNote = style.hasText && !!text && text.trim().length > 0;
 
   return (
-    <div className="relative" style={{ width: `${w}px`, height: `${h}px`, background: c.value, boxShadow: "0 2px 12px rgba(0,0,0,0.18)" }}>
+    <div className="relative" style={{ width: `${w}px`, height: `${h}px`, background: c.value, boxShadow: "0 2px 12px rgba(0,0,0,0.18)", transform: rotation ? `rotate(${rotation}deg)` : undefined }}>
       {photo}
       {showNote && (
         <div

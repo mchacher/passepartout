@@ -86,11 +86,13 @@ Three hard boundaries:
 - **Photo**: one imported image. Native size, `ratio`, `caption`, capture `time`, an
   optional `crop` (spec 015): a normalized kept sub-rectangle, an optional `mask` (spec
   018): the id of a decorative shape from the enrichable catalog `src/lib/masks.ts` (opt-in,
-  clips only the pixels outside the shape), and optional decorative frame fields (`frame` /
+  clips only the pixels outside the shape), optional decorative frame fields (`frame` /
   `frameColor` / `frameText` / `frameWidth` / `frameFocus`, spec 019, catalog
   `src/lib/frames.ts`): a Border mats the photo whole in a uniform border (additive, never
   clips) or a Polaroid shows it in a square, pannable, cover-cropped window with a note band;
-  the engine sizes a framed cell to the frame's outer ratio (`frameLayoutRatio`). It stores NO placement:
+  the engine sizes a framed cell to the frame's outer ratio (`frameLayoutRatio`), and an
+  optional `rotation` (spec 020): a small decorative tilt applied as a visual transform on
+  top of the layout (the whole crop/mask/frame unit tilts; the engine never sees it). It stores NO placement:
   a photo can appear on many pages / cover faces at once and its usage is derived (spec 017,
   `src/lib/usage.ts`). Absent crop = the whole image (no crop, the default). The kept region's ratio is
   the photo's **effective ratio** (`src/lib/crop.ts`), which drives the layout.

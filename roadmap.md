@@ -43,6 +43,10 @@ designs live under `specs/`.
   (additive, never clips); Polaroid shows it in a square, Shift-pannable, cover-cropped
   window over a bottom band that holds an optional handwritten note (a bundled handwriting
   font, embedded in the PDF via @pdf-lib/fontkit). No rounded corners; the engine is untouched
+- Decorative photo tilt (spec 020): an opt-in per-photo rotation in fixed steps (5 / 10
+  degrees, decorative range) applied as a visual transform on top of the layout; it never
+  crops or distorts and composes with the crop / mask / frame (the whole unit tilts, note
+  included), on screen and in the exported PDF (rotated about the box center). Engine untouched
 
 ## Requested (this round)
 
@@ -75,5 +79,4 @@ designs live under `specs/`.
 - Full-bleed / spread templates (one photo across a double page) while still never
   cropping.
 - Reorder photos within a page by drag (reordering whole pages already ships, spec 007).
-- Rotate a photo in fixed steps (5 or 10 degrees) as a decorative tilt (to be tried out).
 - Project file export/import (a portable backup on top of the IndexedDB persistence).

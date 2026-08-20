@@ -7,6 +7,7 @@ import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
 import { MASKS } from "../lib/masks";
 import { FRAMES, FRAME_COLORS, frameById, BORDER_WIDTHS, borderWidthOf } from "../lib/frames";
+import { ROTATION_STEPS } from "../lib/rotation";
 
 interface PageCardProps {
   page: AlbumPage;
@@ -18,7 +19,7 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 // One album page: the control header (title, photo count, delete), a controls row
 // (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, setPhotoFrame, setPhotoFrameColor, setPhotoFrameText, setPhotoFrameWidth, deletePage } =
+  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, setPhotoFrame, setPhotoFrameColor, setPhotoFrameText, setPhotoFrameWidth, setPhotoRotation, deletePage } =
     useAlbum();
   const photos = useAlbum((s) => s.photos);
   const count = page.photoIds.length;
@@ -34,6 +35,7 @@ export function PageCard({ page, index }: PageCardProps) {
   const [cropping, setCropping] = useState<string | null>(null);
   const [maskOpen, setMaskOpen] = useState(false);
   const [frameOpen, setFrameOpen] = useState(false);
+  const [tiltOpen, setTiltOpen] = useState(false);
   // The frame picker closes on an outside pointerdown via a document listener (not a
   // full-screen backdrop), so the photo stays draggable underneath (Shift-pan, spec 019).
   const framePopRef = useRef<HTMLDivElement>(null);
@@ -49,6 +51,7 @@ export function PageCard({ page, index }: PageCardProps) {
     setSel(s);
     setMaskOpen(false);
     setFrameOpen(false);
+    setTiltOpen(false);
   }, []);
   const croppingPhoto = cropping ? photos.find((p) => p.id === cropping) : undefined;
   const selPhoto = sel ? photos.find((p) => p.id === sel.photoId) : undefined;
@@ -285,6 +288,57 @@ export function PageCard({ page, index }: PageCardProps) {
                         </>
                       )}
                     </div>
+                )}
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => setTiltOpen((v) => !v)}
+                  aria-pressed={tiltOpen}
+                  title="Tilt the photo (decorative)"
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-[5px] text-[11.5px] transition-colors ${
+                    selPhoto?.rotation
+                      ? "border-accent bg-accent text-white"
+                      : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
+                  }`}
+                >
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                    <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
+                  </svg>
+                  Tilt
+                </button>
+                {tiltOpen && (
+                  <>
+                    <button aria-label="Close tilt picker" className="fixed inset-0 z-20 cursor-default" onClick={() => setTiltOpen(false)} />
+                    <div className="absolute left-0 top-full z-30 mt-1.5 flex items-center gap-1 rounded-lg border border-line bg-surface p-2 shadow-soft">
+                      {[...ROTATION_STEPS].reverse().map((s) => (
+                        <button
+                          key={`m${s}`}
+                          onClick={() => setPhotoRotation(sel.photoId, (selPhoto?.rotation ?? 0) - s)}
+                          title={`Tilt left ${s} degrees`}
+                          className="rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:border-faint hover:text-ink"
+                        >
+                          -{s}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setPhotoRotation(sel.photoId, 0)}
+                        title="Level (0 degrees)"
+                        className="w-11 rounded-md px-1 py-1 text-center font-mono text-[11px] text-muted hover:text-ink"
+                      >
+                        {selPhoto?.rotation ?? 0}&deg;
+                      </button>
+                      {ROTATION_STEPS.map((s) => (
+                        <button
+                          key={`p${s}`}
+                          onClick={() => setPhotoRotation(sel.photoId, (selPhoto?.rotation ?? 0) + s)}
+                          title={`Tilt right ${s} degrees`}
+                          className="rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:border-faint hover:text-ink"
+                        >
+                          +{s}
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
               {sel.overlaps && (

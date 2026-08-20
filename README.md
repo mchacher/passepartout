@@ -34,6 +34,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Reuse a photo**: a photo can appear on any number of pages at once, not consumed by one. The Library badges each photo with how many times it is used (across pages and covers) and offers an "Unused only" filter to find the photos you have not placed yet.
 - **Decorative masks**: in Edit layout, give a photo a shape (oval, rounded, arch, ...) from an enrichable catalog. The mask follows the photo's box and only hides the pixels outside the shape, so the photo keeps its aspect ratio and size. Opt-in and per-photo; no mask is the default.
 - **Decorative frames**: mat a photo in a colored border (whole, never clipped, with a selectable width) or a Polaroid (a square window you can pan with Shift-drag, over a bottom band) from an enrichable color palette, and add a handwritten note on the Polaroid in a real handwriting font, on screen and in the exported PDF.
+- **Decorative tilt**: rotate a photo a few degrees in fixed steps for a scrapbook look. It is a whole-photo tilt (never crops or distorts) and composes with the crop, mask and frame (the whole unit tilts, note included), on screen and in print.
 - **Local and private**: everything runs in your browser. Photos never leave your machine.
 
 ## Getting started
