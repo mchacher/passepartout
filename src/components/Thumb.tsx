@@ -2,6 +2,7 @@ import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { effectiveRatio, cropImgBox } from "../lib/crop";
+import { isMask } from "../lib/masks";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
 
 export interface ThumbPhoto {
@@ -9,6 +10,7 @@ export interface ThumbPhoto {
   url: string;
   ratio: number;
   crop?: CropRect;
+  mask?: string;
 }
 
 interface ThumbProps {
@@ -91,6 +93,7 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
                   top: `${(c.oy / c.rh) * 100}%`,
                   width: `${(c.w / c.rw) * 100}%`,
                   height: `${(c.h / c.rh) * 100}%`,
+                  clipPath: isMask(photos[i].mask) ? `url(#pp-mask-${photos[i].mask})` : undefined,
                 }}
               >
                 {(() => {

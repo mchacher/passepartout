@@ -14,6 +14,7 @@ import {
   type Spine,
 } from "./types";
 import { clampCrop } from "./lib/crop";
+import { isMask } from "./lib/masks";
 import { countUsage } from "./lib/usage";
 import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
@@ -161,6 +162,7 @@ interface AlbumState {
   setPageFullPageFocus: (pageId: string, focus: CropFocus) => void;
   setCaption: (photoId: string, caption: string) => void;
   setPhotoCrop: (photoId: string, crop: CropRect | null) => void;
+  setPhotoMask: (photoId: string, maskId: string | null) => void;
 
   setBookSize: (bookSize: BookSizeId) => void;
   setSpineTitle: (title: string) => void;
@@ -711,6 +713,15 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const next = crop ? clampCrop(crop) : undefined;
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, crop: next } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoMask: (photoId, maskId) => {
+      // Only a known catalog id is kept; null or an unknown id clears the mask (spec 018).
+      const next = maskId && isMask(maskId) ? maskId : undefined;
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, mask: next } : p)),
       }));
       scheduleSave();
     },

@@ -35,6 +35,9 @@ designs live under `specs/`.
 - Reuse a photo across pages (spec 017): a photo can appear on several pages / cover faces
   at once (no more single `pageId`, usage is derived); the Library badges each photo with
   its usage count and filters to the unused ones
+- Decorative photo masks (spec 018): an opt-in per-photo shape (oval, rounded, arch) from an
+  enrichable catalog; the mask follows the photo's box and only hides the outside-shape
+  pixels, so the ratio/size are unchanged. No mask is the default; the engine is untouched
 
 ## Requested (this round)
 
@@ -43,10 +46,11 @@ designs live under `specs/`.
    substrate) and B (move/resize/overlap editor) have shipped.
 
 2. **Image editing (crop / format / masks).**
-   > **Partly delivered.** The opt-in crop path the caveat below suggests now exists: the
-   > full-page Fill (spec 012) and the per-photo crop tool (spec 015) crop only where the
-   > user explicitly opts in, no-crop staying the default. What remains is forced-format
-   > presets and masks.
+   > **Largely delivered.** The opt-in path the caveat below suggests now exists: full-page
+   > Fill (spec 012), the per-photo crop tool (spec 015) and decorative masks (spec 018) all
+   > clip only where the user explicitly opts in, no-crop staying the default. What remains
+   > is forced-format presets (a fixed aspect that would change the ratio) and richer mask
+   > shapes / per-mask parameters.
    > ⚠️ **Direct tension with the founding rule.** The product's one rule is *"a photo's
    > aspect ratio is never changed and a photo is never clipped"* (see `CLAUDE.md`). Crop
    > and masks clip the photo; a forced format changes its ratio. Recording this as

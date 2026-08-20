@@ -94,7 +94,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     photoIds
       .map((id) => photoById(id))
       .filter((p): p is NonNullable<typeof p> => p !== undefined)
-      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, caption: p.caption, crop: p.crop }));
+      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, caption: p.caption, crop: p.crop, mask: p.mask }));
 
   const coverPreviewPhoto = (cover: Cover): PreviewPhoto | null => {
     const p = photoById(cover.photoId);
@@ -105,7 +105,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     photoIds
       .map((id) => photoById(id))
       .filter((p): p is NonNullable<typeof p> => p !== undefined)
-      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, crop: p.crop }));
+      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, crop: p.crop, mask: p.mask }));
 
   const coverThumbPhotos = (cover: Cover): ThumbPhoto[] => {
     const p = photoById(cover.photoId);

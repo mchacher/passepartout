@@ -18,6 +18,7 @@ export interface PreviewPhoto {
   ratio: number;
   caption: string;
   crop?: CropRect;
+  mask?: string;
 }
 
 // Page margins mirror Paper.tsx / print.ts (percentages of the page width).
@@ -143,7 +144,7 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
                   className="absolute flex flex-col items-center gap-[5px]"
                   style={{ left: cell.ox, top: cell.oy, width: cell.w }}
                 >
-                  <CroppedImg url={photo.url} name="" crop={photo.crop} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+                  <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
                   {photo.caption.trim().length > 0 && (
                     <div
                       className="max-w-full break-words text-center font-album leading-tight"

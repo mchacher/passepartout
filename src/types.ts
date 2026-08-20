@@ -26,6 +26,10 @@ export interface Photo {
   // whole image. The kept region is shown contain-fit (undistorted); its ratio is the
   // photo's effective ratio (see src/lib/crop.ts). No-crop stays the default.
   crop?: CropRect;
+  // Opt-in decorative mask (spec 018): the id of a shape from the mask catalog
+  // (src/lib/masks.ts), or absent for the default rectangle. The mask scales to the photo's
+  // box and only hides the pixels outside the shape; it never changes the ratio or size.
+  mask?: string;
 }
 
 // Full-page mode for a single-photo page (spec 012). `contain` (Fit) maximizes the photo

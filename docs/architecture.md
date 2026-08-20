@@ -83,10 +83,12 @@ Three hard boundaries:
 
 ## Data model (`src/types.ts`)
 
-- **Photo**: one imported image. Native size, `ratio`, `caption`, capture `time`, and an
-  optional `crop` (spec 015): a normalized kept sub-rectangle. It stores NO placement: a
-  photo can appear on many pages / cover faces at once and its usage is derived (spec 017,
-  `src/lib/usage.ts`). Absent crop = the whole image (no crop, the default). The kept region's ratio is
+- **Photo**: one imported image. Native size, `ratio`, `caption`, capture `time`, an
+  optional `crop` (spec 015): a normalized kept sub-rectangle, and an optional `mask` (spec
+  018): the id of a decorative shape from the enrichable catalog `src/lib/masks.ts` (opt-in,
+  clips only the pixels outside the shape, never changes the ratio/size). It stores NO
+  placement: a photo can appear on many pages / cover faces at once and its usage is derived
+  (spec 017, `src/lib/usage.ts`). Absent crop = the whole image (no crop, the default). The kept region's ratio is
   the photo's **effective ratio** (`src/lib/crop.ts`), which drives the layout.
 - **AlbumPage**: ordered `photoIds`, optional `title` and `subtitle` (both rendered on
   the paper, contained in whitespace, never on a photo), a `whitespace` level

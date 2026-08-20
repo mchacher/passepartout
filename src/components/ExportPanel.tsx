@@ -86,6 +86,7 @@ export function ExportPanel() {
               url: p.url,
               caption: p.caption,
               crop: fp ? undefined : p.crop,
+              mask: fp ? undefined : p.mask,
             })),
         };
       }),
