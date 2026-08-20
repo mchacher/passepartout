@@ -150,12 +150,18 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
               >
                 <div
                   className="absolute flex flex-col items-center gap-[5px]"
-                  style={{ left: cell.ox, top: cell.oy, width: cell.w }}
+                  style={{
+                    left: cell.ox,
+                    top: cell.oy,
+                    width: cell.w,
+                    transform: photo.rotation ? `rotate(${photo.rotation}deg)` : undefined,
+                    transformOrigin: `center ${cell.h / 2}px`,
+                  }}
                 >
                   {photo.frame ? (
-                    <FramedPhoto url={photo.url} name="" crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} rotation={photo.rotation} w={cell.w} h={cell.h} />
+                    <FramedPhoto url={photo.url} name="" crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={cell.w} h={cell.h} />
                   ) : (
-                    <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} rotation={photo.rotation} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+                    <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
                   )}
                   {photo.caption.trim().length > 0 && (
                     <div

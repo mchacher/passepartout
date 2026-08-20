@@ -357,7 +357,7 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
   }, [photo.id, photo.caption]);
 
   return (
-    <div className="group relative flex flex-col items-center gap-[5px]">
+    <div className="group relative">
       <button
         onClick={onRemove}
         title="Remove from page"
@@ -365,39 +365,46 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
       >
         ×
       </button>
+      {/* Tilt group (spec 020, #5): the photo and its caption rotate together about the photo
+          center, so the caption follows the tilt instead of staying level below it. */}
       <div
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(PHOTO_DND_TYPE, photo.id);
-          e.dataTransfer.effectAllowed = "move";
-        }}
+        className="flex flex-col items-center gap-[5px]"
+        style={{ transform: photo.rotation ? `rotate(${photo.rotation}deg)` : undefined, transformOrigin: `center ${h / 2}px` }}
       >
-        {photo.frame ? (
-          <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} rotation={photo.rotation} w={w} h={h} />
-        ) : (
-          <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} rotation={photo.rotation} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
-        )}
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(PHOTO_DND_TYPE, photo.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+        >
+          {photo.frame ? (
+            <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={w} h={h} />
+          ) : (
+            <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+          )}
+        </div>
+        <div
+          ref={capRef}
+          className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center font-album leading-tight outline-none"
+          style={{ width: `${w}px`, fontSize: "calc(10.5px * var(--caption-scale))", color: "var(--album-ink-soft)" }}
+          contentEditable
+          suppressContentEditableWarning
+          spellCheck={false}
+          data-empty={photo.caption.length === 0}
+          onInput={(e) => {
+            const el = e.currentTarget;
+            el.setAttribute("data-empty", String(el.textContent!.length === 0));
+          }}
+          onBlur={(e) => onCaption(e.currentTarget.textContent!.trim())}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+          }}
+        />
       </div>
-      <div
-        ref={capRef}
-        className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center font-album leading-tight outline-none"
-        style={{ width: `${w}px`, fontSize: "calc(10.5px * var(--caption-scale))", color: "var(--album-ink-soft)" }}
-        contentEditable
-        suppressContentEditableWarning
-        spellCheck={false}
-        data-empty={photo.caption.length === 0}
-        onInput={(e) => {
-          const el = e.currentTarget;
-          el.setAttribute("data-empty", String(el.textContent!.length === 0));
-        }}
-        onBlur={(e) => onCaption(e.currentTarget.textContent!.trim())}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            e.currentTarget.blur();
-          }
-        }}
-      />
     </div>
   );
 }

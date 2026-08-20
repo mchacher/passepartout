@@ -90,6 +90,20 @@ describe("interiorPageGeometry", () => {
     expect(g.captions).toHaveLength(1);
     expect(g.captions[0].text).toBe("hello");
   });
+
+  it("leaves a level photo's caption unrotated (#5)", () => {
+    const g = interiorPageGeometry(pageInput([{ photoId: "a", ratio: 1, caption: "cap" }], "single"));
+    expect(g.captions[0].rot).toBeUndefined();
+  });
+
+  it("tilts a caption with its photo, about the photo center (#5)", () => {
+    const g = interiorPageGeometry(pageInput([{ photoId: "a", ratio: 1.5, caption: "cap", rotation: 10 }], "single"));
+    const photo = g.photos[0];
+    const cap = g.captions[0];
+    expect(cap.rot?.deg).toBe(10);
+    expect(cap.rot?.cx0).toBeCloseTo(photo.x + photo.w / 2, 6);
+    expect(cap.rot?.cy0).toBeCloseTo(photo.y + photo.h / 2, 6);
+  });
 });
 
 describe("interiorPageGeometry - full page (spec 012)", () => {

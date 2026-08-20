@@ -88,3 +88,13 @@ Files changed:
 - Rotation composes with crop (spec 015), mask (018) and frame (019): the transform wraps
   the already-composed photo/frame.
 - A stored rotation outside the range (corrupt value): clamped on read/use.
+
+## Follow-ups
+
+- **#5 - the caption tilts with the photo**: a photo's caption rotates together with the
+  photo (and any frame) as one unit, about the photo center, in the editor, the preview, and
+  the exported PDF. Previously the caption stayed level below the tilted photo.
+- **#3 - clear straighten control**: the Tilt popover shows the current angle as a plain
+  readout and offers a dedicated "Straighten" (reset to 0) button, disabled when already
+  level. Previously the current angle doubled as the reset button, so it was unclear where to
+  click to level the photo.

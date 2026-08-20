@@ -46,6 +46,9 @@ export interface TextPlace {
   cx: number;
   y: number;
   sizePt: number;
+  // Decorative tilt (spec 020): when set, the painter rotates this text about (cx0, cy0) by
+  // `deg` on-screen clockwise degrees, so a caption tilts as one unit with its photo (#5).
+  rot?: { deg: number; cx0: number; cy0: number };
 }
 
 export interface PageGeometry {
@@ -86,7 +89,7 @@ const F_COVER_SUBTITLE = 0.026;
 
 export interface PageInput {
   size: BookSize;
-  items: { photoId: string; ratio: number; caption: string }[];
+  items: { photoId: string; ratio: number; caption: string; rotation?: number }[];
   layoutId: string;
   whitespace: number;
   title: string;
@@ -174,11 +177,15 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     photos.push({ photoId: input.items[i].photoId, x, y, w: c.w, h: c.h });
     const caption = input.items[i].caption.trim();
     if (caption) {
+      // A tilted photo tilts its caption with it (spec 020, #5): rotate the caption about the
+      // photo box center, the same pivot the photo (and any frame) uses.
+      const deg = input.items[i].rotation ?? 0;
       captions.push({
         text: caption,
         cx: x + c.w / 2,
         y: y + c.h + 0.01 * trimW,
         sizePt: F_CAPTION * trimW * input.scales.caption,
+        rot: deg ? { deg, cx0: x + c.w / 2, cy0: y + c.h / 2 } : undefined,
       });
     }
   }
