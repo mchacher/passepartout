@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { clampZoom, zoomedWidthPx, ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT } from "./zoom";
+import { clampZoom, zoomedWidthPx, fitWidthPx, FIT_MARGIN, ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT } from "./zoom";
 
 describe("clampZoom", () => {
   it("returns an in-range zoom unchanged", () => {
@@ -20,8 +20,21 @@ describe("clampZoom", () => {
   });
 });
 
+describe("fitWidthPx", () => {
+  it("leaves a fit margin at 100% (does not touch the edges)", () => {
+    expect(fitWidthPx(1000)).toBe(Math.round(1000 * (1 - FIT_MARGIN)));
+    expect(fitWidthPx(1000)).toBeLessThan(1000);
+  });
+
+  it("treats a missing or invalid content width as zero", () => {
+    expect(fitWidthPx(0)).toBe(0);
+    expect(fitWidthPx(NaN)).toBe(0);
+    expect(fitWidthPx(-50)).toBe(0);
+  });
+});
+
 describe("zoomedWidthPx", () => {
-  it("fills the available width at 100% (fit)", () => {
+  it("fills the fit width at 100% (fit)", () => {
     expect(zoomedWidthPx(1200, 1)).toBe(1200);
   });
 

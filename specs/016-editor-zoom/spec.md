@@ -36,9 +36,9 @@ untouched by construction.
 
 1. A zoom slider (with a magnifier icon and a percentage readout) floats at the
    bottom-right of the editing column, clear of the thumbnail rail.
-2. Zoom is a fraction of the AVAILABLE width of the central column: 100% fits the column
-   (the page fills the space, "Fit"), and the slider goes down to a minimum. A dedicated
-   "Fit" button snaps back to 100%.
+2. Zoom is a fraction of the column's FIT width: 100% fills the column but leaves a small
+   margin (the pages do not touch the edges, "Fit"), and the slider goes down to a minimum.
+   A dedicated "Fit" button snaps back to 100%.
 3. The scaled width never exceeds the available width of the central column, so the
    layout never overflows horizontally; on a narrow window the fit is simply narrower.
 4. The Library column and the thumbnail rail are visually unchanged at every zoom
