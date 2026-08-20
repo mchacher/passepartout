@@ -68,9 +68,6 @@ designs live under `specs/`.
 
 ## Later (from earlier planning, see CLAUDE.md)
 
-- **Host the project on GitHub.** The repo is currently local-only (no git remote). Create
-  a GitHub repository under the owner's account and push `master` so the work is backed up
-  and shareable (then future features can go via PRs instead of local merges).
 - Embed the real album fonts in the PDF (today print maps each to Times / Helvetica /
   Courier). The embedding infrastructure now exists (spec 019 embeds a handwriting font via
   @pdf-lib/fontkit), so this is mostly wiring the album font files through the same path.
