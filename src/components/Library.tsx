@@ -76,15 +76,13 @@ export function Library() {
                   e.dataTransfer.setData(PHOTO_DND_TYPE, p.id);
                   e.dataTransfer.effectAllowed = "move";
                 }}
-                className={`relative flex aspect-square cursor-grab items-center justify-center overflow-hidden rounded-[5px] border border-line bg-surface-2 active:cursor-grabbing ${
-                  count > 0 ? "opacity-[.4]" : ""
-                }`}
+                className="relative flex aspect-square cursor-grab items-center justify-center overflow-hidden rounded-[5px] border border-line bg-surface-2 active:cursor-grabbing"
               >
                 <img src={p.url} alt={p.name} className="max-h-full max-w-full" draggable={false} />
                 {count > 0 && (
                   <span
                     title={`Used ${count} time${count > 1 ? "s" : ""}`}
-                    className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 font-mono text-[10px] leading-none text-paper"
+                    className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[10px] leading-none text-white shadow-soft"
                   >
                     {count}
                   </span>
