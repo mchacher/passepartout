@@ -1,5 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlbum } from "./store";
+import { useView } from "./viewStore";
+import { fitWidthPx, zoomedWidthPx } from "./lib/zoom";
 import { useApplyTheme } from "./useApplyTheme";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
@@ -7,12 +9,31 @@ import { PageCard } from "./components/PageCard";
 import { CoverCard } from "./components/CoverCard";
 import { SpineCard } from "./components/SpineCard";
 import { PageRail } from "./components/PageRail";
+import { ZoomControl } from "./components/ZoomControl";
 
 export function App() {
   const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent } =
     useAlbum();
+  const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
+
+  // Zoom is a fraction of the column's FIT width (its content width less a small margin),
+  // so 100% fills the column with a little breathing room. Measure the content width (the
+  // main box minus its px-8 padding) with a callback ref so the ResizeObserver attaches
+  // exactly when <main> mounts, regardless of render timing. scrollbar-gutter keeps
+  // clientWidth steady as the scrollbar comes and goes, avoiding a measure/resize loop.
+  const MAIN_PADDING_X = 64; // px-8 on both sides
+  const [fitW, setFitW] = useState(0);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const mainRef = useCallback((el: HTMLElement | null) => {
+    roRef.current?.disconnect();
+    if (!el) return;
+    const measure = () => setFitW(fitWidthPx(el.clientWidth - MAIN_PADDING_X));
+    measure();
+    roRef.current = new ResizeObserver(measure);
+    roRef.current.observe(el);
+  }, []);
 
   useApplyTheme();
 
@@ -41,9 +62,9 @@ export function App() {
       <div className="grid min-h-0 grid-cols-[274px_1fr] xl:grid-cols-[274px_1fr_212px] max-[760px]:grid-cols-1">
         <Library />
 
-        <main className="min-h-0 overflow-y-auto px-8 pb-24 pt-8">
+        <main ref={mainRef} className="min-h-0 overflow-y-auto px-8 pb-24 pt-8 [scrollbar-gutter:stable]">
           {hasPhotos ? (
-            <div className="mx-auto flex max-w-[620px] flex-col gap-8">
+            <div className="mx-auto flex flex-col gap-8" style={{ width: zoomedWidthPx(fitW, zoom) || undefined, maxWidth: "100%" }}>
               <div id="cover-front">
                 <CoverCard which="front" />
               </div>
@@ -118,6 +139,8 @@ export function App() {
 
         {hasPhotos && <PageRail />}
       </div>
+
+      {hasPhotos && <ZoomControl />}
     </div>
   );
 }

@@ -46,7 +46,7 @@ src/
 │   ├── crop.ts         # PURE photo-crop geometry: effectiveRatio, crop-rect edit, cropImgBox (spec 015)
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
-├── viewStore.ts        # Ephemeral view prefs (e.g. showGrid), localStorage-persisted, not album data
+├── viewStore.ts        # Ephemeral view prefs (showGrid, editor zoom), localStorage-persisted, not album data
 └── components/
     ├── TopBar.tsx      # Global controls: project switcher, style (theme), format, import
     ├── ProjectMenu.tsx # Project switcher: new / open / rename / duplicate / delete
