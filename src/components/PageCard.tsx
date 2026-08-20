@@ -320,13 +320,10 @@ export function PageCard({ page, index }: PageCardProps) {
                           -{s}
                         </button>
                       ))}
-                      <button
-                        onClick={() => setPhotoRotation(sel.photoId, 0)}
-                        title="Level (0 degrees)"
-                        className="w-11 rounded-md px-1 py-1 text-center font-mono text-[11px] text-muted hover:text-ink"
-                      >
+                      {/* Current angle: a plain readout, not the reset control (issue #3). */}
+                      <span className="w-11 select-none px-1 text-center font-mono text-[11px] text-muted" aria-live="polite">
                         {selPhoto?.rotation ?? 0}&deg;
-                      </button>
+                      </span>
                       {ROTATION_STEPS.map((s) => (
                         <button
                           key={`p${s}`}
@@ -337,6 +334,20 @@ export function PageCard({ page, index }: PageCardProps) {
                           +{s}
                         </button>
                       ))}
+                      <span className="mx-0.5 h-5 w-px bg-line" aria-hidden="true" />
+                      {/* Dedicated straighten control (issue #3): a clear reset to 0, disabled when level. */}
+                      <button
+                        onClick={() => setPhotoRotation(sel.photoId, 0)}
+                        disabled={!selPhoto?.rotation}
+                        title="Straighten (reset to 0 degrees)"
+                        className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:border-faint hover:text-ink disabled:cursor-default disabled:opacity-40 disabled:hover:border-line disabled:hover:text-muted"
+                      >
+                        <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                          <path d="M3 12h18" />
+                          <circle cx="12" cy="12" r="2.5" />
+                        </svg>
+                        Straighten
+                      </button>
                     </div>
                   </>
                 )}
