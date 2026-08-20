@@ -78,4 +78,5 @@ designs live under `specs/`.
 - Full-bleed / spread templates (one photo across a double page) while still never
   cropping.
 - Reorder photos within a page by drag (reordering whole pages already ships, spec 007).
+- Rotate a photo in fixed steps (5 or 10 degrees) as a decorative tilt (to be tried out).
 - Project file export/import (a portable backup on top of the IndexedDB persistence).

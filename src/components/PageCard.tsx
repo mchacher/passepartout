@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { WHITESPACE_LEVELS, type AlbumPage } from "../types";
 import { layoutsForCount } from "../lib/layouts";
@@ -34,6 +34,17 @@ export function PageCard({ page, index }: PageCardProps) {
   const [cropping, setCropping] = useState<string | null>(null);
   const [maskOpen, setMaskOpen] = useState(false);
   const [frameOpen, setFrameOpen] = useState(false);
+  // The frame picker closes on an outside pointerdown via a document listener (not a
+  // full-screen backdrop), so the photo stays draggable underneath (Shift-pan, spec 019).
+  const framePopRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!frameOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (framePopRef.current && !framePopRef.current.contains(e.target as Node)) setFrameOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [frameOpen]);
   const onSelection = useCallback((s: PaperSelection | null) => {
     setSel(s);
     setMaskOpen(false);
@@ -184,7 +195,7 @@ export function PageCard({ page, index }: PageCardProps) {
                   </>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative" ref={framePopRef}>
                 <button
                   onClick={() => setFrameOpen((v) => !v)}
                   aria-pressed={frameOpen}
@@ -202,8 +213,6 @@ export function PageCard({ page, index }: PageCardProps) {
                   Frame
                 </button>
                 {frameOpen && (
-                  <>
-                    <button aria-label="Close frame picker" className="fixed inset-0 z-20 cursor-default" onClick={() => setFrameOpen(false)} />
                     <div className="absolute left-0 top-full z-30 mt-1.5 w-[210px] rounded-lg border border-line bg-surface p-2 shadow-soft">
                       <div className="flex flex-wrap gap-1.5">
                         <button
@@ -276,7 +285,6 @@ export function PageCard({ page, index }: PageCardProps) {
                         </>
                       )}
                     </div>
-                  </>
                 )}
               </div>
               {sel.overlaps && (

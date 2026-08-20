@@ -305,7 +305,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
                       >
                         {canEdit ? (
                           <EditCell
-                            photo={cell.item}
+                            photo={items[idx] ?? cell.item}
                             w={cell.w}
                             h={cell.h}
                             ox={cell.ox}
@@ -318,7 +318,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
                         ) : (
                           <div className="absolute" style={{ left: cell.ox, top: cell.oy, width: cell.w }}>
                             <Cell
-                              photo={cell.item}
+                              photo={items[idx] ?? cell.item}
                               w={cell.w}
                               h={cell.h}
                               onRemove={() => removeFromPage(cell.item.id, page.id)}
