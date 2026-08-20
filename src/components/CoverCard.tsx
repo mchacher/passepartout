@@ -42,7 +42,7 @@ export function CoverCard({ which }: CoverCardProps) {
   // band back to the photo. Values (in cqw = % of the cover width) mirror print.ts.
   const hasTitle = cover.title.trim().length > 0;
   const hasSubtitle = cover.subtitle.trim().length > 0;
-  const photoTop = hasSubtitle ? "24cqw" : hasTitle ? "17cqw" : "6cqw";
+  const photoTop = hasSubtitle ? "20cqw" : hasTitle ? "15cqw" : "6cqw";
 
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);

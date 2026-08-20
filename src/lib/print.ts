@@ -61,8 +61,8 @@ export interface PageGeometry {
 // The page margin and header offsets mirror the on-screen Paper (percentages of the
 // page width, matching CSS padding %). Keeping them identical makes preview == print.
 const MARGIN = 0.05;
-const TOP_TITLE = 0.11;
-const TOP_SUBTITLE = 0.14;
+const TOP_TITLE = 0.1;
+const TOP_SUBTITLE = 0.125;
 
 // Cover face geometry, all fractions of the trim width and mirrored by the CSS % on
 // CoverCard / PreviewPaper. Like the interior pages, the header lives in a FIXED top
@@ -72,8 +72,8 @@ const TOP_SUBTITLE = 0.14;
 // photo at every font size. COVER_MARGIN is the side / bottom inset (and the top inset
 // when there is no text at all).
 const COVER_MARGIN = 0.06;
-const COVER_TOP_TITLE = 0.17; // reserved top band for a title alone
-const COVER_TOP_SUBTITLE = 0.24; // reserved top band for a title + subtitle
+const COVER_TOP_TITLE = 0.15; // reserved top band for a title alone
+const COVER_TOP_SUBTITLE = 0.2; // reserved top band for a title + subtitle
 
 // Text sizes as a fraction of the trim width, mirroring the on-screen cqw-based clamps
 // (e.g. a page title is clamp(.., 3.1cqw, ..) = 3.1% of the page width). Multiplied by
