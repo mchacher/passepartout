@@ -83,9 +83,10 @@ Three hard boundaries:
 
 ## Data model (`src/types.ts`)
 
-- **Photo**: one imported image. Native size, `ratio`, `caption`, capture `time`, `pageId`
-  (`null` while still in the library), and an optional `crop` (spec 015): a normalized kept
-  sub-rectangle. Absent = the whole image (no crop, the default). The kept region's ratio is
+- **Photo**: one imported image. Native size, `ratio`, `caption`, capture `time`, and an
+  optional `crop` (spec 015): a normalized kept sub-rectangle. It stores NO placement: a
+  photo can appear on many pages / cover faces at once and its usage is derived (spec 017,
+  `src/lib/usage.ts`). Absent crop = the whole image (no crop, the default). The kept region's ratio is
   the photo's **effective ratio** (`src/lib/crop.ts`), which drives the layout.
 - **AlbumPage**: ordered `photoIds`, optional `title` and `subtitle` (both rendered on
   the paper, contained in whitespace, never on a photo), a `whitespace` level
@@ -283,8 +284,8 @@ Dragging whitespace never re-groups photos.
 - **Page order**: content pages are ordered by their index in the store's `pages`
   array (covers are separate `Cover` state, structurally fixed). `store.movePage`
   permutes that array; `PageRail` drives it by drag and drop. No new field: order is the
-  array order, already serialized. Photos reference `pageId`, so reordering never
-  disturbs a photo or a layout.
+  array order, already serialized. Each page owns its own `photoIds`, so permuting the
+  page array never disturbs a photo or a layout.
 
 ## Roadmap hooks
 

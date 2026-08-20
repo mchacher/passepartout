@@ -151,7 +151,7 @@ export function PageCard({ page, index }: PageCardProps) {
                 </>
               )}
               <button
-                onClick={() => removeFromPage(sel.photoId)}
+                onClick={() => removeFromPage(sel.photoId, page.id)}
                 title="Remove from page"
                 className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
               >

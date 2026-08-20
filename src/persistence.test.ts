@@ -16,7 +16,7 @@ const docWithPhoto = (id: string, name: string, at: number, photoId: string): Pr
   ...newProjectDoc(name, at),
   id,
   photos: [
-    { id: photoId, w: 100, h: 100, ratio: 1, time: 0, name: photoId, caption: "", pageId: null },
+    { id: photoId, w: 100, h: 100, ratio: 1, time: 0, name: photoId, caption: "" },
   ],
 });
 

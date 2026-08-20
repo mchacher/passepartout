@@ -19,7 +19,9 @@ export interface Photo {
   time: number; // capture time (EXIF DateTimeOriginal, else file mtime), ms epoch
   name: string;
   caption: string;
-  pageId: string | null; // null = still in the library, not placed
+  // Placement is NOT stored on the photo (spec 017): a photo can appear on any number of
+  // pages and cover faces at once. Where it is used is derived from the pages' photoIds and
+  // the cover photoIds (see src/lib/usage.ts). The Library is a permanent catalog.
   // Opt-in crop (spec 015): the kept sub-rectangle of the source, normalized. Absent = the
   // whole image. The kept region is shown contain-fit (undistorted); its ratio is the
   // photo's effective ratio (see src/lib/crop.ts). No-crop stays the default.
