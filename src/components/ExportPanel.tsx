@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAlbum } from "../store";
 import { bookSizeOrDefault } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
+import { photoLayoutRatio } from "../lib/frames";
 import { effectiveSpineTitle } from "../lib/project";
 import { estimateSpineMm, mmToPt, PAPERS, type PaperId } from "../lib/print";
 import {
@@ -41,7 +42,9 @@ export function ExportPanel() {
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
       layoutId: "single",
-      items: p ? [{ photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), url: p.url, caption: "", crop: p.crop }] : [],
+      items: p
+        ? [{ photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), photoRatio: effectiveRatio(p.ratio, p.crop), sourceRatio: p.ratio, url: p.url, caption: "", crop: p.crop }]
+        : [],
     };
   };
 
@@ -82,11 +85,18 @@ export function ExportPanel() {
             .filter((p): p is Photo => p !== undefined)
             .map((p) => ({
               photoId: p.id,
-              ratio: fp ? p.ratio : effectiveRatio(p.ratio, p.crop),
+              ratio: fp ? p.ratio : photoLayoutRatio(p),
+              photoRatio: effectiveRatio(p.ratio, p.crop),
+              sourceRatio: p.ratio,
               url: p.url,
               caption: p.caption,
               crop: fp ? undefined : p.crop,
               mask: fp ? undefined : p.mask,
+              frame: fp ? undefined : p.frame,
+              frameColor: fp ? undefined : p.frameColor,
+              frameText: fp ? undefined : p.frameText,
+              frameWidth: fp ? undefined : p.frameWidth,
+              frameFocus: fp ? undefined : p.frameFocus,
             })),
         };
       }),

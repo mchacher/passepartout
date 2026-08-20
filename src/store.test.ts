@@ -310,6 +310,48 @@ describe("store photo mask (spec 018)", () => {
   });
 });
 
+describe("store photo frame (spec 019)", () => {
+  const photoOf = (id: string) => useAlbum.getState().photos.find((p) => p.id === id)!;
+
+  it("setPhotoFrame keeps a known id, rejects an unknown one, and clears with the note", () => {
+    useAlbum.setState({ photos: [photo("a"), photo("b")], pages: [page("p1", ["a", "b"], "two-row")] });
+    useAlbum.getState().setPhotoFrame("a", "polaroid");
+    useAlbum.getState().setPhotoFrameText("a", "Summer 2026");
+    expect(photoOf("a").frame).toBe("polaroid");
+    expect(photoOf("a").frameText).toBe("Summer 2026");
+    expect(photoOf("b").frame).toBeUndefined(); // other photo untouched
+    useAlbum.getState().setPhotoFrame("a", "not-a-frame");
+    expect(photoOf("a").frame).toBeUndefined(); // unknown id never persisted
+    useAlbum.getState().setPhotoFrame("a", "border");
+    useAlbum.getState().setPhotoFrameText("a", "note");
+    useAlbum.getState().setPhotoFrame("a", null);
+    expect(photoOf("a").frame).toBeUndefined();
+    expect(photoOf("a").frameText).toBeUndefined(); // clearing the frame drops the note
+  });
+
+  it("setPhotoFrameColor keeps a palette id and clears an unknown one; empty note clears", () => {
+    useAlbum.setState({ photos: [photo("a")], pages: [page("p1", ["a"], "single")] });
+    useAlbum.getState().setPhotoFrameColor("a", "kraft");
+    expect(photoOf("a").frameColor).toBe("kraft");
+    useAlbum.getState().setPhotoFrameColor("a", "chartreuse");
+    expect(photoOf("a").frameColor).toBeUndefined();
+    useAlbum.getState().setPhotoFrameText("a", "  ");
+    expect(photoOf("a").frameText).toBeUndefined(); // blank note is no note
+  });
+
+  it("setPhotoFrameWidth clamps, setPhotoFrameFocus clamps, and clearing the frame drops both", () => {
+    useAlbum.setState({ photos: [photo("a")], pages: [page("p1", ["a"], "single")] });
+    useAlbum.getState().setPhotoFrame("a", "border");
+    useAlbum.getState().setPhotoFrameWidth("a", 0.04);
+    useAlbum.getState().setPhotoFrameFocus("a", { x: 2, y: -1 });
+    expect(photoOf("a").frameWidth).toBe(0.04);
+    expect(photoOf("a").frameFocus).toEqual({ x: 1, y: 0 }); // clamped to [0,1]
+    useAlbum.getState().setPhotoFrame("a", null);
+    expect(photoOf("a").frameWidth).toBeUndefined();
+    expect(photoOf("a").frameFocus).toBeUndefined();
+  });
+});
+
 describe("store page reorder", () => {
   const ids = () => useAlbum.getState().pages.map((p) => p.id);
 

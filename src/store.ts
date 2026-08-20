@@ -15,6 +15,7 @@ import {
 } from "./types";
 import { clampCrop } from "./lib/crop";
 import { isMask } from "./lib/masks";
+import { borderWidthOf, frameColorOf, isFrame } from "./lib/frames";
 import { countUsage } from "./lib/usage";
 import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
@@ -163,6 +164,11 @@ interface AlbumState {
   setCaption: (photoId: string, caption: string) => void;
   setPhotoCrop: (photoId: string, crop: CropRect | null) => void;
   setPhotoMask: (photoId: string, maskId: string | null) => void;
+  setPhotoFrame: (photoId: string, frameId: string | null) => void;
+  setPhotoFrameColor: (photoId: string, colorId: string | null) => void;
+  setPhotoFrameText: (photoId: string, text: string) => void;
+  setPhotoFrameWidth: (photoId: string, width: number) => void;
+  setPhotoFrameFocus: (photoId: string, focus: CropFocus) => void;
 
   setBookSize: (bookSize: BookSizeId) => void;
   setSpineTitle: (title: string) => void;
@@ -722,6 +728,54 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const next = maskId && isMask(maskId) ? maskId : undefined;
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, mask: next } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoFrame: (photoId, frameId) => {
+      // Only a known catalog id is kept; clearing the frame drops its note / width / focus.
+      const next = frameId && isFrame(frameId) ? frameId : undefined;
+      set((s) => ({
+        photos: s.photos.map((p) =>
+          p.id === photoId
+            ? next
+              ? { ...p, frame: next }
+              : { ...p, frame: undefined, frameText: undefined, frameWidth: undefined, frameFocus: undefined }
+            : p,
+        ),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoFrameColor: (photoId, colorId) => {
+      const next = colorId && frameColorOf(colorId, colorId).id === colorId ? colorId : undefined;
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameColor: next } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoFrameText: (photoId, text) => {
+      const next = text.trim().length > 0 ? text : undefined;
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameText: next } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoFrameWidth: (photoId, width) => {
+      const next = borderWidthOf(width);
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameWidth: next } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoFrameFocus: (photoId, focus) => {
+      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+      const f = { x: clamp01(focus.x), y: clamp01(focus.y) };
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameFocus: f } : p)),
       }));
       scheduleSave();
     },

@@ -38,6 +38,11 @@ designs live under `specs/`.
 - Decorative photo masks (spec 018): an opt-in per-photo shape (oval, rounded, arch) from an
   enrichable catalog; the mask follows the photo's box and only hides the outside-shape
   pixels, so the ratio/size are unchanged. No mask is the default; the engine is untouched
+- Decorative photo frames (spec 019): an opt-in per-photo mat from an enrichable catalog and
+  color palette. Border keeps the photo whole in a uniform border of a selectable width
+  (additive, never clips); Polaroid shows it in a square, Shift-pannable, cover-cropped
+  window over a bottom band that holds an optional handwritten note (a bundled handwriting
+  font, embedded in the PDF via @pdf-lib/fontkit). No rounded corners; the engine is untouched
 
 ## Requested (this round)
 
@@ -45,12 +50,12 @@ designs live under `specs/`.
    group move, and spanning a single photo across a double-page spread. Phases A (grid
    substrate) and B (move/resize/overlap editor) have shipped.
 
-2. **Image editing (crop / format / masks).**
+2. **Image editing (crop / format / masks / frames).**
    > **Largely delivered.** The opt-in path the caveat below suggests now exists: full-page
-   > Fill (spec 012), the per-photo crop tool (spec 015) and decorative masks (spec 018) all
-   > clip only where the user explicitly opts in, no-crop staying the default. What remains
-   > is forced-format presets (a fixed aspect that would change the ratio) and richer mask
-   > shapes / per-mask parameters.
+   > Fill (spec 012), the per-photo crop tool (spec 015), decorative masks (spec 018) and
+   > additive frames (spec 019, which never clip) all decorate only where the user explicitly
+   > opts in, no-crop staying the default. What remains is forced-format presets (a fixed
+   > aspect that would change the ratio) and richer mask / frame variants.
    > ⚠️ **Direct tension with the founding rule.** The product's one rule is *"a photo's
    > aspect ratio is never changed and a photo is never clipped"* (see `CLAUDE.md`). Crop
    > and masks clip the photo; a forced format changes its ratio. Recording this as
@@ -63,10 +68,15 @@ designs live under `specs/`.
 
 ## Later (from earlier planning, see CLAUDE.md)
 
+- **Host the project on GitHub.** The repo is currently local-only (no git remote). Create
+  a GitHub repository under the owner's account and push `master` so the work is backed up
+  and shareable (then future features can go via PRs instead of local merges).
 - Embed the real album fonts in the PDF (today print maps each to Times / Helvetica /
-  Courier).
+  Courier). The embedding infrastructure now exists (spec 019 embeds a handwriting font via
+  @pdf-lib/fontkit), so this is mostly wiring the album font files through the same path.
 - More imprimeur presets (CEWE / Saal Digital, etc.). Blurb trim sizes already ship.
 - Full-bleed / spread templates (one photo across a double page) while still never
   cropping.
 - Reorder photos within a page by drag (reordering whole pages already ships, spec 007).
+- Rotate a photo in fixed steps (5 or 10 degrees) as a decorative tilt (to be tried out).
 - Project file export/import (a portable backup on top of the IndexedDB persistence).
