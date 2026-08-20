@@ -43,12 +43,15 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
 
   const leaves = useMemo(() => bookLeaves(pages.map((p) => p.id)), [pages]);
   const spreads = useMemo(() => toSpreads(leaves), [leaves]);
+  // The preview leads with a flat cover-wrap spread (back | spine | front) so the spine is
+  // visible as it prints (#2); the normal reading spreads follow it (offset by one).
+  const spreadCount = spreads.length + 1;
 
   const [index, setIndex] = useState(0);
   // Keep the index in range when the book changes (pages added/removed) or on reopen.
   useEffect(() => {
-    setIndex((i) => Math.max(0, Math.min(i, spreads.length - 1)));
-  }, [spreads.length]);
+    setIndex((i) => Math.max(0, Math.min(i, spreadCount - 1)));
+  }, [spreadCount]);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const [avail, setAvail] = useState({ w: 0, h: 0 });
@@ -75,8 +78,8 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
   }, [open, measure]);
 
   const go = useCallback(
-    (delta: number) => setIndex((i) => Math.max(0, Math.min(i + delta, spreads.length - 1))),
-    [spreads.length],
+    (delta: number) => setIndex((i) => Math.max(0, Math.min(i + delta, spreadCount - 1))),
+    [spreadCount],
   );
 
   useEffect(() => {
@@ -116,59 +119,81 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     return p ? [{ id: p.id, url: p.url, ratio: p.ratio, crop: p.crop }] : [];
   };
 
-  // Derive a clamped index at render so a shrunk `spreads` (pages removed while open) can
-  // never index past the end before the reset effect runs.
-  const clampedIndex = Math.min(Math.max(index, 0), spreads.length - 1);
-  const spread = spreads[clampedIndex];
+  // Derive a clamped index at render so a shrunk book (pages removed while open) can never
+  // index past the end before the reset effect runs. Index 0 is the flat cover wrap; the
+  // reading spreads start at index 1 (hence the -1 into `spreads`).
+  const clampedIndex = Math.min(Math.max(index, 0), spreadCount - 1);
+  const isWrap = clampedIndex === 0;
+  const spread = isWrap ? null : spreads[clampedIndex - 1];
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   // Size every leaf at the two-page-spread scale so a lone outside cover (front / back) is the
   // same size as an interior page instead of dwarfing them (#2). A single leaf is centered on
   // the stage; a real spread still fills it.
   const { pageW } = fitSpread(avail, aspect, 2, GUTTER_FRAC);
-  const pageH = pageW / aspect;
 
-  // Spine thickness hint (#2): estimate from the interior page count on standard paper and
-  // scale to the on-screen page width, floored so a thin book still shows a sliver. The
-  // outside covers (front / back) show this strip on their binding edge, so the preview reads
-  // as a physical book with a visible spine.
+  // Spine geometry: the estimated thickness (interior pages on standard paper) as a fraction
+  // of the cover width, used to size the spine panel of the flat cover wrap below.
   const trimWmm = bookSizeOrDefault(bookSize).widthMm;
   const spineMm = estimateSpineMm(pages.length + 2, "standard");
-  const spinePx = pageW > 0 ? Math.max(7, (spineMm / trimWmm) * pageW) : 0;
+  const spineFrac = spineMm / trimWmm;
   const spineTitle = effectiveSpineTitle(spine, frontCover, activeName);
 
-  // The book's spine drawn as a thin bound edge next to an outside cover: on the left of the
-  // front cover, on the right of the back cover. A subtle gradient reads as the page block's
-  // thickness; the spine title runs vertically when the strip is wide enough.
-  const coverSpine = (side: "left" | "right") => (
-    <div
-      className="relative shrink-0 overflow-hidden bg-paper"
-      style={{
-        width: `${spinePx}px`,
-        height: `${pageH}px`,
-        borderRadius: side === "left" ? "4px 0 0 4px" : "0 4px 4px 0",
-      }}
-    >
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            side === "left"
-              ? "linear-gradient(to right, rgba(0,0,0,0.03), rgba(0,0,0,0.16))"
-              : "linear-gradient(to left, rgba(0,0,0,0.03), rgba(0,0,0,0.16))",
-        }}
-      />
-      {spinePx >= 16 && spineTitle && (
-        <div className="absolute inset-0 flex items-center justify-center px-[1px]">
-          <span
-            className="max-h-[80%] overflow-hidden whitespace-nowrap font-album text-[10px]"
-            style={{ writingMode: "vertical-rl", color: "var(--album-ink-soft)" }}
-          >
-            {spineTitle}
-          </span>
+  // The flat cover wrap (#2): back cover | spine | front cover, laid out as it prints, so the
+  // spine is visible in context with its title. The cover panels keep the book aspect; the
+  // spine is proportional but floored (SPINE_MIN) so its vertical title stays legible even for
+  // a thin book. The whole wrap is fitted to the stage (height first, then shrunk for width).
+  const SPINE_MIN = 20;
+  const renderCoverWrap = () => {
+    if (avail.w <= 0 || avail.h <= 0) return null;
+    let coverW = avail.h * aspect;
+    let spineW = Math.max(SPINE_MIN, spineFrac * coverW);
+    if (2 * coverW + spineW > avail.w) {
+      coverW = (avail.w - SPINE_MIN) / 2;
+      spineW = Math.max(SPINE_MIN, spineFrac * coverW);
+      if (spineFrac * coverW > SPINE_MIN) {
+        coverW = avail.w / (2 + spineFrac);
+        spineW = spineFrac * coverW;
+      }
+    }
+    const coverH = coverW / aspect;
+    const coverPaper = (which: "back" | "front") => {
+      const cover = covers[which];
+      return (
+        <PreviewPaper
+          kind="cover"
+          pageW={coverW}
+          bookSize={bookSize}
+          title={cover.title}
+          subtitle={cover.subtitle}
+          whitespace={cover.whitespace}
+          photo={coverPreviewPhoto(cover)}
+        />
+      );
+    };
+    return (
+      <div className="relative flex items-stretch overflow-hidden rounded-[5px]" style={{ boxShadow: BOOK_SHADOW }}>
+        {coverPaper("back")}
+        {/* The spine: a bound edge between the two covers, shaded at both folds, title vertical. */}
+        <div className="relative shrink-0 overflow-hidden bg-paper" style={{ width: `${spineW}px`, height: `${coverH}px` }}>
+          <div
+            className="absolute inset-0"
+            style={{ background: "linear-gradient(to right, rgba(0,0,0,0.16), rgba(0,0,0,0.03) 22%, rgba(0,0,0,0.03) 78%, rgba(0,0,0,0.16))" }}
+          />
+          {spineW >= 14 && spineTitle && (
+            <div className="absolute inset-0 flex items-center justify-center px-[1px]">
+              <span
+                className="max-h-[86%] overflow-hidden whitespace-nowrap font-album text-[10px] tracking-wide"
+                style={{ writingMode: "vertical-rl", color: "var(--album-ink-soft)" }}
+              >
+                {spineTitle}
+              </span>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  );
+        {coverPaper("front")}
+      </div>
+    );
+  };
 
   const renderLeaf = (leaf: Leaf) => {
     if (leaf.kind === "page") {
@@ -191,7 +216,9 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
       );
     }
     const cover = covers[leaf.face];
-    const paper = (
+    // A standalone cover leaf shows the cover at page scale (#2); the spine lives in the
+    // dedicated cover-wrap spread (index 0), not on every cover.
+    return (
       <PreviewPaper
         kind="cover"
         pageW={pageW}
@@ -202,18 +229,6 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
         photo={coverPreviewPhoto(cover)}
       />
     );
-    // The outside covers show the spine on their binding edge (#2): front cover -> spine on the
-    // left, back cover -> spine on the right. The inside faces have no visible spine.
-    if (leaf.face === "front" || leaf.face === "back") {
-      return (
-        <div className="flex items-stretch">
-          {leaf.face === "front" ? coverSpine("left") : null}
-          {paper}
-          {leaf.face === "back" ? coverSpine("right") : null}
-        </div>
-      );
-    }
-    return paper;
   };
 
   return (
@@ -221,9 +236,9 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
       {/* Header: label, counter, close */}
       <div className="flex items-center gap-4 px-5 py-3 text-white/90">
         <span className="font-display text-[14px]">Book preview</span>
-        <span className="text-[12.5px] text-white/55">{spreadLabel(spread)}</span>
+        <span className="text-[12.5px] text-white/55">{spread ? spreadLabel(spread) : "Cover"}</span>
         <span className="ml-auto font-mono text-[12px] tabular-nums text-white/55">
-          {clampedIndex + 1} / {spreads.length}
+          {clampedIndex + 1} / {spreadCount}
         </span>
         <button
           onClick={onClose}
@@ -257,7 +272,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           </button>
           <button
             onClick={() => go(1)}
-            disabled={clampedIndex === spreads.length - 1}
+            disabled={clampedIndex === spreadCount - 1}
             aria-label="Next spread"
             className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/30 text-white/85 hover:bg-black/50 disabled:opacity-25"
           >
@@ -267,39 +282,60 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           </button>
 
           <div ref={stageRef} className="pointer-events-none absolute inset-0 flex items-center justify-center p-10">
-            {pageW > 0 && (
-              <div className="relative overflow-hidden rounded-[5px]" style={{ boxShadow: BOOK_SHADOW }}>
-                <div className="flex items-stretch">
-                  {spread.map((leaf) => (
-                    <div key={leaf.kind === "page" ? leaf.pageId : leaf.face}>{renderLeaf(leaf)}</div>
-                  ))}
-                </div>
-                {spread.length === 2 && (
-                  <>
-                    {/* Gutter shadow: pages curve into the binding at the spine. */}
-                    <div
-                      className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2"
-                      style={{
-                        width: `${0.16 * pageW}px`,
-                        background:
-                          "linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.16) 42%, rgba(0,0,0,0.26) 50%, rgba(0,0,0,0.16) 58%, rgba(0,0,0,0))",
-                      }}
-                    />
-                    {/* The fold itself. */}
-                    <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/25" />
-                  </>
+            {isWrap
+              ? renderCoverWrap()
+              : pageW > 0 && spread && (
+                  <div className="relative overflow-hidden rounded-[5px]" style={{ boxShadow: BOOK_SHADOW }}>
+                    <div className="flex items-stretch">
+                      {spread.map((leaf) => (
+                        <div key={leaf.kind === "page" ? leaf.pageId : leaf.face}>{renderLeaf(leaf)}</div>
+                      ))}
+                    </div>
+                    {spread.length === 2 && (
+                      <>
+                        {/* Gutter shadow: pages curve into the binding at the spine. */}
+                        <div
+                          className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2"
+                          style={{
+                            width: `${0.16 * pageW}px`,
+                            background:
+                              "linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.16) 42%, rgba(0,0,0,0.26) 50%, rgba(0,0,0,0.16) 58%, rgba(0,0,0,0))",
+                          }}
+                        />
+                        {/* The fold itself. */}
+                        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/25" />
+                      </>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Right rail: every leaf in booklet order, click to jump. */}
+        {/* Right rail: the cover wrap, then every leaf in booklet order, click to jump. */}
         <div className="min-h-0 overflow-y-auto border-l border-white/10 bg-black/20 px-3 py-3">
           <div className="flex flex-col gap-2.5">
+            {/* Cover wrap (index 0): a mini back | spine | front. */}
+            <button
+              onClick={() => setIndex(0)}
+              className="flex flex-col gap-1 text-left outline-none"
+              title="Go to the cover wrap"
+            >
+              <span className={`px-0.5 text-[10.5px] ${isWrap ? "font-medium text-white" : "text-white/45"}`}>Cover</span>
+              <div className={`overflow-hidden rounded-[3px] ${isWrap ? "ring-2 ring-accent" : "ring-1 ring-white/10"}`}>
+                <div className="flex items-stretch">
+                  <div className="flex-1">
+                    <Thumb photos={coverThumbPhotos(backCover)} layoutId="single" whitespace={backCover.whitespace} bookSize={bookSize} />
+                  </div>
+                  <div className="w-[3px] shrink-0 bg-black/20" />
+                  <div className="flex-1">
+                    <Thumb photos={coverThumbPhotos(frontCover)} layoutId="single" whitespace={frontCover.whitespace} bookSize={bookSize} />
+                  </div>
+                </div>
+              </div>
+            </button>
             {leaves.map((leaf) => {
-              const active = spread.includes(leaf);
-              const targetIdx = spreadIndexOfLeaf(spreads, (l) => l === leaf);
+              const active = spread ? spread.includes(leaf) : false;
+              const targetIdx = spreadIndexOfLeaf(spreads, (l) => l === leaf) + 1;
               const thumb =
                 leaf.kind === "page"
                   ? (() => {
