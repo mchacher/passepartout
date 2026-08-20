@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAlbum } from "./store";
+import { useView } from "./viewStore";
+import { zoomWidthPx } from "./lib/zoom";
 import { useApplyTheme } from "./useApplyTheme";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
@@ -7,10 +9,12 @@ import { PageCard } from "./components/PageCard";
 import { CoverCard } from "./components/CoverCard";
 import { SpineCard } from "./components/SpineCard";
 import { PageRail } from "./components/PageRail";
+import { ZoomControl } from "./components/ZoomControl";
 
 export function App() {
   const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent } =
     useAlbum();
+  const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
 
@@ -43,7 +47,7 @@ export function App() {
 
         <main className="min-h-0 overflow-y-auto px-8 pb-24 pt-8">
           {hasPhotos ? (
-            <div className="mx-auto flex max-w-[620px] flex-col gap-8">
+            <div className="mx-auto flex flex-col gap-8" style={{ width: zoomWidthPx(zoom), maxWidth: "100%" }}>
               <div id="cover-front">
                 <CoverCard which="front" />
               </div>
@@ -118,6 +122,8 @@ export function App() {
 
         {hasPhotos && <PageRail />}
       </div>
+
+      {hasPhotos && <ZoomControl />}
     </div>
   );
 }

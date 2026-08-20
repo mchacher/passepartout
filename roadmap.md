@@ -29,6 +29,9 @@ designs live under `specs/`.
 - Bigger cover photo: the cover header now lives in a fixed top band (like the interior
   pages), so the title size no longer shrinks the photo and a subtitle-less cover gives that
   space back to the photo, at every font size; cover margins tightened from 9% to 6%
+- Editor zoom (spec 016): a bottom-right slider scales the central page cards for easier
+  editing; the Library and thumbnail rail keep their size, and it only scales the display so
+  photos stay contained and never cropped
 
 ## Requested (this round)
 
@@ -38,17 +41,11 @@ designs live under `specs/`.
    photo has a single `pageId`; this needs the placement model to allow a photo to appear in
    several pages (e.g. usage is derived from the pages, not a single back-reference).
 
-2. **Bigger editing canvas with a zoom control.** The page cards render small, which makes
-   precise editing (move / resize / crop) harder than it should be. Add a zoom slider in the
-   bottom-right corner that scales the page cards up (and down), while keeping the left
-   Library column and the right thumbnail rail at their current size. Zoom affects only the
-   central editing column.
-
-3. **Grid free placement, Phase C** (later). Adjustable grid resolution, multi-select /
+2. **Grid free placement, Phase C** (later). Adjustable grid resolution, multi-select /
    group move, and spanning a single photo across a double-page spread. Phases A (grid
    substrate) and B (move/resize/overlap editor) have shipped.
 
-4. **Image editing (crop / format / masks).**
+3. **Image editing (crop / format / masks).**
    > **Partly delivered.** The opt-in crop path the caveat below suggests now exists: the
    > full-page Fill (spec 012) and the per-photo crop tool (spec 015) crop only where the
    > user explicitly opts in, no-crop staying the default. What remains is forced-format
