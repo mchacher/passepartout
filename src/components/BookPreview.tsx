@@ -3,6 +3,8 @@ import { useAlbum } from "../store";
 import type { Cover, CoverFace } from "../types";
 import { bookLeaves, toSpreads, spreadIndexOfLeaf, spreadLabel, fitSpread, type Leaf } from "../lib/preview";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
+import { estimateSpineMm } from "../lib/print";
+import { effectiveSpineTitle } from "../lib/project";
 import { PreviewPaper, type PreviewPhoto } from "./PreviewPaper";
 import { Thumb, type ThumbPhoto } from "./Thumb";
 
@@ -30,6 +32,8 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     insideFrontCover,
     insideBackCover,
     backCover,
+    spine,
+    activeName,
   } = useAlbum();
 
   const covers: Record<CoverFace, Cover> = useMemo(
@@ -117,7 +121,54 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
   const clampedIndex = Math.min(Math.max(index, 0), spreads.length - 1);
   const spread = spreads[clampedIndex];
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
-  const { pageW } = fitSpread(avail, aspect, spread.length === 2 ? 2 : 1, GUTTER_FRAC);
+  // Size every leaf at the two-page-spread scale so a lone outside cover (front / back) is the
+  // same size as an interior page instead of dwarfing them (#2). A single leaf is centered on
+  // the stage; a real spread still fills it.
+  const { pageW } = fitSpread(avail, aspect, 2, GUTTER_FRAC);
+  const pageH = pageW / aspect;
+
+  // Spine thickness hint (#2): estimate from the interior page count on standard paper and
+  // scale to the on-screen page width, floored so a thin book still shows a sliver. The
+  // outside covers (front / back) show this strip on their binding edge, so the preview reads
+  // as a physical book with a visible spine.
+  const trimWmm = bookSizeOrDefault(bookSize).widthMm;
+  const spineMm = estimateSpineMm(pages.length + 2, "standard");
+  const spinePx = pageW > 0 ? Math.max(7, (spineMm / trimWmm) * pageW) : 0;
+  const spineTitle = effectiveSpineTitle(spine, frontCover, activeName);
+
+  // The book's spine drawn as a thin bound edge next to an outside cover: on the left of the
+  // front cover, on the right of the back cover. A subtle gradient reads as the page block's
+  // thickness; the spine title runs vertically when the strip is wide enough.
+  const coverSpine = (side: "left" | "right") => (
+    <div
+      className="relative shrink-0 overflow-hidden bg-paper"
+      style={{
+        width: `${spinePx}px`,
+        height: `${pageH}px`,
+        borderRadius: side === "left" ? "4px 0 0 4px" : "0 4px 4px 0",
+      }}
+    >
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            side === "left"
+              ? "linear-gradient(to right, rgba(0,0,0,0.03), rgba(0,0,0,0.16))"
+              : "linear-gradient(to left, rgba(0,0,0,0.03), rgba(0,0,0,0.16))",
+        }}
+      />
+      {spinePx >= 16 && spineTitle && (
+        <div className="absolute inset-0 flex items-center justify-center px-[1px]">
+          <span
+            className="max-h-[80%] overflow-hidden whitespace-nowrap font-album text-[10px]"
+            style={{ writingMode: "vertical-rl", color: "var(--album-ink-soft)" }}
+          >
+            {spineTitle}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 
   const renderLeaf = (leaf: Leaf) => {
     if (leaf.kind === "page") {
@@ -140,7 +191,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
       );
     }
     const cover = covers[leaf.face];
-    return (
+    const paper = (
       <PreviewPaper
         kind="cover"
         pageW={pageW}
@@ -151,6 +202,18 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
         photo={coverPreviewPhoto(cover)}
       />
     );
+    // The outside covers show the spine on their binding edge (#2): front cover -> spine on the
+    // left, back cover -> spine on the right. The inside faces have no visible spine.
+    if (leaf.face === "front" || leaf.face === "back") {
+      return (
+        <div className="flex items-stretch">
+          {leaf.face === "front" ? coverSpine("left") : null}
+          {paper}
+          {leaf.face === "back" ? coverSpine("right") : null}
+        </div>
+      );
+    }
+    return paper;
   };
 
   return (
