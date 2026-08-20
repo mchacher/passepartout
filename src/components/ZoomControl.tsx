@@ -1,14 +1,16 @@
 import { useView } from "../viewStore";
-import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, ZOOM_DEFAULT } from "../lib/zoom";
+import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from "../lib/zoom";
 
-// A floating zoom slider anchored to the bottom-right of the editing area (spec 016). It
-// scales only the central column of page cards; the Library and the thumbnail rail keep
-// their size. The right offset clears the 212px thumbnail rail at the xl breakpoint. Zoom
-// is a pure display scale, so photos stay contain-fit and are never cropped.
+// A floating zoom slider anchored to the bottom-right of the editing area (spec 016). Zoom
+// is a fraction of the available width of the central column, so 100% fits the column
+// ("Fit"); smaller values shrink the pages. The Library and the thumbnail rail keep their
+// size. The right offset clears the 212px thumbnail rail at the xl breakpoint. Zoom is a
+// pure display scale, so photos stay contain-fit and are never cropped.
 export function ZoomControl() {
   const zoom = useView((s) => s.zoom);
   const setZoom = useView((s) => s.setZoom);
   const pct = Math.round(zoom * 100);
+  const atFit = zoom >= ZOOM_MAX;
 
   return (
     <div className="fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full border border-line bg-surface/95 px-3 py-2 shadow-soft backdrop-blur xl:right-[228px]">
@@ -27,12 +29,18 @@ export function ZoomControl() {
         title="Zoom the pages"
         className="w-28 accent-[color:var(--accent)]"
       />
+      <span className="w-9 text-right font-mono text-[11px] tabular-nums text-muted">{pct}%</span>
       <button
-        onClick={() => setZoom(ZOOM_DEFAULT)}
-        title="Reset zoom to 100%"
-        className="w-10 text-right font-mono text-[11px] tabular-nums text-muted hover:text-ink"
+        onClick={() => setZoom(ZOOM_MAX)}
+        disabled={atFit}
+        title="Fit the pages to the available width"
+        className={`rounded-md border px-2 py-[3px] text-[11px] ${
+          atFit
+            ? "border-line bg-surface text-faint"
+            : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
+        }`}
       >
-        {pct}%
+        Fit
       </button>
     </div>
   );

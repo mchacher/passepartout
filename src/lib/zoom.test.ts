@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { clampZoom, zoomWidthPx, ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, BASE_WIDTH_PX } from "./zoom";
+import { clampZoom, zoomedWidthPx, ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT } from "./zoom";
 
 describe("clampZoom", () => {
   it("returns an in-range zoom unchanged", () => {
-    expect(clampZoom(1.2)).toBe(1.2);
+    expect(clampZoom(0.7)).toBe(0.7);
     expect(clampZoom(ZOOM_MIN)).toBe(ZOOM_MIN);
     expect(clampZoom(ZOOM_MAX)).toBe(ZOOM_MAX);
   });
@@ -20,18 +20,28 @@ describe("clampZoom", () => {
   });
 });
 
-describe("zoomWidthPx", () => {
-  it("is the base width at 100%", () => {
-    expect(zoomWidthPx(1)).toBe(BASE_WIDTH_PX);
+describe("zoomedWidthPx", () => {
+  it("fills the available width at 100% (fit)", () => {
+    expect(zoomedWidthPx(1200, 1)).toBe(1200);
   });
 
-  it("grows monotonically with zoom", () => {
-    expect(zoomWidthPx(ZOOM_MAX)).toBeGreaterThan(zoomWidthPx(1));
-    expect(zoomWidthPx(1)).toBeGreaterThan(zoomWidthPx(ZOOM_MIN));
+  it("is a fraction of the available width below 100%", () => {
+    expect(zoomedWidthPx(1200, 0.5)).toBe(600);
   });
 
-  it("clamps an out-of-range input before scaling", () => {
-    expect(zoomWidthPx(99)).toBe(zoomWidthPx(ZOOM_MAX));
-    expect(zoomWidthPx(0)).toBe(zoomWidthPx(ZOOM_MIN));
+  it("never exceeds the available width (grows monotonically, capped at fit)", () => {
+    expect(zoomedWidthPx(1000, ZOOM_MAX)).toBeGreaterThan(zoomedWidthPx(1000, ZOOM_MIN));
+    expect(zoomedWidthPx(1000, ZOOM_MAX)).toBe(1000);
+  });
+
+  it("clamps an out-of-range zoom before scaling", () => {
+    expect(zoomedWidthPx(1000, 99)).toBe(zoomedWidthPx(1000, ZOOM_MAX));
+    expect(zoomedWidthPx(1000, 0)).toBe(zoomedWidthPx(1000, ZOOM_MIN));
+  });
+
+  it("treats a missing or invalid available width as zero", () => {
+    expect(zoomedWidthPx(0, 1)).toBe(0);
+    expect(zoomedWidthPx(NaN, 1)).toBe(0);
+    expect(zoomedWidthPx(-50, 1)).toBe(0);
   });
 });

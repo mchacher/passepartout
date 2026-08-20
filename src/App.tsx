@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlbum } from "./store";
 import { useView } from "./viewStore";
-import { zoomWidthPx } from "./lib/zoom";
+import { zoomedWidthPx } from "./lib/zoom";
 import { useApplyTheme } from "./useApplyTheme";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
@@ -17,6 +17,23 @@ export function App() {
   const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
+
+  // Zoom is a fraction of the AVAILABLE width of the central column, so 100% fits the
+  // column. Measure that width (the main content box, minus its px-8 padding) with a
+  // callback ref so the ResizeObserver attaches exactly when <main> mounts, regardless of
+  // render timing. scrollbar-gutter keeps clientWidth steady as the scrollbar comes and
+  // goes, avoiding a measure/resize feedback loop.
+  const MAIN_PADDING_X = 64; // px-8 on both sides
+  const [availW, setAvailW] = useState(0);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const mainRef = useCallback((el: HTMLElement | null) => {
+    roRef.current?.disconnect();
+    if (!el) return;
+    const measure = () => setAvailW(Math.max(0, el.clientWidth - MAIN_PADDING_X));
+    measure();
+    roRef.current = new ResizeObserver(measure);
+    roRef.current.observe(el);
+  }, []);
 
   useApplyTheme();
 
@@ -45,9 +62,9 @@ export function App() {
       <div className="grid min-h-0 grid-cols-[274px_1fr] xl:grid-cols-[274px_1fr_212px] max-[760px]:grid-cols-1">
         <Library />
 
-        <main className="min-h-0 overflow-y-auto px-8 pb-24 pt-8">
+        <main ref={mainRef} className="min-h-0 overflow-y-auto px-8 pb-24 pt-8 [scrollbar-gutter:stable]">
           {hasPhotos ? (
-            <div className="mx-auto flex flex-col gap-8" style={{ width: zoomWidthPx(zoom), maxWidth: "100%" }}>
+            <div className="mx-auto flex flex-col gap-8" style={{ width: zoomedWidthPx(availW, zoom) || undefined, maxWidth: "100%" }}>
               <div id="cover-front">
                 <CoverCard which="front" />
               </div>

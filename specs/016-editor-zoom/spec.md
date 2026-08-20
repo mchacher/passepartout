@@ -36,10 +36,11 @@ untouched by construction.
 
 1. A zoom slider (with a magnifier icon and a percentage readout) floats at the
    bottom-right of the editing column, clear of the thumbnail rail.
-2. Moving the slider scales the width of the central cards container between a minimum
-   and a maximum around the current 620px baseline (100% = today's size).
+2. Zoom is a fraction of the AVAILABLE width of the central column: 100% fits the column
+   (the page fills the space, "Fit"), and the slider goes down to a minimum. A dedicated
+   "Fit" button snaps back to 100%.
 3. The scaled width never exceeds the available width of the central column, so the
-   layout never overflows horizontally; on a narrow window zoom is naturally bounded.
+   layout never overflows horizontally; on a narrow window the fit is simply narrower.
 4. The Library column and the thumbnail rail are visually unchanged at every zoom
    level.
 5. The chosen zoom persists across a page refresh (localStorage), and a
@@ -48,14 +49,15 @@ untouched by construction.
 
 ## Architecture
 
-Flow: `viewStore.zoom` (ephemeral, persisted) → `App.tsx` applies it as the central
-container's width → `Paper` / `CoverCard` re-measure via their `ResizeObserver` and
-ask the pure engine to place photos at the new size.
+Flow: `App.tsx` measures the available width of the central column (a `ResizeObserver`
+on `main`) → `viewStore.zoom` (ephemeral, persisted) is applied as `available * zoom`
+on the cards container → `Paper` / `CoverCard` re-measure via their own `ResizeObserver`
+and ask the pure engine to place photos at the new size.
 
 Files changed:
 
 - `src/lib/zoom.ts` (new, pure): `ZOOM_MIN`, `ZOOM_MAX`, `ZOOM_STEP`, `ZOOM_DEFAULT`,
-  `BASE_WIDTH_PX`, `clampZoom(z)`, `zoomWidthPx(z)`.
+  `clampZoom(z)`, `zoomedWidthPx(availableWidthPx, z)`.
 - `src/lib/zoom.test.ts` (new): unit tests for the pure helpers.
 - `src/viewStore.ts`: add `zoom` + `setZoom`, persisted to localStorage.
 - `src/components/ZoomControl.tsx` (new): the floating slider.
