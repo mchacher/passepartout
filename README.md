@@ -32,6 +32,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Arrange freely on a grid**: layouts rest on a 12 x 12 page grid; an "Edit layout" mode lets you move and resize any photo on the grid, overlap photos and choose their front-to-back order. Photos are always contained, never cropped.
 - **Zoom the pages**: a slider in the bottom-right corner enlarges the central page cards for easier editing, while the Library and the thumbnail rail keep their size. It only scales the display, so photos stay contained and are never cropped.
 - **Reuse a photo**: a photo can appear on any number of pages at once, not consumed by one. The Library badges each photo with how many times it is used (across pages and covers) and offers an "Unused only" filter to find the photos you have not placed yet.
+- **Decorative masks**: in Edit layout, give a photo a shape (oval, rounded, arch, ...) from an enrichable catalog. The mask follows the photo's box and only hides the pixels outside the shape, so the photo keeps its aspect ratio and size. Opt-in and per-photo; no mask is the default.
 - **Local and private**: everything runs in your browser. Photos never leave your machine.
 
 ## Getting started

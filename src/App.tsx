@@ -10,6 +10,7 @@ import { CoverCard } from "./components/CoverCard";
 import { SpineCard } from "./components/SpineCard";
 import { PageRail } from "./components/PageRail";
 import { ZoomControl } from "./components/ZoomControl";
+import { MaskDefs } from "./components/MaskDefs";
 
 export function App() {
   const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent } =
@@ -51,6 +52,7 @@ export function App() {
 
   return (
     <div className="grid h-screen grid-rows-[auto_1fr]">
+      <MaskDefs />
       <div>
         <TopBar />
         {!persistent && (

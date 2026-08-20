@@ -294,6 +294,22 @@ describe("store photo crop (spec 015)", () => {
   });
 });
 
+describe("store photo mask (spec 018)", () => {
+  const maskOf = (id: string) => useAlbum.getState().photos.find((p) => p.id === id)!.mask;
+
+  it("setPhotoMask sets a known mask, clears it, and rejects an unknown id", () => {
+    useAlbum.setState({ photos: [photo("a"), photo("b")], pages: [page("p1", ["a", "b"], "two-row")] });
+    useAlbum.getState().setPhotoMask("a", "oval");
+    expect(maskOf("a")).toBe("oval");
+    expect(maskOf("b")).toBeUndefined(); // other photo untouched
+    useAlbum.getState().setPhotoMask("a", "not-a-mask");
+    expect(maskOf("a")).toBeUndefined(); // unknown id never persisted
+    useAlbum.getState().setPhotoMask("a", "arch");
+    useAlbum.getState().setPhotoMask("a", null);
+    expect(maskOf("a")).toBeUndefined(); // cleared
+  });
+});
+
 describe("store page reorder", () => {
   const ids = () => useAlbum.getState().pages.map((p) => p.id);
 

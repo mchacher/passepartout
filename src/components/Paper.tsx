@@ -76,10 +76,13 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
   // Photo fields (url/crop) for rendering.
   const engineItems = items.map((p) => ({ ...p, ratio: effectiveRatio(p.ratio, p.crop) }));
   const cropKey = items.map((p) => (p.crop ? `${p.crop.x},${p.crop.y},${p.crop.w},${p.crop.h}` : "-")).join("|");
+  // A mask changes only how a cell renders, not the geometry, but the memoized cells embed
+  // the item objects, so re-run the layout when a mask changes to refresh them (spec 018).
+  const maskKey = items.map((p) => p.mask ?? "-").join("|");
   const placed = useMemo(
     () => computeLayout(engineItems, box.w, box.h, gridCells, { density }).cells,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey],
+    [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey, maskKey],
   );
   const order = useMemo(() => drawOrder(gridCells), [gridKey]);
   const selCell = selected != null ? placed[selected] : undefined;
@@ -332,7 +335,7 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
           e.dataTransfer.effectAllowed = "move";
         }}
       >
-        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
       </div>
       <div
         ref={capRef}
@@ -390,7 +393,7 @@ function EditCell({ photo, w, h, ox, oy, panHint, selected, onMoveDown, onResize
       onPointerDown={onMoveDown}
     >
       <div className="pointer-events-none absolute" style={{ left: `${ox}px`, top: `${oy}px` }}>
-        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
       </div>
       {selected &&
         CORNERS.map((corner) => (

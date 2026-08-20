@@ -5,6 +5,7 @@ import { layoutsForCount } from "../lib/layouts";
 import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
 import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
+import { MASKS } from "../lib/masks";
 
 interface PageCardProps {
   page: AlbumPage;
@@ -16,7 +17,7 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 // One album page: the control header (title, photo count, delete), a controls row
 // (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, deletePage } =
+  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, deletePage } =
     useAlbum();
   const photos = useAlbum((s) => s.photos);
   const count = page.photoIds.length;
@@ -30,8 +31,13 @@ export function PageCard({ page, index }: PageCardProps) {
   const paperRef = useRef<PaperHandle>(null);
   const [sel, setSel] = useState<PaperSelection | null>(null);
   const [cropping, setCropping] = useState<string | null>(null);
-  const onSelection = useCallback((s: PaperSelection | null) => setSel(s), []);
+  const [maskOpen, setMaskOpen] = useState(false);
+  const onSelection = useCallback((s: PaperSelection | null) => {
+    setSel(s);
+    setMaskOpen(false);
+  }, []);
   const croppingPhoto = cropping ? photos.find((p) => p.id === cropping) : undefined;
+  const selPhoto = sel ? photos.find((p) => p.id === sel.photoId) : undefined;
 
   // Full-page choices for a single-photo page (spec 012). Off = normal page; Fit fills the
   // page without cropping; Fill fills the page by cropping to the page ratio.
@@ -126,6 +132,55 @@ export function PageCard({ page, index }: PageCardProps) {
                 </svg>
                 Crop
               </button>
+              <div className="relative">
+                <button
+                  onClick={() => setMaskOpen((v) => !v)}
+                  aria-pressed={maskOpen}
+                  title="Give the photo a decorative shape"
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-[5px] text-[11.5px] transition-colors ${
+                    selPhoto?.mask
+                      ? "border-accent bg-accent text-white"
+                      : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
+                  }`}
+                >
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                    <ellipse cx="12" cy="12" rx="9" ry="6.5" />
+                  </svg>
+                  Mask
+                </button>
+                {maskOpen && (
+                  <>
+                    <button aria-label="Close mask picker" className="fixed inset-0 z-20 cursor-default" onClick={() => setMaskOpen(false)} />
+                    <div className="absolute left-0 top-full z-30 mt-1.5 flex gap-1.5 rounded-lg border border-line bg-surface p-2 shadow-soft">
+                      <button
+                        onClick={() => { setPhotoMask(sel.photoId, null); setMaskOpen(false); }}
+                        title="No mask (rectangle)"
+                        className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
+                          selPhoto?.mask ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
+                        }`}
+                      >
+                        None
+                      </button>
+                      {MASKS.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => { setPhotoMask(sel.photoId, m.id); setMaskOpen(false); }}
+                          title={m.name}
+                          aria-pressed={selPhoto?.mask === m.id}
+                          className={`flex h-9 w-9 items-center justify-center rounded-md border p-1 ${
+                            selPhoto?.mask === m.id ? "border-accent" : "border-line hover:border-faint"
+                          }`}
+                        >
+                          <span
+                            className="block h-full w-full bg-muted"
+                            style={{ clipPath: `url(#pp-mask-${m.id})` }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
               {sel.overlaps && (
                 <>
                   <button
