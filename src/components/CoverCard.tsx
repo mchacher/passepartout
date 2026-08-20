@@ -36,6 +36,14 @@ export function CoverCard({ which }: CoverCardProps) {
     ? photos.find((p) => p.id === cover.photoId)
     : undefined;
 
+  // The header lives in a FIXED top band (mirrors the interior pages and print.ts): its
+  // height depends only on whether a title / subtitle is present, not on the font size.
+  // So enlarging the title never shrinks the photo, and a subtitle-less cover gives that
+  // band back to the photo. Values (in cqw = % of the cover width) mirror print.ts.
+  const hasTitle = cover.title.trim().length > 0;
+  const hasSubtitle = cover.subtitle.trim().length > 0;
+  const photoTop = hasSubtitle ? "24cqw" : hasTitle ? "17cqw" : "6cqw";
+
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
@@ -110,7 +118,7 @@ export function CoverCard({ which }: CoverCardProps) {
 
       <div className="paper-hatch p-[22px]">
         <div
-          className="relative flex flex-col overflow-hidden rounded-sm bg-paper shadow-paper transition-shadow"
+          className="relative overflow-hidden rounded-sm bg-paper shadow-paper transition-shadow"
           style={{
             aspectRatio: String(aspect),
             boxShadow: hot ? "0 0 0 2px var(--accent)" : undefined,
@@ -129,8 +137,8 @@ export function CoverCard({ which }: CoverCardProps) {
             if (id) updateCover(which, { photoId: id });
           }}
         >
-          {/* Title + subtitle, edited directly on the cover. */}
-          <div className="z-10 px-[9%] pt-[9%] text-center">
+          {/* Title + subtitle, edited directly on the cover, sitting in the fixed top band. */}
+          <div className="absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
             <input
               value={cover.title}
               placeholder={face.titlePlaceholder}
@@ -147,10 +155,12 @@ export function CoverCard({ which }: CoverCardProps) {
             />
           </div>
 
-          {/* Photo band: contained photo, or a drop hint when empty. */}
+          {/* Photo area: fills below the fixed top band, contained photo centered (or a drop
+              hint when empty). Its top follows the band; sides and bottom inset by 6cqw. */}
           <div
             ref={boxRef}
-            className="relative flex min-h-0 flex-1 items-center justify-center p-[9%]"
+            className="absolute inset-x-0 bottom-0 flex items-center justify-center px-[6cqw] pb-[6cqw]"
+            style={{ top: photoTop }}
           >
             {photo && size ? (
               <CoverPhoto photo={photo} w={size.w} h={size.h} onRemove={() => updateCover(which, { photoId: null })} />

@@ -64,6 +64,17 @@ const MARGIN = 0.05;
 const TOP_TITLE = 0.11;
 const TOP_SUBTITLE = 0.14;
 
+// Cover face geometry, all fractions of the trim width and mirrored by the CSS % on
+// CoverCard / PreviewPaper. Like the interior pages, the header lives in a FIXED top
+// band and the photo fills the area below it: the band height depends only on whether a
+// title / subtitle is present, never on the font-size level, so enlarging the title no
+// longer shrinks the photo, and a cover with no subtitle gives that space back to the
+// photo at every font size. COVER_MARGIN is the side / bottom inset (and the top inset
+// when there is no text at all).
+const COVER_MARGIN = 0.06;
+const COVER_TOP_TITLE = 0.17; // reserved top band for a title alone
+const COVER_TOP_SUBTITLE = 0.24; // reserved top band for a title + subtitle
+
 // Text sizes as a fraction of the trim width, mirroring the on-screen cqw-based clamps
 // (e.g. a page title is clamp(.., 3.1cqw, ..) = 3.1% of the page width). Multiplied by
 // the project's text-size scale.
@@ -234,7 +245,7 @@ function coverPanel(
   trimW: number,
   scales: { coverTitle: number; coverSubtitle: number },
 ): CoverPanel {
-  const margin = 0.09 * trimW;
+  const margin = COVER_MARGIN * trimW;
   const hasTitle = face.title.trim().length > 0;
   const hasSubtitle = face.subtitle.trim().length > 0;
   const centerX = trimBox.x + trimBox.w / 2;
@@ -250,13 +261,16 @@ function coverPanel(
 
   let photo: PhotoBox | null = null;
   if (face.photo) {
-    // The photo lives below the header text, contained in the remaining area.
-    const headerBottom = margin + (hasTitle ? titleSize * 1.4 : 0) + (hasSubtitle ? subtitleSize * 1.6 : 0);
+    // The header sits in a FIXED top band (like the interior pages): its height depends
+    // only on whether a title / subtitle is present, not on the font size. The photo
+    // fills the area below, so enlarging the title never shrinks it and a subtitle-less
+    // cover gives that band back to the photo.
+    const topBand = (hasSubtitle ? COVER_TOP_SUBTITLE : hasTitle ? COVER_TOP_TITLE : COVER_MARGIN) * trimW;
     const area: PtRect = {
       x: trimBox.x + margin,
-      y: trimBox.y + headerBottom + margin,
+      y: trimBox.y + topBand,
       w: trimBox.w - 2 * margin,
-      h: trimBox.h - headerBottom - 2 * margin,
+      h: trimBox.h - topBand - margin,
     };
     const { cells } = computeLayout([{ ratio: face.photo.ratio }], area.w, area.h, resolveCells("single", 1), {
       density: whitespaceToDensity(face.whitespace),

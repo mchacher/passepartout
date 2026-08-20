@@ -169,6 +169,9 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
 function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps & { w: number; h: number }) {
   const hasTitle = title.trim().length > 0;
   const hasSubtitle = subtitle.trim().length > 0;
+  // The header sits in a fixed top band (mirrors CoverCard and print.ts): the photo fills
+  // below it, so title size never shrinks the photo and a subtitle-less cover is larger.
+  const photoTop = hasSubtitle ? "24cqw" : hasTitle ? "17cqw" : "6cqw";
   const boxRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
 
@@ -201,8 +204,8 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
   }, [measure]);
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="z-10 px-[9%] pt-[9%] text-center">
+    <div className="relative h-full w-full">
+      <div className="absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
         {hasTitle && (
           <div
             className="font-album tracking-wide"
@@ -221,7 +224,11 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
         )}
       </div>
 
-      <div ref={boxRef} className="relative flex min-h-0 flex-1 items-center justify-center p-[9%]">
+      <div
+        ref={boxRef}
+        className="absolute inset-x-0 bottom-0 flex items-center justify-center px-[6cqw] pb-[6cqw]"
+        style={{ top: photoTop }}
+      >
         {photo && box && (
           <CroppedImg url={photo.url} name="" crop={photo.crop} w={box.w} h={box.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
         )}
