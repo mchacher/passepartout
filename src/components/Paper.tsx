@@ -198,7 +198,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
   return (
     <div className="paper-hatch p-[22px]">
       <div
-        className="relative overflow-hidden rounded-sm bg-paper shadow-paper transition-shadow"
+        className="relative overflow-hidden rounded-sm border border-line bg-paper shadow-paper transition-shadow"
         style={{
           aspectRatio: String(aspect),
           boxShadow: hot ? "0 0 0 2px var(--accent)" : undefined,
