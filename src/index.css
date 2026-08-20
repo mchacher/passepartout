@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Handwriting font for the Polaroid note (spec 019), self-hosted for offline use and to
+   match the PDF (the same font is embedded there via @pdf-lib/fontkit). */
+@font-face {
+  font-family: "Caveat";
+  src: url("./assets/Caveat.ttf") format("truetype");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+/* The handwritten note; falls back to a system cursive if the font has not loaded yet. */
+.font-hand {
+  font-family: "Caveat", "Segoe Script", "Snell Roundhand", cursive;
+}
+
 /* ---------------------------------------------------------------------------
    Design tokens. Both themes are defined here so components only ever use the
    semantic Tailwind utilities (bg-surface, text-ink, border-line, ...).

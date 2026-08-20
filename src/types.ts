@@ -30,6 +30,16 @@ export interface Photo {
   // (src/lib/masks.ts), or absent for the default rectangle. The mask scales to the photo's
   // box and only hides the pixels outside the shape; it never changes the ratio or size.
   mask?: string;
+  // Opt-in decorative frame (spec 019): a mat around the photo, from src/lib/frames.ts.
+  // `frame` is a style id, `frameColor` a color id. Border keeps the photo whole and takes a
+  // `frameWidth` (fraction of the box width). Polaroid squares the photo (cover-crop) with a
+  // `frameFocus` you can pan (Shift-drag) and holds an optional handwritten `frameText`.
+  // All absent = no frame, the default.
+  frame?: string;
+  frameColor?: string;
+  frameText?: string;
+  frameWidth?: number;
+  frameFocus?: CropFocus;
 }
 
 // Full-page mode for a single-photo page (spec 012). `contain` (Fit) maximizes the photo

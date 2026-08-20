@@ -5,9 +5,11 @@ import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells, GRID_COLS, GRID_ROWS } from "../lib/layouts";
 import { moveCell, resizeCell, restack, panAnchor, snapAnchor, type Corner } from "../lib/grid-edit";
 import { effectiveRatio } from "../lib/crop";
+import { photoLayoutRatio, frameById, frameInner } from "../lib/frames";
 import { useView } from "../viewStore";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { CroppedImg } from "./CroppedImg";
+import { FramedPhoto } from "./FramedPhoto";
 import { PHOTO_DND_TYPE } from "./dnd";
 
 // The selected photo's context, reported up so the page controls can show its toolbar.
@@ -36,7 +38,7 @@ const rectsOverlap = (a: CellRect, b: CellRect) =>
 // each photo is contain-fit in its region. In edit mode the cells become draggable /
 // resizable on the grid (writing the page's custom placement).
 export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, editing = false, onSelection }, ref) {
-  const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement } = useAlbum();
+  const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement, setPhotoFrameFocus } = useAlbum();
   const showGrid = useView((s) => s.showGrid);
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const density = whitespaceToDensity(page.whitespace);
@@ -74,15 +76,20 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
   // The engine lays out by each photo's EFFECTIVE ratio (its crop's ratio; spec 015), so a
   // cropped photo re-fits its cell as a photo of the kept region. The cell item keeps the
   // Photo fields (url/crop) for rendering.
-  const engineItems = items.map((p) => ({ ...p, ratio: effectiveRatio(p.ratio, p.crop) }));
+  const engineItems = items.map((p) => ({ ...p, ratio: photoLayoutRatio(p) }));
   const cropKey = items.map((p) => (p.crop ? `${p.crop.x},${p.crop.y},${p.crop.w},${p.crop.h}` : "-")).join("|");
   // A mask changes only how a cell renders, not the geometry, but the memoized cells embed
   // the item objects, so re-run the layout when a mask changes to refresh them (spec 018).
   const maskKey = items.map((p) => p.mask ?? "-").join("|");
+  // A frame (style / color / note) also only changes how a cell renders; refresh the
+  // memoized cells when it changes, like the mask (spec 019).
+  const frameKey = items
+    .map((p) => `${p.frame ?? "-"},${p.frameColor ?? "-"},${p.frameText ?? "-"},${p.frameWidth ?? "-"},${p.frameFocus ? `${p.frameFocus.x}:${p.frameFocus.y}` : "-"}`)
+    .join("|");
   const placed = useMemo(
     () => computeLayout(engineItems, box.w, box.h, gridCells, { density }).cells,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey, maskKey],
+    [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey, maskKey, frameKey],
   );
   const order = useMemo(() => drawOrder(gridCells), [gridKey]);
   const selCell = selected != null ? placed[selected] : undefined;
@@ -119,6 +126,36 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
     e.preventDefault();
     e.stopPropagation();
     setSelected(index);
+
+    // Polaroid focus pan (spec 019): Shift-drag moves which square region of the photo shows
+    // in the window, instead of panning the cell whitespace. Only the overflowing axis moves.
+    const fitem = items[index];
+    const fstyle = frameById(fitem?.frame);
+    if (mode === "pan" && fstyle?.square) {
+      const pc0 = placed[index];
+      if (!pc0) return;
+      const side = frameInner(fstyle, pc0.w, pc0.h, 0).w || 1; // window side in px
+      const start0 = fitem.frameFocus ?? DEFAULT_CROP_FOCUS;
+      const landscape = fitem.ratio >= 1;
+      const sx = e.clientX;
+      const sy = e.clientY;
+      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+      const onMoveF = (ev: PointerEvent) => {
+        // Drag reveals the opposite edge, so the focus moves against the drag.
+        const next = landscape
+          ? { x: clamp01(start0.x - (ev.clientX - sx) / side), y: 0.5 }
+          : { x: 0.5, y: clamp01(start0.y - (ev.clientY - sy) / side) };
+        setPhotoFrameFocus(fitem.id, next);
+      };
+      const onUpF = () => {
+        window.removeEventListener("pointermove", onMoveF);
+        window.removeEventListener("pointerup", onUpF);
+      };
+      window.addEventListener("pointermove", onMoveF);
+      window.addEventListener("pointerup", onUpF);
+      return;
+    }
+
     const unitW = box.w / GRID_COLS;
     const unitH = box.h / GRID_ROWS;
     const startX = e.clientX;
@@ -335,7 +372,11 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
           e.dataTransfer.effectAllowed = "move";
         }}
       >
-        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+        {photo.frame ? (
+          <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={w} h={h} />
+        ) : (
+          <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+        )}
       </div>
       <div
         ref={capRef}
@@ -393,7 +434,11 @@ function EditCell({ photo, w, h, ox, oy, panHint, selected, onMoveDown, onResize
       onPointerDown={onMoveDown}
     >
       <div className="pointer-events-none absolute" style={{ left: `${ox}px`, top: `${oy}px` }}>
-        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+        {photo.frame ? (
+          <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={w} h={h} />
+        ) : (
+          <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+        )}
       </div>
       {selected &&
         CORNERS.map((corner) => (

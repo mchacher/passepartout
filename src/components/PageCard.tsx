@@ -6,6 +6,7 @@ import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
 import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
 import { MASKS } from "../lib/masks";
+import { FRAMES, FRAME_COLORS, frameById, BORDER_WIDTHS, borderWidthOf } from "../lib/frames";
 
 interface PageCardProps {
   page: AlbumPage;
@@ -17,7 +18,7 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 // One album page: the control header (title, photo count, delete), a controls row
 // (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, deletePage } =
+  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, setPhotoFrame, setPhotoFrameColor, setPhotoFrameText, setPhotoFrameWidth, deletePage } =
     useAlbum();
   const photos = useAlbum((s) => s.photos);
   const count = page.photoIds.length;
@@ -32,9 +33,11 @@ export function PageCard({ page, index }: PageCardProps) {
   const [sel, setSel] = useState<PaperSelection | null>(null);
   const [cropping, setCropping] = useState<string | null>(null);
   const [maskOpen, setMaskOpen] = useState(false);
+  const [frameOpen, setFrameOpen] = useState(false);
   const onSelection = useCallback((s: PaperSelection | null) => {
     setSel(s);
     setMaskOpen(false);
+    setFrameOpen(false);
   }, []);
   const croppingPhoto = cropping ? photos.find((p) => p.id === cropping) : undefined;
   const selPhoto = sel ? photos.find((p) => p.id === sel.photoId) : undefined;
@@ -177,6 +180,101 @@ export function PageCard({ page, index }: PageCardProps) {
                           />
                         </button>
                       ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => setFrameOpen((v) => !v)}
+                  aria-pressed={frameOpen}
+                  title="Frame the photo (Polaroid, colored border)"
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-[5px] text-[11.5px] transition-colors ${
+                    selPhoto?.frame
+                      ? "border-accent bg-accent text-white"
+                      : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
+                  }`}
+                >
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+                    <rect x="3" y="3" width="18" height="18" rx="1.5" />
+                    <rect x="6" y="6" width="12" height="8" />
+                  </svg>
+                  Frame
+                </button>
+                {frameOpen && (
+                  <>
+                    <button aria-label="Close frame picker" className="fixed inset-0 z-20 cursor-default" onClick={() => setFrameOpen(false)} />
+                    <div className="absolute left-0 top-full z-30 mt-1.5 w-[210px] rounded-lg border border-line bg-surface p-2 shadow-soft">
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setPhotoFrame(sel.photoId, null)}
+                          title="No frame"
+                          className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
+                            selPhoto?.frame ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
+                          }`}
+                        >
+                          None
+                        </button>
+                        {FRAMES.map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => setPhotoFrame(sel.photoId, f.id)}
+                            title={f.name}
+                            aria-pressed={selPhoto?.frame === f.id}
+                            className={`flex h-9 items-center justify-center rounded-md border px-2 text-[10.5px] ${
+                              selPhoto?.frame === f.id ? "border-accent text-ink" : "border-line text-muted hover:border-faint hover:text-ink"
+                            }`}
+                          >
+                            {f.name}
+                          </button>
+                        ))}
+                      </div>
+                      {selPhoto?.frame && (
+                        <>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {FRAME_COLORS.map((c) => {
+                              const active = (selPhoto.frameColor ?? frameById(selPhoto.frame)?.defaultColor) === c.id;
+                              return (
+                                <button
+                                  key={c.id}
+                                  onClick={() => setPhotoFrameColor(sel.photoId, c.id)}
+                                  title={c.name}
+                                  aria-pressed={active}
+                                  className={`h-6 w-6 rounded-full border ${active ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : "border-line"}`}
+                                  style={{ background: c.value }}
+                                />
+                              );
+                            })}
+                          </div>
+                          {frameById(selPhoto.frame)?.hasText ? (
+                            <>
+                              <input
+                                value={selPhoto.frameText ?? ""}
+                                placeholder="Handwritten note"
+                                onChange={(e) => setPhotoFrameText(sel.photoId, e.target.value)}
+                                className="font-hand mt-2 w-full rounded-md border border-line bg-surface-2 px-2 py-1 text-[15px] text-ink placeholder:font-sans placeholder:text-[12px] placeholder:not-italic placeholder:text-faint focus:border-accent focus:outline-none"
+                              />
+                              <p className="mt-1.5 text-[10.5px] leading-snug text-faint">Shift-drag the photo to reposition it in the frame.</p>
+                            </>
+                          ) : (
+                            <div className="mt-2 flex gap-1">
+                              {BORDER_WIDTHS.map((bw) => {
+                                const active = borderWidthOf(selPhoto.frameWidth) === bw.value;
+                                return (
+                                  <button
+                                    key={bw.id}
+                                    onClick={() => setPhotoFrameWidth(sel.photoId, bw.value)}
+                                    aria-pressed={active}
+                                    className={`flex-1 rounded-md border px-2 py-1 text-[11px] ${active ? "border-accent text-ink" : "border-line text-muted hover:border-faint hover:text-ink"}`}
+                                  >
+                                    {bw.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </>
                 )}

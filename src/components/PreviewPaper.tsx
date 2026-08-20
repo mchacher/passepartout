@@ -3,7 +3,9 @@ import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
+import { photoLayoutRatio } from "../lib/frames";
 import { CroppedImg } from "./CroppedImg";
+import { FramedPhoto } from "./FramedPhoto";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
 
 // A read-only, faithful render of one book leaf (a page or a cover face) at an exact
@@ -19,6 +21,11 @@ export interface PreviewPhoto {
   caption: string;
   crop?: CropRect;
   mask?: string;
+  frame?: string;
+  frameColor?: string;
+  frameText?: string;
+  frameWidth?: number;
+  frameFocus?: CropFocus;
 }
 
 // Page margins mirror Paper.tsx / print.ts (percentages of the page width).
@@ -97,7 +104,7 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
 
   const gridCells = resolveCells(layoutId, photos.length, placement);
   const { cells } = computeLayout(
-    photos.map((p) => ({ ratio: effectiveRatio(p.ratio, p.crop) })),
+    photos.map((p) => ({ ratio: photoLayoutRatio(p) })),
     contentW,
     contentH,
     gridCells,
@@ -144,7 +151,11 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
                   className="absolute flex flex-col items-center gap-[5px]"
                   style={{ left: cell.ox, top: cell.oy, width: cell.w }}
                 >
-                  <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+                  {photo.frame ? (
+                    <FramedPhoto url={photo.url} name="" crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={cell.w} h={cell.h} />
+                  ) : (
+                    <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+                  )}
                   {photo.caption.trim().length > 0 && (
                     <div
                       className="max-w-full break-words text-center font-album leading-tight"
