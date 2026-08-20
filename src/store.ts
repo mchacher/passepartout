@@ -16,6 +16,7 @@ import {
 import { clampCrop } from "./lib/crop";
 import { isMask } from "./lib/masks";
 import { borderWidthOf, frameColorOf, isFrame } from "./lib/frames";
+import { clampRotation } from "./lib/rotation";
 import { countUsage } from "./lib/usage";
 import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
@@ -169,6 +170,7 @@ interface AlbumState {
   setPhotoFrameText: (photoId: string, text: string) => void;
   setPhotoFrameWidth: (photoId: string, width: number) => void;
   setPhotoFrameFocus: (photoId: string, focus: CropFocus) => void;
+  setPhotoRotation: (photoId: string, deg: number) => void;
 
   setBookSize: (bookSize: BookSizeId) => void;
   setSpineTitle: (title: string) => void;
@@ -776,6 +778,15 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const f = { x: clamp01(focus.x), y: clamp01(focus.y) };
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameFocus: f } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoRotation: (photoId, deg) => {
+      // A decorative tilt (spec 020), clamped to the range; 0 clears the field.
+      const next = clampRotation(deg) || undefined;
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, rotation: next } : p)),
       }));
       scheduleSave();
     },

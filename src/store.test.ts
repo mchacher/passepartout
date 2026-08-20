@@ -339,6 +339,17 @@ describe("store photo frame (spec 019)", () => {
     expect(photoOf("a").frameText).toBeUndefined(); // blank note is no note
   });
 
+  it("setPhotoRotation clamps to the range, stores it, and 0 clears it", () => {
+    useAlbum.setState({ photos: [photo("a"), photo("b")], pages: [page("p1", ["a", "b"], "two-row")] });
+    useAlbum.getState().setPhotoRotation("a", 10);
+    expect(photoOf("a").rotation).toBe(10);
+    expect(photoOf("b").rotation).toBeUndefined(); // other photo untouched
+    useAlbum.getState().setPhotoRotation("a", 90);
+    expect(photoOf("a").rotation).toBe(30); // clamped to ROTATION_MAX
+    useAlbum.getState().setPhotoRotation("a", 0);
+    expect(photoOf("a").rotation).toBeUndefined(); // level clears the field
+  });
+
   it("setPhotoFrameWidth clamps, setPhotoFrameFocus clamps, and clearing the frame drops both", () => {
     useAlbum.setState({ photos: [photo("a")], pages: [page("p1", ["a"], "single")] });
     useAlbum.getState().setPhotoFrame("a", "border");

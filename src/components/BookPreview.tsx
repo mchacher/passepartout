@@ -94,7 +94,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     photoIds
       .map((id) => photoById(id))
       .filter((p): p is NonNullable<typeof p> => p !== undefined)
-      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, caption: p.caption, crop: p.crop, mask: p.mask, frame: p.frame, frameColor: p.frameColor, frameText: p.frameText, frameWidth: p.frameWidth, frameFocus: p.frameFocus }));
+      .map((p) => ({ id: p.id, url: p.url, ratio: p.ratio, caption: p.caption, crop: p.crop, mask: p.mask, frame: p.frame, frameColor: p.frameColor, frameText: p.frameText, frameWidth: p.frameWidth, frameFocus: p.frameFocus, rotation: p.rotation }));
 
   const coverPreviewPhoto = (cover: Cover): PreviewPhoto | null => {
     const p = photoById(cover.photoId);

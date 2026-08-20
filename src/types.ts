@@ -40,6 +40,10 @@ export interface Photo {
   frameText?: string;
   frameWidth?: number;
   frameFocus?: CropFocus;
+  // Opt-in decorative tilt in degrees (spec 020), a multiple of the step within a small
+  // range; absent = 0 (level). A whole-photo rotation: it never crops or changes the ratio,
+  // it composes with the crop / mask / frame (the whole unit tilts).
+  rotation?: number;
 }
 
 // Full-page mode for a single-photo page (spec 012). `contain` (Fit) maximizes the photo
