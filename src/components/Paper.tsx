@@ -218,7 +218,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
         }}
       >
         {fullPage ? (
-          <FullPagePhoto page={page} photo={items[0]} mode={fullPage} onRemove={() => removeFromPage(items[0].id)} />
+          <FullPagePhoto page={page} photo={items[0]} mode={fullPage} onRemove={() => removeFromPage(items[0].id, page.id)} />
         ) : (
           <>
             {hasHeader && (
@@ -281,7 +281,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
                               photo={cell.item}
                               w={cell.w}
                               h={cell.h}
-                              onRemove={() => removeFromPage(cell.item.id)}
+                              onRemove={() => removeFromPage(cell.item.id, page.id)}
                               onCaption={(text) => setCaption(cell.item.id, text)}
                             />
                           </div>

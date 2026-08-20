@@ -10,7 +10,7 @@ import type { AlbumPage, Photo } from "./types";
 // template whose leaf count equals the page's photo count. Any action that changes
 // the count has to keep that invariant, or a persisted layout would render wrong.
 
-const photo = (id: string, pageId: string | null = null): Photo => ({
+const photo = (id: string): Photo => ({
   id,
   url: "",
   w: 100,
@@ -19,7 +19,6 @@ const photo = (id: string, pageId: string | null = null): Photo => ({
   time: 0,
   name: id,
   caption: "",
-  pageId,
 });
 
 const page = (id: string, photoIds: string[], layoutId: string): AlbumPage => ({
@@ -37,7 +36,7 @@ const layoutOf = (pageId: string) =>
 describe("store layout sync", () => {
   it("setPageCount resets the layout to the new count's default when shrinking", () => {
     useAlbum.setState({
-      photos: [photo("a", "pg"), photo("b", "pg"), photo("c", "pg")],
+      photos: [photo("a"), photo("b"), photo("c")],
       pages: [page("pg", ["a", "b", "c"], "three-row")],
     });
     useAlbum.getState().setPageCount("pg", 2);
@@ -47,38 +46,41 @@ describe("store layout sync", () => {
 
   it("setPageCount resets the layout when growing from the library pool", () => {
     useAlbum.setState({
-      photos: [photo("a", "pg"), photo("b", "pg"), photo("c", "pg"), photo("d", null)],
+      photos: [photo("a"), photo("b"), photo("c"), photo("d")],
       pages: [page("pg", ["a", "b", "c"], "one-beside-two")],
     });
     useAlbum.getState().setPageCount("pg", 4);
     expect(layoutOf("pg")).toBe("four-row"); // defaultLayoutId(4)
   });
 
-  it("setPageCount borrows from later pages when the library pool is empty", () => {
+  it("setPageCount grows only from unused photos, never borrowing a used one (spec 017)", () => {
     useAlbum.setState({
-      photos: [
-        photo("a", "p1"),
-        photo("b", "p1"),
-        photo("c", "p1"),
-        photo("d", "p2"),
-        photo("e", "p2"),
-        photo("f", "p2"),
-      ],
+      photos: [photo("a"), photo("b"), photo("c"), photo("d"), photo("e"), photo("f")],
       pages: [
         page("p1", ["a", "b", "c"], "three-row"),
         page("p2", ["d", "e", "f"], "three-row"),
       ],
     });
+    // Every photo is already used, so p1 cannot grow: no borrowing, no duplicates.
     useAlbum.getState().setPageCount("p1", 5);
     const s = useAlbum.getState();
-    expect(s.pages.find((p) => p.id === "p1")!.photoIds).toEqual(["a", "b", "c", "d", "e"]);
-    expect(s.pages.find((p) => p.id === "p2")!.photoIds).toEqual(["f"]);
-    expect(s.pages.find((p) => p.id === "p1")!.layoutId).toBe("five-2-3"); // default for 5
+    expect(s.pages.find((p) => p.id === "p1")!.photoIds).toEqual(["a", "b", "c"]);
+    expect(s.pages.find((p) => p.id === "p2")!.photoIds).toEqual(["d", "e", "f"]);
+  });
+
+  it("setPageCount grows by pulling the unused library photos in order", () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b"), photo("c"), photo("d"), photo("e")],
+      pages: [page("p1", ["a"], "single"), page("p2", ["b"], "single")],
+    });
+    useAlbum.getState().setPageCount("p1", 3); // c and d are unused
+    const s = useAlbum.getState();
+    expect(s.pages.find((p) => p.id === "p1")!.photoIds).toEqual(["a", "c", "d"]);
   });
 
   it("setPageCount keeps a custom layout when the count is unchanged", () => {
     useAlbum.setState({
-      photos: [photo("a", "pg"), photo("b", "pg"), photo("c", "pg")],
+      photos: [photo("a"), photo("b"), photo("c")],
       pages: [page("pg", ["a", "b", "c"], "one-beside-two")],
     });
     useAlbum.getState().setPageCount("pg", 3);
@@ -88,12 +90,12 @@ describe("store layout sync", () => {
   it("setPageLayout changes only the target page", () => {
     useAlbum.setState({
       photos: [
-        photo("a", "p1"),
-        photo("b", "p1"),
-        photo("c", "p1"),
-        photo("d", "p2"),
-        photo("e", "p2"),
-        photo("f", "p2"),
+        photo("a"),
+        photo("b"),
+        photo("c"),
+        photo("d"),
+        photo("e"),
+        photo("f"),
       ],
       pages: [
         page("p1", ["a", "b", "c"], "three-row"),
@@ -107,7 +109,7 @@ describe("store layout sync", () => {
 
   it("placeOnPage across a count boundary re-syncs the layout", () => {
     useAlbum.setState({
-      photos: [photo("a", "pg"), photo("b", "pg"), photo("c", "pg"), photo("d", null)],
+      photos: [photo("a"), photo("b"), photo("c"), photo("d")],
       pages: [page("pg", ["a", "b", "c"], "two-over-one")],
     });
     useAlbum.getState().placeOnPage("d", "pg");
@@ -117,12 +119,62 @@ describe("store layout sync", () => {
 
   it("removeFromPage across a count boundary re-syncs the layout", () => {
     useAlbum.setState({
-      photos: [photo("a", "pg"), photo("b", "pg"), photo("c", "pg")],
+      photos: [photo("a"), photo("b"), photo("c")],
       pages: [page("pg", ["a", "b", "c"], "one-beside-two")],
     });
-    useAlbum.getState().removeFromPage("c");
+    useAlbum.getState().removeFromPage("c", "pg");
     expect(useAlbum.getState().pages[0].photoIds).toHaveLength(2);
     expect(layoutOf("pg")).toBe("two-row");
+  });
+});
+
+describe("store photo reuse (spec 017)", () => {
+  const idsOf = (pageId: string) => useAlbum.getState().pages.find((p) => p.id === pageId)!.photoIds;
+
+  it("placeOnPage adds to the target and keeps the photo on its other pages", () => {
+    useAlbum.setState({
+      photos: [photo("a")],
+      pages: [page("p1", ["a"], "single"), page("p2", [], "single")],
+    });
+    useAlbum.getState().placeOnPage("a", "p2");
+    expect(idsOf("p1")).toEqual(["a"]); // still on p1
+    expect(idsOf("p2")).toEqual(["a"]); // and now on p2
+  });
+
+  it("placeOnPage onto a page already holding the photo is a no-op", () => {
+    useAlbum.setState({ photos: [photo("a")], pages: [page("p1", ["a"], "single")] });
+    useAlbum.getState().placeOnPage("a", "p1");
+    expect(idsOf("p1")).toEqual(["a"]); // no duplicate
+  });
+
+  it("removeFromPage removes from one page only, leaving the reuse on others", () => {
+    useAlbum.setState({
+      photos: [photo("a")],
+      pages: [page("p1", ["a"], "single"), page("p2", ["a"], "single")],
+    });
+    useAlbum.getState().removeFromPage("a", "p1");
+    expect(idsOf("p1")).toEqual([]);
+    expect(idsOf("p2")).toEqual(["a"]); // reuse survives
+  });
+
+  it("unplaceFromAllPages removes the photo from every page", () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [page("p1", ["a", "b"], "two-row"), page("p2", ["a"], "single")],
+    });
+    useAlbum.getState().unplaceFromAllPages("a");
+    expect(idsOf("p1")).toEqual(["b"]);
+    expect(idsOf("p2")).toEqual([]);
+  });
+
+  it("deletePage keeps its photos in the library (they may be reused elsewhere)", () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [page("p1", ["a"], "single"), page("p2", ["a", "b"], "two-row")],
+    });
+    useAlbum.getState().deletePage("p2");
+    expect(useAlbum.getState().photos.map((p) => p.id)).toEqual(["a", "b"]); // photos kept
+    expect(idsOf("p1")).toEqual(["a"]);
   });
 });
 
@@ -132,7 +184,7 @@ describe("store full-page mode (spec 012)", () => {
 
   it("setPageFullPage sets and clears the mode on the target page only", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", "p2")],
+      photos: [photo("a"), photo("b")],
       pages: [page("p1", ["a"], "single"), page("p2", ["b"], "single")],
     });
     useAlbum.getState().setPageFullPage("p1", "cover");
@@ -144,7 +196,7 @@ describe("store full-page mode (spec 012)", () => {
 
   it("setPageFullPageFocus clamps each axis to [0,1]", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1")],
+      photos: [photo("a")],
       pages: [page("p1", ["a"], "single")],
     });
     useAlbum.getState().setPageFullPageFocus("p1", { x: 2, y: -1 });
@@ -153,7 +205,7 @@ describe("store full-page mode (spec 012)", () => {
 
   it("clears full-page mode when the page stops holding exactly one photo", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", null)],
+      photos: [photo("a"), photo("b")],
       pages: [{ ...page("p1", ["a"], "single"), fullPage: "cover" }],
     });
     useAlbum.getState().placeOnPage("b", "p1"); // now 2 photos
@@ -171,7 +223,7 @@ describe("store custom grid placement (spec 013)", () => {
 
   it("setPageLayout clears a custom placement (re-attaches to the template)", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", "p1")],
+      photos: [photo("a"), photo("b")],
       pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
     });
     useAlbum.getState().setPageLayout("p1", "two-col");
@@ -181,7 +233,7 @@ describe("store custom grid placement (spec 013)", () => {
 
   it("setPagePlacement stores the placement on the target page only", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", "p1")],
+      photos: [photo("a"), photo("b")],
       pages: [page("p1", ["a", "b"], "two-row")],
     });
     useAlbum.getState().setPagePlacement("p1", twoCells);
@@ -190,17 +242,17 @@ describe("store custom grid placement (spec 013)", () => {
 
   it("removeFromPage keeps the other cells of a custom placement, aligned by index", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", "p1")],
+      photos: [photo("a"), photo("b")],
       pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
     });
-    useAlbum.getState().removeFromPage("a"); // drops index 0's cell, keeps b's
+    useAlbum.getState().removeFromPage("a", "p1"); // drops index 0's cell, keeps b's
     expect(useAlbum.getState().pages[0].photoIds).toEqual(["b"]);
     expect(placementOf("p1")).toEqual([twoCells[1]]);
   });
 
   it("placeOnPage appends a cell so a custom page keeps its other cells", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", "p1"), photo("c", null)],
+      photos: [photo("a"), photo("b"), photo("c")],
       pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
     });
     useAlbum.getState().placeOnPage("c", "p1");
@@ -211,7 +263,7 @@ describe("store custom grid placement (spec 013)", () => {
 
   it("placeOnPage onto a photo's own page is a no-op (keeps the placement)", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", "p1")],
+      photos: [photo("a"), photo("b")],
       pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
     });
     useAlbum.getState().placeOnPage("a", "p1"); // already on p1
@@ -221,7 +273,7 @@ describe("store custom grid placement (spec 013)", () => {
 
   it("setPageCount (a coarse reset) drops the custom placement", () => {
     useAlbum.setState({
-      photos: [photo("a", "p1"), photo("b", "p1"), photo("c", null)],
+      photos: [photo("a"), photo("b"), photo("c")],
       pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
     });
     useAlbum.getState().setPageCount("p1", 3);
@@ -233,7 +285,7 @@ describe("store photo crop (spec 015)", () => {
   const cropOf = (id: string) => useAlbum.getState().photos.find((p) => p.id === id)!.crop;
 
   it("setPhotoCrop sets a clamped crop and clears it with null", () => {
-    useAlbum.setState({ photos: [photo("a", "p1"), photo("b", "p1")], pages: [page("p1", ["a", "b"], "two-row")] });
+    useAlbum.setState({ photos: [photo("a"), photo("b")], pages: [page("p1", ["a", "b"], "two-row")] });
     useAlbum.getState().setPhotoCrop("a", { x: -0.5, y: 0.2, w: 2, h: 0.4 });
     expect(cropOf("a")).toEqual({ x: 0, y: 0.2, w: 1, h: 0.4 }); // clamped
     expect(cropOf("b")).toBeUndefined(); // other photo untouched
@@ -247,7 +299,7 @@ describe("store page reorder", () => {
 
   const seed = () =>
     useAlbum.setState({
-      photos: [photo("x", "p1"), photo("y", "p3")],
+      photos: [photo("x"), photo("y")],
       pages: [
         page("p1", ["x"], "single"),
         page("p2", [], "single"),

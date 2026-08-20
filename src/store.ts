@@ -14,6 +14,7 @@ import {
   type Spine,
 } from "./types";
 import { clampCrop } from "./lib/crop";
+import { countUsage } from "./lib/usage";
 import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
 import { makeDemoPhotos } from "./lib/demo";
@@ -144,7 +145,8 @@ interface AlbumState {
   loadDemo: () => Promise<void>;
 
   placeOnPage: (photoId: string, pageId: string) => void;
-  removeFromPage: (photoId: string) => void;
+  removeFromPage: (photoId: string, pageId: string) => void;
+  unplaceFromAllPages: (photoId: string) => void;
   setPageCount: (pageId: string, n: number) => void;
 
   addPage: () => void;
@@ -176,7 +178,6 @@ function distribute(photos: Photo[]): AlbumPage[] {
       pages.push(cur);
     }
     cur!.photoIds.push(p.id);
-    p.pageId = cur!.id;
   });
   if (pages.length === 0) {
     pages.push(newPage());
@@ -211,7 +212,6 @@ async function loadPhoto(file: File): Promise<{ photo: Photo; file: File } | nul
           time,
           name: file.name,
           caption: "",
-          pageId: null,
         },
       });
     };
@@ -525,90 +525,84 @@ export const useAlbum = create<AlbumState>((set, get) => {
 
     placeOnPage: (photoId, pageId) => {
       set((s) => {
-        const photos = s.photos.map((p) => ({ ...p }));
+        const photos = s.photos;
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
         const photo = photos.find((p) => p.id === photoId);
         const target = pages.find((pg) => pg.id === pageId);
         if (!photo || !target) return {};
-        // Dropping a photo onto the page it already sits on is a no-op: reordering it to the
-        // end would needlessly reset its custom placement cell.
-        if (photo.pageId === pageId) return {};
-        if (photo.pageId) {
-          const old = pages.find((pg) => pg.id === photo.pageId);
-          if (old) {
-            // Keep a custom placement aligned: drop the moved photo's cell by its index.
-            const oi = old.photoIds.indexOf(photoId);
-            old.photoIds = old.photoIds.filter((id) => id !== photoId);
-            if (oi >= 0 && old.placement) old.placement = old.placement.filter((_, i) => i !== oi);
-          }
-        }
+        // Reuse (spec 017): add the photo to the target page and keep it wherever else it
+        // already sits. Dropping it onto a page it is already on is a no-op (no duplicate,
+        // and its custom placement cell is preserved).
+        if (target.photoIds.includes(photoId)) return {};
         target.photoIds.push(photoId);
-        photo.pageId = pageId;
         // Give the incoming photo a default cell so a custom page keeps its other cells.
         if (target.placement) target.placement = [...target.placement, { col: 3, row: 3, colSpan: 6, rowSpan: 6 }];
         pages.forEach(syncLayout);
-        return { photos, pages };
+        return { pages };
       });
       scheduleSave();
     },
 
-    removeFromPage: (photoId) => {
+    removeFromPage: (photoId, pageId) => {
       set((s) => {
-        const photos = s.photos.map((p) => ({ ...p }));
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
-        const photo = photos.find((p) => p.id === photoId);
-        if (!photo || !photo.pageId) return {};
-        const pg = pages.find((x) => x.id === photo.pageId);
-        if (pg) {
-          // Keep a custom placement aligned: drop the removed photo's cell by its index.
-          const i = pg.photoIds.indexOf(photoId);
-          pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
-          if (i >= 0 && pg.placement) pg.placement = pg.placement.filter((_, idx) => idx !== i);
-        }
-        photo.pageId = null;
+        const pg = pages.find((x) => x.id === pageId);
+        if (!pg) return {};
+        const i = pg.photoIds.indexOf(photoId);
+        if (i < 0) return {};
+        // Keep a custom placement aligned: drop the removed photo's cell by its index.
+        pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
+        if (pg.placement) pg.placement = pg.placement.filter((_, idx) => idx !== i);
         pages.forEach(syncLayout);
-        return { photos, pages };
+        return { pages };
+      });
+      scheduleSave();
+    },
+
+    unplaceFromAllPages: (photoId) => {
+      set((s) => {
+        if (!s.pages.some((pg) => pg.photoIds.includes(photoId))) return {};
+        const pages = s.pages.map((pg) => {
+          const i = pg.photoIds.indexOf(photoId);
+          if (i < 0) return pg;
+          const next = { ...pg, photoIds: pg.photoIds.filter((id) => id !== photoId) };
+          if (next.placement) next.placement = next.placement.filter((_, idx) => idx !== i);
+          return next;
+        });
+        pages.forEach(syncLayout);
+        return { pages };
       });
       scheduleSave();
     },
 
     setPageCount: (pageId, n) => {
       set((s) => {
-        const photos = s.photos.map((p) => ({ ...p }));
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
-        const targetIdx = pages.findIndex((pg) => pg.id === pageId);
-        if (targetIdx === -1) return {};
-        const target = pages[targetIdx];
-        const byId = (id: string) => photos.find((p) => p.id === id);
-        // Shrink: return the last photos to the library.
-        while (target.photoIds.length > n) {
-          const id = target.photoIds.pop()!;
-          const p = byId(id);
-          if (p) p.pageId = null;
-        }
-        // Grow: pull the next photos in order, first from the library (unplaced),
-        // then by borrowing from the following pages, so raising the count always
-        // works even after every photo has been distributed.
-        const laterPageIds = new Set(pages.slice(targetIdx + 1).map((pg) => pg.id));
-        const candidates = [
-          ...photos.filter((p) => p.pageId === null),
-          ...pages
-            .slice(targetIdx + 1)
-            .flatMap((pg) => pg.photoIds.map(byId).filter((p): p is Photo => !!p)),
-        ];
-        let ci = 0;
-        while (target.photoIds.length < n && ci < candidates.length) {
-          const p = candidates[ci++];
-          if (p.pageId && laterPageIds.has(p.pageId)) {
-            const old = pages.find((pg) => pg.id === p.pageId);
-            if (old) old.photoIds = old.photoIds.filter((id) => id !== p.id);
+        const target = pages.find((pg) => pg.id === pageId);
+        if (!target) return {};
+        // Shrink: drop the trailing photos off this page. They stay in the library (and on
+        // any other page that reuses them); a mismatched custom placement is cleared by
+        // syncLayout (setPageCount is a coarse reset).
+        while (target.photoIds.length > n) target.photoIds.pop();
+        // Grow: pull UNUSED photos (used nowhere, in capture-time order) that are not
+        // already on this page, and stop when there are none left. With reuse (spec 017)
+        // the count buttons never borrow from other pages or duplicate a used photo; to
+        // reuse a specific photo, drag it from the Library.
+        if (target.photoIds.length < n) {
+          const used = countUsage(pages, [
+            s.frontCover.photoId,
+            s.insideFrontCover.photoId,
+            s.insideBackCover.photoId,
+            s.backCover.photoId,
+          ]);
+          const pool = s.photos.filter((p) => (used.get(p.id) ?? 0) === 0 && !target.photoIds.includes(p.id));
+          let pi = 0;
+          while (target.photoIds.length < n && pi < pool.length) {
+            target.photoIds.push(pool[pi++].id);
           }
-          target.photoIds.push(p.id);
-          p.pageId = target.id;
         }
-        // Counts on the target and any borrowed-from pages changed: re-sync all.
         pages.forEach(syncLayout);
-        return { photos, pages };
+        return { pages };
       });
       scheduleSave();
     },
@@ -620,22 +614,22 @@ export const useAlbum = create<AlbumState>((set, get) => {
 
     deletePage: (pageId) => {
       set((s) => {
-        const photos = s.photos.map((p) =>
-          p.pageId === pageId ? { ...p, pageId: null } : p,
-        );
+        // The page's photos stay in the Library (they may be reused elsewhere); their
+        // usage is simply recomputed from the remaining pages (spec 017).
         let pages = s.pages.filter((pg) => pg.id !== pageId);
         if (pages.length === 0) {
           pages = [newPage()];
         }
-        return { photos, pages };
+        return { pages };
       });
       scheduleSave();
     },
 
     // Reorder content pages only (covers are separate state, never affected). `toIndex`
     // is an insertion slot in [0, pages.length]: slot 0 = before the first page, slot
-    // length = after the last. Photos reference pageId (not an index), so nothing else
-    // changes. A drop back into the page's own neighborhood is a no-op.
+    // length = after the last. Each page owns its own photoIds (photos hold no placement),
+    // so permuting the page array changes nothing else. A drop back into the page's own
+    // neighborhood is a no-op.
     movePage: (pageId, toIndex) => {
       set((s) => {
         const from = s.pages.findIndex((pg) => pg.id === pageId);

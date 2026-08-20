@@ -95,7 +95,6 @@ export async function makeDemoPhotos(): Promise<DemoPhoto[]> {
         time: 1000 + i,
         name: `example-${i + 1}`,
         caption: "",
-        pageId: null,
       },
     });
   }

@@ -17,8 +17,9 @@ opt-in exceptions are a page's **Fill** mode (spec 012) and the per-photo **crop
 ## Data model
 
 - **Photo** (`src/types.ts`): one imported image. Holds its native size, `ratio`,
-  `caption`, capture `time`, and which page it sits on (`pageId`, or `null` when it is
-  still in the library).
+  `caption` and capture `time`. It does NOT store where it is placed: a photo can appear
+  on any number of pages and cover faces at once (spec 017), and its usage is derived from
+  the pages' photo ids and the cover photo ids (see `src/lib/usage.ts`).
 - **AlbumPage**: an ordered list of photo ids, an optional `title` and `subtitle`, a
   per-page `whitespace` level (1 .. `WHITESPACE_LEVELS`), a `layoutId` (which
   arrangement template is applied), and optional full-page fields (`fullPage` Fit/Fill,

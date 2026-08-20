@@ -32,20 +32,17 @@ designs live under `specs/`.
 - Editor zoom (spec 016): a bottom-right slider scales the central page cards for easier
   editing; the Library and thumbnail rail keep their size, and it only scales the display so
   photos stay contained and never cropped
+- Reuse a photo across pages (spec 017): a photo can appear on several pages / cover faces
+  at once (no more single `pageId`, usage is derived); the Library badges each photo with
+  its usage count and filters to the unused ones
 
 ## Requested (this round)
 
-1. **Reuse a photo across the album.** A photo should be placeable on more than one page,
-   not consumed by a single page. In the Library, badge each photo with the number of times
-   it is used (a small count), and add a filter to show only photos not yet used. Today a
-   photo has a single `pageId`; this needs the placement model to allow a photo to appear in
-   several pages (e.g. usage is derived from the pages, not a single back-reference).
-
-2. **Grid free placement, Phase C** (later). Adjustable grid resolution, multi-select /
+1. **Grid free placement, Phase C** (later). Adjustable grid resolution, multi-select /
    group move, and spanning a single photo across a double-page spread. Phases A (grid
    substrate) and B (move/resize/overlap editor) have shipped.
 
-3. **Image editing (crop / format / masks).**
+2. **Image editing (crop / format / masks).**
    > **Partly delivered.** The opt-in crop path the caveat below suggests now exists: the
    > full-page Fill (spec 012) and the per-photo crop tool (spec 015) crop only where the
    > user explicitly opts in, no-crop staying the default. What remains is forced-format

@@ -31,6 +31,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Book preview**: read the whole album end to end in double-page spreads, as it will print, with a thumbnail rail to jump anywhere. Read-only, and every photo stays contained (never cropped).
 - **Arrange freely on a grid**: layouts rest on a 12 x 12 page grid; an "Edit layout" mode lets you move and resize any photo on the grid, overlap photos and choose their front-to-back order. Photos are always contained, never cropped.
 - **Zoom the pages**: a slider in the bottom-right corner enlarges the central page cards for easier editing, while the Library and the thumbnail rail keep their size. It only scales the display, so photos stay contained and are never cropped.
+- **Reuse a photo**: a photo can appear on any number of pages at once, not consumed by one. The Library badges each photo with how many times it is used (across pages and covers) and offers an "Unused only" filter to find the photos you have not placed yet.
 - **Local and private**: everything runs in your browser. Photos never leave your machine.
 
 ## Getting started

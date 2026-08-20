@@ -16,7 +16,7 @@ import {
 } from "./project";
 import type { Cover, Photo } from "../types";
 
-const photo = (id: string, ratio: number, pageId: string | null = null): Photo => ({
+const photo = (id: string, ratio: number): Photo => ({
   id,
   url: `blob:${id}`,
   w: Math.round(ratio * 100),
@@ -25,7 +25,6 @@ const photo = (id: string, ratio: number, pageId: string | null = null): Photo =
   time: 0,
   name: id,
   caption: `cap-${id}`,
-  pageId,
 });
 
 const state = (): ProjectState => ({
@@ -43,7 +42,7 @@ const state = (): ProjectState => ({
     pageSubtitle: "sm",
     caption: "sm",
   },
-  photos: [photo("a", 1.5, "pg"), photo("b", 2 / 3, "pg")],
+  photos: [photo("a", 1.5), photo("b", 2 / 3)],
   pages: [
     { id: "pg", title: "Day 1", subtitle: "morning", photoIds: ["a", "b"], whitespace: 4, layoutId: "two-row" },
   ],
