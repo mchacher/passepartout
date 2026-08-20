@@ -285,7 +285,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
             <div
               ref={innerRef}
               className="absolute inset-0"
-              style={{ padding: "5%", paddingTop: hasSubtitle ? "14%" : hasTitle ? "11%" : "5%" }}
+              style={{ padding: "5%", paddingTop: hasSubtitle ? "12.5%" : hasTitle ? "10%" : "5%" }}
             >
               <div className="relative h-full w-full">
                 {gridVisible && <GridOverlay />}

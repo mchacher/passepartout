@@ -31,8 +31,8 @@ export interface PreviewPhoto {
 
 // Page margins mirror Paper.tsx / print.ts (percentages of the page width).
 const MARGIN = 0.05;
-const TOP_TITLE = 0.11;
-const TOP_SUBTITLE = 0.14;
+const TOP_TITLE = 0.1;
+const TOP_SUBTITLE = 0.125;
 
 interface PagePreviewProps {
   kind: "page";
@@ -184,7 +184,7 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
   const hasSubtitle = subtitle.trim().length > 0;
   // The header sits in a fixed top band (mirrors CoverCard and print.ts): the photo fills
   // below it, so title size never shrinks the photo and a subtitle-less cover is larger.
-  const photoTop = hasSubtitle ? "24cqw" : hasTitle ? "17cqw" : "6cqw";
+  const photoTop = hasSubtitle ? "20cqw" : hasTitle ? "15cqw" : "6cqw";
   const boxRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
 
