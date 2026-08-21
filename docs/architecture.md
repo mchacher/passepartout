@@ -197,6 +197,14 @@ blob is missing on load is dropped (its page references cleaned) rather than cra
 The `ProjectMenu` in the top bar drives create / open / rename / duplicate / delete;
 duplication copies each blob under a new photo id so projects never share image bytes.
 
+**Backup and transfer (spec 021).** A project can be exported as a self-contained
+bundle - a `.zip` holding `album.json` (the full `ProjectDoc`) plus every image blob
+under `images/<photoId>`, built and parsed by the pure `src/lib/bundle.ts` (uses
+`fflate`). `store.exportBundle` serializes the live state and reads its blobs;
+`store.importBundle` parses a file and creates a new project, remapping every id like
+duplication (so the import owns independent blobs and never overwrites an existing
+project). This is the only way to move an album between instances.
+
 ## The layout engine (`src/lib/layout.ts`)
 
 `computeLayout(items, contentW, contentH, cells, { density })`:

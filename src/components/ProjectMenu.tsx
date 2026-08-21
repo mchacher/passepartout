@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAlbum } from "../store";
 
+// Trigger a browser download of some bytes as a named file.
+function downloadFile(bytes: Uint8Array, name: string): void {
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/zip" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // The project switcher in the top bar: shows the active project name, opens a panel
-// to switch between projects and to create / rename / duplicate / delete them.
+// to switch between projects and to create / rename / duplicate / delete them, and to
+// export / import a project as a portable bundle (spec 021).
 export function ProjectMenu() {
   const {
     projects,
@@ -14,11 +27,15 @@ export function ProjectMenu() {
     renameProject,
     duplicateProject,
     deleteProject,
+    exportBundle,
+    importBundle,
   } = useAlbum();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const close = () => {
     setOpen(false);
@@ -40,6 +57,31 @@ export function ProjectMenu() {
     if (confirm(`Delete project "${activeName}"? This cannot be undone.`)) {
       void deleteProject(activeId);
       close();
+    }
+  };
+
+  const onExport = async () => {
+    if (!activeId || busy) return;
+    setBusy(true);
+    try {
+      const res = await exportBundle();
+      if (res) downloadFile(res.bytes, res.name);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      const res = await importBundle(file);
+      if (res.ok) close();
+      else alert(res.error);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -69,19 +111,39 @@ export function ProjectMenu() {
           <div className="absolute left-0 z-30 mt-1.5 w-[260px] rounded-xl border border-line bg-surface p-1.5 shadow-soft">
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-[11px] uppercase tracking-wide text-faint">Projects</span>
-              <button
-                onClick={() => {
-                  void createProject();
-                  close();
-                }}
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-accent hover:bg-surface-2"
-              >
-                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                New
-              </button>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={busy}
+                  title="Import an album bundle (.zip) as a new project"
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+                >
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                    <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
+                  </svg>
+                  Import
+                </button>
+                <button
+                  onClick={() => {
+                    void createProject();
+                    close();
+                  }}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-accent hover:bg-surface-2"
+                >
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  New
+                </button>
+              </div>
             </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".zip,application/zip"
+              className="hidden"
+              onChange={(e) => void onImportFile(e)}
+            />
 
             <div className="max-h-[240px] overflow-y-auto py-1">
               {projects.length === 0 ? (
@@ -136,6 +198,9 @@ export function ProjectMenu() {
                     <MenuAction label="Duplicate" onClick={() => void duplicateProject(activeId)}>
                       <rect x="9" y="9" width="11" height="11" rx="2" />
                       <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                    </MenuAction>
+                    <MenuAction label="Export" onClick={() => void onExport()}>
+                      <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
                     </MenuAction>
                     <MenuAction label="Delete" danger onClick={onDelete}>
                       <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" />
