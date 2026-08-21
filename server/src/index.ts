@@ -35,7 +35,7 @@ if (!sessionSecret) {
 }
 
 const store = new Store(`${DATA_DIR}/app.db`, DATA_DIR);
-const app = buildApp({ store, passwordHash, sessionSecret, cookieSecure });
+const app = buildApp({ store, passwordHash, sessionSecret, cookieSecure, githubToken: process.env.GITHUB_TOKEN });
 
 app
   .listen({ host: "0.0.0.0", port: PORT })

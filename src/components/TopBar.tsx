@@ -6,13 +6,16 @@ import { ThemeMenu } from "./ThemeMenu";
 import { SizeMenu } from "./SizeMenu";
 import { ExportPanel } from "./ExportPanel";
 import { BookPreview } from "./BookPreview";
+import { UpdatesSheet } from "./UpdatesSheet";
 
 export function TopBar() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const { importFiles, photos } = useAlbum();
+  const { importFiles, photos, remote, versionInfo } = useAlbum();
   const { showGrid, toggleGrid } = useView();
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [updatesOpen, setUpdatesOpen] = useState(false);
   const hasPhotos = photos.length > 0;
+  const updateAvailable = remote && !!versionInfo?.updateAvailable;
 
   return (
     <header className="flex flex-wrap items-center gap-6 border-b border-line bg-surface px-5 py-3">
@@ -80,7 +83,19 @@ export function TopBar() {
 
       <ExportPanel />
 
+      {updateAvailable && (
+        <button
+          onClick={() => setUpdatesOpen(true)}
+          title={`Version ${versionInfo?.latest} is available`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-accent bg-accent-soft px-3 py-[7px] text-[12.5px] text-accent transition-colors hover:bg-accent hover:text-white"
+        >
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+          Update
+        </button>
+      )}
+
       <BookPreview open={previewOpen} onClose={() => setPreviewOpen(false)} />
+      <UpdatesSheet open={updatesOpen} onClose={() => setUpdatesOpen(false)} />
     </header>
   );
 }

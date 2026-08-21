@@ -32,9 +32,11 @@ if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   exit 1
 fi
 
-# Bump package.json (and package-lock.json) without letting npm create the tag itself.
+# Bump the web and server package.json (and lockfiles) together, so the app and the API
+# report the same version as the image tag. No git tag from npm itself.
 npm version "$version" --no-git-tag-version >/dev/null
-git add package.json package-lock.json
+( cd server && npm version "$version" --no-git-tag-version >/dev/null )
+git add package.json package-lock.json server/package.json server/package-lock.json
 git commit -m "release: $tag"
 git tag "$tag"
 

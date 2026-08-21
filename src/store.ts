@@ -52,7 +52,7 @@ import {
   type ProjectMeta,
 } from "./lib/project";
 import * as db from "./persistence";
-import { initBackend, type PersistenceBackend } from "./persistence";
+import { initBackend, type PersistenceBackend, type VersionInfo } from "./persistence";
 import { buildBundle, parseBundle, BundleError } from "./lib/bundle";
 
 const DEFAULT_PER_PAGE = 3;
@@ -140,6 +140,11 @@ interface AlbumState {
   persistent: boolean; // storage usable (IndexedDB present, or a server reachable)
   remote: boolean; // true when backed by the server API (spec 024)
   authed: boolean; // remote mode: whether the single-password session is active
+
+  // Update/version (spec 025): null until first checked (remote mode).
+  versionInfo: VersionInfo | null;
+  refreshVersion: () => Promise<void>;
+  applyUpdate: () => Promise<{ started: boolean; manualCommand?: string }>;
 
   initProjects: () => Promise<void>;
   login: (password: string) => Promise<boolean>;
@@ -343,6 +348,18 @@ export const useAlbum = create<AlbumState>((set, get) => {
     persistent: false,
     remote: false,
     authed: false,
+    versionInfo: null,
+
+    refreshVersion: async () => {
+      if (!backend) return;
+      try {
+        set({ versionInfo: await backend.version() });
+      } catch {
+        /* leave the previous value */
+      }
+    },
+
+    applyUpdate: async () => (backend ? backend.applyUpdate() : { started: false }),
 
     initProjects: async () => {
       backend = await initBackend();
@@ -375,6 +392,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
         await get().openProject(target.id);
       }
       set({ projects, ready: true });
+      if (backend.mode === "remote") void get().refreshVersion(); // check for updates (spec 025)
     },
 
     login: async (password) => {

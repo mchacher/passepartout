@@ -153,6 +153,14 @@ export function setLastActiveId(id: string | null): void {
 // last-active pointer stays in localStorage in both modes (a per-browser convenience).
 // ---------------------------------------------------------------------------
 
+/** Update/version info (spec 025). `latest` is null when unknown (no token / local mode). */
+export interface VersionInfo {
+  current: string;
+  latest: string | null;
+  updateAvailable: boolean;
+  canApply: boolean; // one-click possible (server has the Docker socket mounted)
+}
+
 export interface PersistenceBackend {
   mode: "local" | "remote";
   /** Whether projects can be saved at all (IndexedDB present, or a server is reachable). */
@@ -169,6 +177,10 @@ export interface PersistenceBackend {
   isAuthed(): Promise<boolean>;
   login(password: string): Promise<boolean>;
   logout(): Promise<void>;
+  /** Version/update info (spec 025); trivial in local mode. */
+  version(): Promise<VersionInfo>;
+  /** Trigger a one-click update (remote + Docker socket); no-op in local mode. */
+  applyUpdate(): Promise<{ started: boolean; manualCommand?: string }>;
 }
 
 function makeLocalBackend(persistent: boolean): PersistenceBackend {
@@ -198,6 +210,12 @@ function makeLocalBackend(persistent: boolean): PersistenceBackend {
     },
     async logout() {
       /* no auth in local mode */
+    },
+    async version() {
+      return { current: __APP_VERSION__, latest: null, updateAvailable: false, canApply: false };
+    },
+    async applyUpdate() {
+      return { started: false };
     },
   };
 }
@@ -278,6 +296,25 @@ const remoteBackend: PersistenceBackend = {
       await api("/auth/logout", { method: "POST" });
     } catch {
       /* ignore */
+    }
+  },
+  async version() {
+    try {
+      const r = await api("/version");
+      if (r.ok) return (await r.json()) as VersionInfo;
+    } catch {
+      /* fall through */
+    }
+    return { current: __APP_VERSION__, latest: null, updateAvailable: false, canApply: false };
+  },
+  async applyUpdate() {
+    try {
+      const r = await api("/update", { method: "POST" });
+      if (r.ok) return { started: true };
+      const body = (await r.json().catch(() => ({}))) as { manualCommand?: string };
+      return { started: false, manualCommand: body.manualCommand };
+    } catch {
+      return { started: false };
     }
   },
 };
