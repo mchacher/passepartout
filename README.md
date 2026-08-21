@@ -57,6 +57,12 @@ Open http://localhost:5180 and click **Load an example** to see the engine immed
 | `npm run test`     | Run the layout engine tests (Vitest)  |
 | `npm run validate` | Type-check + lint + test              |
 
+## Self-hosting
+
+Host Passepartout on your own server with Docker: `docker compose up -d --build` serves it at
+`http://<host>:8080`. See [docs/self-hosting.md](docs/self-hosting.md) (albums stay local to
+each browser until a future server-backed step).
+
 ## Status
 
 Early prototype. The layout engine, per-page editing, titles and captions work. Print-ready PDF export and printer presets are on the roadmap (see `CLAUDE.md`).

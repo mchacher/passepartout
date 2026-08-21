@@ -1,0 +1,30 @@
+# Self-hosting Passepartout (spec 022, step A). `docker compose up -d --build` builds the
+# app and serves it on http://<host>:8080. Put your existing reverse proxy (Caddy/Traefik/
+# nginx, as for Sowel) in front to terminate TLS and forward to this container's port 80.
+#
+# Data is local-first: albums live in each browser's IndexedDB, not on the server, until
+# step B adds the backend below.
+
+services:
+  web:
+    build: .
+    image: passepartout:local
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  # Step B (server-backed data) - add the backend, then uncomment the /api proxy in
+  # docker/nginx.conf so the SPA talks to it over the same origin:
+  #
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: server/Dockerfile
+  #   restart: unless-stopped
+  #   environment:
+  #     - NODE_ENV=production
+  #   volumes:
+  #     - passepartout-data:/data   # SQLite doc store + image blobs
+
+# volumes:
+#   passepartout-data:
