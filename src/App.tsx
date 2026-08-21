@@ -11,9 +11,10 @@ import { SpineCard } from "./components/SpineCard";
 import { PageRail } from "./components/PageRail";
 import { ZoomControl } from "./components/ZoomControl";
 import { MaskDefs } from "./components/MaskDefs";
+import { Login } from "./components/Login";
 
 export function App() {
-  const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent } =
+  const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent, remote, authed, login } =
     useAlbum();
   const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -48,6 +49,12 @@ export function App() {
         Loading your projects...
       </div>
     );
+  }
+
+  // Server mode (spec 024): gate the app behind the single-password login until the session
+  // is active. Local mode never sets `remote`, so this is skipped for the static build.
+  if (remote && !authed) {
+    return <Login onSubmit={login} />;
   }
 
   return (

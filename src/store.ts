@@ -52,6 +52,7 @@ import {
   type ProjectMeta,
 } from "./lib/project";
 import * as db from "./persistence";
+import { initBackend, type PersistenceBackend } from "./persistence";
 import { buildBundle, parseBundle, BundleError } from "./lib/bundle";
 
 const DEFAULT_PER_PAGE = 3;
@@ -136,9 +137,13 @@ interface AlbumState {
   activeName: string;
   activeCreatedAt: number;
   ready: boolean; // initial load finished
-  persistent: boolean; // IndexedDB usable in this environment
+  persistent: boolean; // storage usable (IndexedDB present, or a server reachable)
+  remote: boolean; // true when backed by the server API (spec 024)
+  authed: boolean; // remote mode: whether the single-password session is active
 
   initProjects: () => Promise<void>;
+  login: (password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   createProject: (name?: string) => Promise<void>;
   openProject: (id: string) => Promise<void>;
   renameProject: (id: string, name: string) => Promise<void>;
@@ -238,6 +243,9 @@ async function loadPhoto(file: File): Promise<{ photo: Photo; file: File } | nul
 
 export const useAlbum = create<AlbumState>((set, get) => {
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  // The active persistence backend (local IndexedDB or the remote API), chosen by
+  // initProjects via initBackend(). Every db call below goes through it (spec 024).
+  let backend: PersistenceBackend;
 
   // Persist the active project's document (debounced). Image blobs are written once
   // at import time, so this only writes the small metadata doc.
@@ -265,7 +273,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       Date.now(),
     );
     try {
-      await db.saveProjectDoc(doc);
+      await backend.saveProjectDoc(doc);
       set((st) => ({ projects: upsertMeta(st.projects, metaOf(doc)) }));
     } catch {
       /* keep working in memory; a transient write error must not break editing */
@@ -333,17 +341,30 @@ export const useAlbum = create<AlbumState>((set, get) => {
     activeCreatedAt: 0,
     ready: false,
     persistent: false,
+    remote: false,
+    authed: false,
 
     initProjects: async () => {
-      const available = await db.isAvailable();
-      if (!available) {
-        set({ ready: true, persistent: false });
+      backend = await initBackend();
+      set({ persistent: backend.persistent, remote: backend.mode === "remote" });
+
+      // Remote mode: gate on the single-password session. When not authenticated, stop here
+      // and let the login screen drive; login() re-runs this to load the projects.
+      if (backend.mode === "remote") {
+        const authed = await backend.isAuthed();
+        set({ authed });
+        if (!authed) {
+          set({ ready: true });
+          return;
+        }
+      } else if (!backend.persistent) {
+        set({ ready: true });
         return;
       }
-      set({ persistent: true });
+
       let projects: ProjectMeta[] = [];
       try {
-        projects = await db.listProjects();
+        projects = await backend.listProjects();
       } catch {
         set({ ready: true, persistent: false });
         return;
@@ -356,6 +377,38 @@ export const useAlbum = create<AlbumState>((set, get) => {
       set({ projects, ready: true });
     },
 
+    login: async (password) => {
+      const ok = await backend.login(password);
+      if (ok) {
+        set({ authed: true });
+        await get().initProjects(); // load the projects now that the session is active
+      }
+      return ok;
+    },
+
+    logout: async () => {
+      await backend.logout();
+      revokeUrls(get().photos);
+      db.setLastActiveId(null);
+      set({
+        authed: false,
+        projects: [],
+        activeId: null,
+        activeName: DEFAULT_PROJECT_NAME,
+        photos: [],
+        pages: [],
+        bookSize: DEFAULT_BOOK_SIZE,
+        spine: newSpine(),
+        fontTheme: DEFAULT_FONT_THEME,
+        colorTheme: DEFAULT_COLOR_THEME,
+        textSizes: { ...DEFAULT_TEXT_SIZES },
+        frontCover: newCover(),
+        insideFrontCover: newCover(),
+        insideBackCover: newCover(),
+        backCover: newCover(),
+      });
+    },
+
     createProject: async (name) => {
       await flushPending(); // persist the outgoing project before switching away
       const now = Date.now();
@@ -363,7 +416,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       revokeUrls(get().photos);
       if (get().persistent) {
         try {
-          await db.saveProjectDoc(doc);
+          await backend.saveProjectDoc(doc);
         } catch {
           /* degrade to in-memory */
         }
@@ -391,16 +444,11 @@ export const useAlbum = create<AlbumState>((set, get) => {
     openProject: async (id) => {
       if (!get().persistent) return;
       await flushPending(); // persist the outgoing project before loading the new one
-      const doc = await db.loadProjectDoc(id);
+      const doc = await backend.loadProjectDoc(id);
       if (!doc) return;
-      // Recreate object URLs from the stored blobs.
-      const urls = new Map<string, string>();
-      await Promise.all(
-        doc.photos.map(async (p) => {
-          const blob = await db.getImage(p.id).catch(() => undefined);
-          if (blob) urls.set(p.id, URL.createObjectURL(blob));
-        }),
-      );
+      // Resolve each photo's URL from the backend: object URLs from local blobs, or direct
+      // /api/images URLs in remote mode (no blob download). See PersistenceBackend.imageUrls.
+      const urls = await backend.imageUrls(doc.photos.map((p) => p.id));
       revokeUrls(get().photos);
       const photos = hydratePhotos(doc, (pid) => urls.get(pid));
       // Drop any page reference to a photo whose blob was missing, then re-sync layouts.
@@ -442,8 +490,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         return;
       }
       try {
-        const doc = await db.loadProjectDoc(id);
-        if (doc) await db.saveProjectDoc({ ...doc, name: nm, updatedAt: Date.now() });
+        const doc = await backend.loadProjectDoc(id);
+        if (doc) await backend.saveProjectDoc({ ...doc, name: nm, updatedAt: Date.now() });
       } catch {
         /* ignore */
       }
@@ -452,7 +500,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     duplicateProject: async (id) => {
       if (!get().persistent) return;
       await flushPending(); // persist the active project before opening the copy
-      const src = await db.loadProjectDoc(id);
+      const src = await backend.loadProjectDoc(id);
       if (!src) return;
       const now = Date.now();
       const photoIdMap = new Map(src.photos.map((p) => [p.id, crypto.randomUUID()]));
@@ -463,8 +511,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
         photoIdMap,
       });
       try {
-        await Promise.all([...photoIdMap].map(([from, to]) => db.copyImage(from, to)));
-        await db.saveProjectDoc(dup);
+        await Promise.all([...photoIdMap].map(([from, to]) => backend.copyImage(from, to)));
+        await backend.saveProjectDoc(dup);
       } catch {
         return;
       }
@@ -501,7 +549,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       );
       const images = new Map<string, { bytes: Uint8Array; mime: string }>();
       for (const p of doc.photos) {
-        let blob: Blob | undefined = s.persistent ? await db.getImage(p.id).catch(() => undefined) : undefined;
+        let blob: Blob | undefined = s.persistent ? await backend.getImage(p.id).catch(() => undefined) : undefined;
         if (!blob) {
           const live = s.photos.find((x) => x.id === p.id);
           if (live) blob = await fetch(live.url).then((r) => r.blob()).catch(() => undefined);
@@ -539,10 +587,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
         await Promise.all(
           [...parsed.images].map(([oldId, img]) => {
             const newId = photoIdMap.get(oldId);
-            return newId ? db.putImage(newId, new Blob([img.bytes as BlobPart], { type: img.mime })) : Promise.resolve();
+            return newId ? backend.putImage(newId, new Blob([img.bytes as BlobPart], { type: img.mime })) : Promise.resolve();
           }),
         );
-        await db.saveProjectDoc(dup);
+        await backend.saveProjectDoc(dup);
       } catch {
         return { ok: false, error: "Could not save the imported album." };
       }
@@ -557,7 +605,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       if (get().activeId === id) cancelSave();
       if (get().persistent) {
         try {
-          await db.deleteProject(id);
+          await backend.deleteProject(id);
         } catch {
           /* ignore */
         }
@@ -593,7 +641,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       );
       if (get().persistent) {
         await Promise.all(
-          loaded.map(({ photo, file }) => db.putImage(photo.id, file).catch(() => {})),
+          loaded.map(({ photo, file }) => backend.putImage(photo.id, file).catch(() => {})),
         );
       }
       const added = loaded.map((l) => l.photo);
@@ -610,7 +658,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
       await ensureActiveProject();
       const demo = await makeDemoPhotos();
       if (get().persistent) {
-        await Promise.all(demo.map(({ photo, blob }) => db.putImage(photo.id, blob).catch(() => {})));
+        await Promise.all(demo.map(({ photo, blob }) => backend.putImage(photo.id, blob).catch(() => {})));
       }
       revokeUrls(get().photos);
       const photos = demo.map((d) => d.photo);

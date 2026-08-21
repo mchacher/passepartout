@@ -29,6 +29,8 @@ export function ProjectMenu() {
     deleteProject,
     exportBundle,
     importBundle,
+    remote,
+    logout,
   } = useAlbum();
 
   const [open, setOpen] = useState(false);
@@ -213,6 +215,24 @@ export function ProjectMenu() {
             {!persistent && (
               <div className="mt-1 rounded-md bg-surface-2 px-2 py-1.5 text-[11px] leading-snug text-muted">
                 Saving is unavailable in this browser; projects live only until you close the tab.
+              </div>
+            )}
+
+            {/* Server mode (spec 024): sign out of the single-password session. */}
+            {remote && (
+              <div className="mt-1 border-t border-line pt-1">
+                <button
+                  onClick={() => {
+                    close();
+                    void logout();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] text-muted hover:bg-surface-2 hover:text-ink"
+                >
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+                  </svg>
+                  Log out
+                </button>
               </div>
             )}
 

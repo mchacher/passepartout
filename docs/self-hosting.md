@@ -72,17 +72,34 @@ It bumps `package.json`, commits `release: v0.2.0`, tags `v0.2.0` and pushes. Th
 `.github/workflows/release.yml`, which builds and pushes the image to GHCR and creates a GitHub
 Release. Servers then update with `docker compose pull && up -d` (above).
 
-## Data lives in the browser
+## Two data modes
 
-Passepartout is local-first: your albums and photos are stored in the browser's IndexedDB, per
-device and per browser profile. Hosting the app does **not** put the data on the server. To
-move an album between devices today, use **Export / Import** in the project menu (a
-`.passepartout.zip` bundle - spec 021).
+Passepartout runs in one of two modes, decided at page load by probing `/api/health`:
 
-### Step B: server-backed data (later)
+- **Server mode (spec 024)** - when the `api` service is running, albums and photos live on the
+  server (SQLite + a blob volume), shared across every browser that logs in. This is the
+  default `docker-compose.yml`.
+- **Local mode** - with no `api` service, the app is local-first: albums live in each browser's
+  IndexedDB, per device. To move an album between local instances, use **Export / Import** in
+  the project menu (a `.passepartout.zip` bundle - spec 021).
 
-A future step adds a backend service so the data lives on the server (shared across devices,
-with Sowel-style managed updates). The infra here is shaped for it: `docker-compose.yml` has a
-commented `api` service and `docker/nginx.conf` a commented `/api` proxy; the app would then
-swap its single persistence adapter (`src/persistence.ts`) from IndexedDB to that API. See
-`specs/022-self-hosting-docker/spec.md`.
+### Server mode
+
+The default compose runs both `web` and `api`. Set the password and cookie secret before you
+start (a `.env` file next to `docker-compose.yml` works):
+
+```bash
+PASSEPARTOUT_PASSWORD=your-household-password
+SESSION_SECRET=a-long-random-string
+```
+
+Then `docker compose up -d --build`. Open the instance; you get a **single-password login**.
+After login, projects and photos are stored server-side and any other browser that logs in
+sees the same albums. Data persists in the `passepartout-data` Docker volume across container
+recreates. Migrate an existing local album up with **Import** (a `.passepartout.zip` bundle).
+
+To run **local mode** instead (data in the browser), remove the `api` service from
+`docker-compose.yml`; the SPA's `/api` probe then fails and it uses IndexedDB.
+
+> Multi-user accounts, offline, and the in-app "update available" button are out of scope for
+> this step (single password, pure server). See `specs/024-server-backend/spec.md`.

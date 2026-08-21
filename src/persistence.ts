@@ -142,3 +142,153 @@ export function setLastActiveId(id: string | null): void {
     /* ignore quota / disabled storage */
   }
 }
+
+// ---------------------------------------------------------------------------
+// Persistence backends (spec 024)
+//
+// The app talks to ONE backend, chosen at startup by initBackend():
+//  - "local":  the IndexedDB functions above (the local-first default, spec 002).
+//  - "remote": the server API at /api, when a backend is reachable (spec 024).
+// The store consumes this interface and no longer cares which mode is active. The
+// last-active pointer stays in localStorage in both modes (a per-browser convenience).
+// ---------------------------------------------------------------------------
+
+export interface PersistenceBackend {
+  mode: "local" | "remote";
+  /** Whether projects can be saved at all (IndexedDB present, or a server is reachable). */
+  persistent: boolean;
+  listProjects(): Promise<ProjectMeta[]>;
+  loadProjectDoc(id: string): Promise<ProjectDoc | undefined>;
+  saveProjectDoc(doc: ProjectDoc): Promise<void>;
+  putImage(id: string, blob: Blob): Promise<void>;
+  getImage(id: string): Promise<Blob | undefined>;
+  deleteProject(id: string): Promise<void>;
+  copyImage(fromId: string, toId: string): Promise<void>;
+  /** Display URLs for photo ids: object URLs (local) or /api/images URLs (remote). */
+  imageUrls(ids: string[]): Promise<Map<string, string>>;
+  isAuthed(): Promise<boolean>;
+  login(password: string): Promise<boolean>;
+  logout(): Promise<void>;
+}
+
+function makeLocalBackend(persistent: boolean): PersistenceBackend {
+  return {
+    mode: "local",
+    persistent,
+    listProjects,
+    loadProjectDoc,
+    saveProjectDoc,
+    putImage,
+    getImage,
+    deleteProject,
+    copyImage,
+    async imageUrls(ids) {
+      const urls = new Map<string, string>();
+      for (const id of ids) {
+        const blob = await getImage(id).catch(() => undefined);
+        if (blob) urls.set(id, URL.createObjectURL(blob));
+      }
+      return urls;
+    },
+    async isAuthed() {
+      return true;
+    },
+    async login() {
+      return true;
+    },
+    async logout() {
+      /* no auth in local mode */
+    },
+  };
+}
+
+const API_BASE = "/api";
+const api = (path: string, init?: RequestInit): Promise<Response> =>
+  fetch(`${API_BASE}${path}`, { credentials: "same-origin", ...init });
+
+const remoteBackend: PersistenceBackend = {
+  mode: "remote",
+  persistent: true,
+  async listProjects() {
+    const r = await api("/projects");
+    if (!r.ok) throw new Error(`listProjects failed: ${r.status}`);
+    return (await r.json()) as ProjectMeta[];
+  },
+  async loadProjectDoc(id) {
+    const r = await api(`/projects/${id}`);
+    if (r.status === 404) return undefined;
+    if (!r.ok) throw new Error(`loadProjectDoc failed: ${r.status}`);
+    return (await r.json()) as ProjectDoc;
+  },
+  async saveProjectDoc(doc) {
+    const r = await api(`/projects/${doc.id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(doc),
+    });
+    if (!r.ok) throw new Error(`saveProjectDoc failed: ${r.status}`);
+  },
+  async putImage(id, blob) {
+    const r = await api(`/images/${id}`, {
+      method: "PUT",
+      headers: { "content-type": blob.type || "application/octet-stream" },
+      body: blob,
+    });
+    if (!r.ok) throw new Error(`putImage failed: ${r.status}`);
+  },
+  async getImage(id) {
+    const r = await api(`/images/${id}`);
+    if (!r.ok) return undefined;
+    return r.blob();
+  },
+  async deleteProject(id) {
+    await api(`/projects/${id}`, { method: "DELETE" });
+  },
+  async copyImage(fromId, toId) {
+    const blob = await this.getImage(fromId);
+    if (blob) await this.putImage(toId, blob);
+  },
+  async imageUrls(ids) {
+    // Photos are served directly by the API (no blob download); the auth cookie rides along.
+    const urls = new Map<string, string>();
+    for (const id of ids) urls.set(id, `${API_BASE}/images/${id}`);
+    return urls;
+  },
+  async isAuthed() {
+    try {
+      return (await api("/auth/me")).ok;
+    } catch {
+      return false;
+    }
+  },
+  async login(password) {
+    try {
+      const r = await api("/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      return r.ok;
+    } catch {
+      return false;
+    }
+  },
+  async logout() {
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch {
+      /* ignore */
+    }
+  },
+};
+
+/** Pick the backend: the server when its /api/health responds, else IndexedDB (local-first). */
+export async function initBackend(): Promise<PersistenceBackend> {
+  try {
+    const r = await fetch(`${API_BASE}/health`, { method: "GET" });
+    if (r.ok) return remoteBackend;
+  } catch {
+    /* no server reachable: fall back to local */
+  }
+  return makeLocalBackend(await isAvailable());
+}
