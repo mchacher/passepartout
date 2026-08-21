@@ -5,7 +5,7 @@ import { layoutsForCount } from "../lib/layouts";
 import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
 import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
-import { MASKS } from "../lib/masks";
+import { MASKS, maskClipValue } from "../lib/masks";
 import { FRAMES, FRAME_COLORS, frameById, BORDER_WIDTHS, borderWidthOf } from "../lib/frames";
 import { ROTATION_STEPS } from "../lib/rotation";
 
@@ -190,7 +190,7 @@ export function PageCard({ page, index }: PageCardProps) {
                         >
                           <span
                             className="block h-full w-full bg-muted"
-                            style={{ clipPath: `url(#pp-mask-${m.id})` }}
+                            style={{ clipPath: maskClipValue(m.id) }}
                           />
                         </button>
                       ))}
