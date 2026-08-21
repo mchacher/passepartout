@@ -4,6 +4,7 @@ import pkg from "./package.json";
 
 // Local-first single-page app. No backend: everything runs in the browser,
 // photos never leave the machine. Builds to static files in dist/.
+// Test config lives in vitest.config.ts (scoped to src/, so the server package is separate).
 export default defineConfig({
   plugins: [react()],
   server: { port: 5180, open: true },
