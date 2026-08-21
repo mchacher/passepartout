@@ -32,6 +32,13 @@ if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   exit 1
 fi
 
+# A release note is required (spec 028): the release workflow refuses to publish without it, so
+# fail early here too.
+if ! grep -qE "^## $tag([[:space:]]|$)" docs/release-notes.md; then
+  echo "error: no release note for $tag in docs/release-notes.md — add a '## $tag' section first" >&2
+  exit 1
+fi
+
 # Bump the web and server package.json (and lockfiles) together, so the app and the API
 # report the same version as the image tag. No git tag from npm itself.
 npm version "$version" --no-git-tag-version >/dev/null

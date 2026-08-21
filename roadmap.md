@@ -70,6 +70,14 @@ designs live under `specs/`.
    > decide up front how an edited photo flows through the layout engine and the PDF
    > export. Worth an explicit conversation before it becomes a spec.
 
+3. **Internationalization (i18n) / multilingual UI. Priority: French.** The whole UI is
+   English today. Add a translation layer so the app can run in several languages, with
+   **French first** (the primary audience). Scope to settle when it becomes a spec: a light
+   string catalog + a language switch (and a sensible default from the browser locale), covering
+   the app UI, the setup/login/admin surfaces, and the update messages. Album *content* (titles,
+   captions) stays whatever the user types; this is about the interface chrome. Note: written
+   code/docs stay English; this adds runtime UI translations, it does not translate the source.
+
 ## Later (from earlier planning, see CLAUDE.md)
 
 - Embed the real album fonts in the PDF (today print maps each to Times / Helvetica /
