@@ -78,6 +78,13 @@ designs live under `specs/`.
    captions) stays whatever the user types; this is about the interface chrome. Note: written
    code/docs stay English; this adds runtime UI translations, it does not translate the source.
 
+4. **Open-source the repo (go public) + pick the right license.** Move `mchacher/passepartout`
+   from private to public, after choosing an OSS license that fits the intent (e.g. permissive
+   MIT / Apache-2.0 vs a copyleft GPL/AGPL if network use should stay open). Going public also
+   unlocks the GitHub-native security we can't use on the private free plan today: CodeQL code
+   scanning, branch protection, secret scanning and Dependabot (the CI already runs a gitleaks
+   secret scan as the interim guard, spec 028). Do a secret-history pass before flipping.
+
 ## Later (from earlier planning, see CLAUDE.md)
 
 - Embed the real album fonts in the PDF (today print maps each to Times / Helvetica /
