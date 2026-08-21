@@ -7,6 +7,7 @@ import { SizeMenu } from "./SizeMenu";
 import { ExportPanel } from "./ExportPanel";
 import { BookPreview } from "./BookPreview";
 import { UpdatesSheet } from "./UpdatesSheet";
+import { AdminMenu } from "./AdminMenu";
 
 export function TopBar() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -93,6 +94,8 @@ export function TopBar() {
           Update
         </button>
       )}
+
+      {remote && <AdminMenu />}
 
       <BookPreview open={previewOpen} onClose={() => setPreviewOpen(false)} />
       <UpdatesSheet open={updatesOpen} onClose={() => setUpdatesOpen(false)} />

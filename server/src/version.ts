@@ -36,10 +36,13 @@ export function isNewer(current: string, latest: string): boolean {
   return false;
 }
 
-/** The latest release tag (version, no leading v), or null. Cached ~1h; never throws. */
-export async function fetchLatest(token?: string): Promise<string | null> {
+/**
+ * The latest release tag (version, no leading v), or null. Cached ~1h; never throws.
+ * Pass `{ force: true }` (a manual "check for updates") to skip the cache and re-fetch.
+ */
+export async function fetchLatest(token?: string, opts?: { force?: boolean }): Promise<string | null> {
   const now = Date.now();
-  if (cache && now - cache.at < CACHE_MS) return cache.latest;
+  if (!opts?.force && cache && now - cache.at < CACHE_MS) return cache.latest;
   let latest: string | null = null;
   try {
     const headers: Record<string, string> = {
