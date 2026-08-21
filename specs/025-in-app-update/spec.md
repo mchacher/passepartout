@@ -53,9 +53,11 @@ one click when the socket is mounted, a copy-paste command otherwise.
 4. **Version parity**: `scripts/release.sh` bumps BOTH `package.json` and `server/package.json`
    so the web (`__APP_VERSION__`) and the api (`/api/version.current`) report the same version,
    matching the released image tag.
-5. **Packaging**: the `api` service in `docker-compose.yml` documents the **opt-in** Docker
-   socket mount (commented, with the security warning) and the optional `GITHUB_TOKEN`. The api
-   image adds `dockerode` (to spawn the helper) - it does not need the Docker CLI itself.
+5. **Packaging**: the `api` service in `docker-compose.yml` mounts the Docker socket **by
+   default** (one-click on out of the box, like Sowel), with the security trade-off in the
+   compose comment and a note that removing the line disables it. The **UI carries no security
+   warning** - the caveat lives in the compose/docs only. Also an optional `GITHUB_TOKEN`. The
+   api image adds `dockerode` (to spawn the helper) - it does not need the Docker CLI itself.
 6. The engine and album data are untouched.
 
 ## Architecture

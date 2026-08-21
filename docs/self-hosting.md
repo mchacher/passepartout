@@ -66,15 +66,16 @@ In server mode the app shows the running version and, when a newer release exist
 **Update** button in the top bar. Detection needs a `GITHUB_TOKEN` (read access) on the `api`
 service - without it the app just shows the current version.
 
-Applying the update is **opt-in** because it needs the Docker socket:
+Applying the update needs the Docker socket:
 
-- **Manual (default, safe)**: the update panel shows `docker compose pull && docker compose up -d`.
-  Run it on the host. No socket, no extra risk.
-- **One-click (opt-in)**: uncomment the `/var/run/docker.sock` mount on the `api` service in
-  `docker-compose.yml`. The **Update now** button then pulls and recreates the stack for you
-  (via a short-lived helper container). Trade-off, spelled out in the compose comment: mounting
-  the socket gives the container effective control of the host Docker daemon, so an RCE against
-  the app would escalate to root on the host. Leave it commented if you prefer the manual path.
+- **One-click (default)**: the default `docker-compose.yml` mounts `/var/run/docker.sock` on the
+  `api` service, so the **Update now** button pulls and recreates the stack for you (via a
+  short-lived helper container). Trade-off, spelled out in the compose comment: mounting the
+  socket gives the container effective control of the host Docker daemon, so an RCE against the
+  app would escalate to root on the host. Reasonable on a trusted home LAN; your call.
+- **Manual (remove the socket)**: delete that line to update by hand with
+  `docker compose pull && docker compose up -d`. The **Update now** button is then disabled and
+  the panel shows the command instead.
 
 Either way the host must be able to pull the private image: `docker login ghcr.io` once with a
 `read:packages` token.
