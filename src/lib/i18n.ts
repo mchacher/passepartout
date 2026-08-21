@@ -486,7 +486,7 @@ const fr: Record<string, string> = {
   "page.selectHint": "Cliquez une photo pour la modifier.",
   "page.layout": "Mise en page",
   "page.pageFill": "Remplissage de page",
-  "page.fill.off": "Non",
+  "page.fill.off": "Aucun",
   "page.fill.offTitle": "Page normale",
   "page.fill.fit": "Ajuster",
   "page.fill.fitTitle": "Remplir la page, sans recadrer",
@@ -509,7 +509,7 @@ const fr: Record<string, string> = {
   "cover.back.label": "Quatrième de couverture",
   "cover.back.title": "Note de fin",
   "cover.back.subtitle": "Optionnel",
-  "cover.dragHint": "Glissez une photo ici, ou laissez en texte seul.",
+  "cover.dragHint": "Glissez une photo ici, ou conservez uniquement le texte.",
   "cover.dropHint": "Glissez une photo ici (optionnel)",
   "cover.removePhoto": "Retirer la photo de couverture",
 
@@ -531,10 +531,10 @@ const fr: Record<string, string> = {
 
   // Page rail
   "rail.pages": "Pages",
-  "rail.front": "Couverture",
-  "rail.insideFront": "Int. couverture",
-  "rail.insideBack": "Int. dos",
-  "rail.back": "Dos",
+  "rail.front": "1re de couv.",
+  "rail.insideFront": "2e de couv.",
+  "rail.insideBack": "3e de couv.",
+  "rail.back": "4e de couv.",
   "rail.page": "Page {n}",
   "rail.scrollTo": "Aller à cette page",
 
