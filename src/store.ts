@@ -52,6 +52,7 @@ import {
   type ProjectMeta,
 } from "./lib/project";
 import * as db from "./persistence";
+import { buildBundle, parseBundle, BundleError } from "./lib/bundle";
 
 const DEFAULT_PER_PAGE = 3;
 const SAVE_DEBOUNCE_MS = 400;
@@ -143,6 +144,11 @@ interface AlbumState {
   renameProject: (id: string, name: string) => Promise<void>;
   duplicateProject: (id: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+
+  // Backup & transfer (spec 021): export the active project as a portable bundle, or
+  // import a bundle as a new project.
+  exportBundle: () => Promise<{ bytes: Uint8Array; name: string } | null>;
+  importBundle: (file: File) => Promise<{ ok: true } | { ok: false; error: string }>;
 
   importFiles: (files: FileList | File[]) => Promise<void>;
   loadDemo: () => Promise<void>;
@@ -464,6 +470,85 @@ export const useAlbum = create<AlbumState>((set, get) => {
       }
       set((s) => ({ projects: upsertMeta(s.projects, metaOf(dup)) }));
       await get().openProject(dup.id);
+    },
+
+    // Export the active project as a portable bundle (spec 021): its full document plus
+    // every image blob, zipped. Serialized from the live state (freshest), with blobs read
+    // from IndexedDB and, if a blob is missing there, fetched back from its object URL, so
+    // export works even in a non-persistent session.
+    exportBundle: async () => {
+      const s = get();
+      if (!s.activeId) return null;
+      const now = Date.now();
+      const doc = serializeProject(
+        {
+          id: s.activeId,
+          name: s.activeName,
+          createdAt: s.activeCreatedAt,
+          bookSize: s.bookSize,
+          spine: s.spine,
+          fontTheme: s.fontTheme,
+          colorTheme: s.colorTheme,
+          textSizes: s.textSizes,
+          photos: s.photos,
+          pages: s.pages,
+          frontCover: s.frontCover,
+          insideFrontCover: s.insideFrontCover,
+          insideBackCover: s.insideBackCover,
+          backCover: s.backCover,
+        },
+        now,
+      );
+      const images = new Map<string, { bytes: Uint8Array; mime: string }>();
+      for (const p of doc.photos) {
+        let blob: Blob | undefined = s.persistent ? await db.getImage(p.id).catch(() => undefined) : undefined;
+        if (!blob) {
+          const live = s.photos.find((x) => x.id === p.id);
+          if (live) blob = await fetch(live.url).then((r) => r.blob()).catch(() => undefined);
+        }
+        if (blob) images.set(p.id, { bytes: new Uint8Array(await blob.arrayBuffer()), mime: blob.type || "image/jpeg" });
+      }
+      const bytes = buildBundle(doc, images, now);
+      const safe = (s.activeName || "album").replace(/[^\w.-]+/g, "-");
+      return { bytes, name: `${safe}.passepartout.zip` };
+    },
+
+    // Import a bundle as a NEW project (spec 021): parse, remap every id (so the copy owns
+    // independent blobs, like duplicateProject), write the images and doc, then open it.
+    // Existing projects are untouched; re-importing yields an independent copy.
+    importBundle: async (file) => {
+      if (!get().persistent) {
+        return { ok: false, error: "Saving is unavailable in this browser, so importing is disabled." };
+      }
+      let parsed;
+      try {
+        parsed = parseBundle(new Uint8Array(await file.arrayBuffer()));
+      } catch (e) {
+        return { ok: false, error: e instanceof BundleError ? e.message : "Could not read this file." };
+      }
+      await flushPending(); // persist the active project before opening the import
+      const now = Date.now();
+      const photoIdMap = new Map(parsed.doc.photos.map((p) => [p.id, crypto.randomUUID()]));
+      const dup = duplicateDoc(parsed.doc, {
+        id: crypto.randomUUID(),
+        name: parsed.doc.name?.trim() || DEFAULT_PROJECT_NAME,
+        now,
+        photoIdMap,
+      });
+      try {
+        await Promise.all(
+          [...parsed.images].map(([oldId, img]) => {
+            const newId = photoIdMap.get(oldId);
+            return newId ? db.putImage(newId, new Blob([img.bytes as BlobPart], { type: img.mime })) : Promise.resolve();
+          }),
+        );
+        await db.saveProjectDoc(dup);
+      } catch {
+        return { ok: false, error: "Could not save the imported album." };
+      }
+      set((s) => ({ projects: upsertMeta(s.projects, metaOf(dup)) }));
+      await get().openProject(dup.id);
+      return { ok: true };
     },
 
     deleteProject: async (id) => {
