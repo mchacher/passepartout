@@ -183,7 +183,9 @@ interface AlbumState {
   // Backup & transfer (spec 021): export the active project as a portable bundle, or
   // import a bundle as a new project.
   exportBundle: () => Promise<{ bytes: Uint8Array; name: string } | null>;
-  importBundle: (file: File) => Promise<{ ok: true } | { ok: false; error: string }>;
+  // `code` is a stable error id (spec 032) so the UI can show a translated message; `error` is the
+  // English fallback text.
+  importBundle: (file: File) => Promise<{ ok: true } | { ok: false; error: string; code: string }>;
 
   importFiles: (files: FileList | File[]) => Promise<void>;
   loadDemo: () => Promise<void>;
@@ -725,13 +727,14 @@ export const useAlbum = create<AlbumState>((set, get) => {
     // Existing projects are untouched; re-importing yields an independent copy.
     importBundle: async (file) => {
       if (!get().persistent) {
-        return { ok: false, error: "Saving is unavailable in this browser, so importing is disabled." };
+        return { ok: false, code: "import.no-save", error: "Saving is unavailable in this browser, so importing is disabled." };
       }
       let parsed;
       try {
         parsed = parseBundle(new Uint8Array(await file.arrayBuffer()));
       } catch (e) {
-        return { ok: false, error: e instanceof BundleError ? e.message : "Could not read this file." };
+        if (e instanceof BundleError) return { ok: false, code: `bundle.${e.code}`, error: e.message };
+        return { ok: false, code: "import.read-failed", error: "Could not read this file." };
       }
       await flushPending(); // persist the active project before opening the import
       const now = Date.now();
@@ -751,7 +754,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
         );
         await backend.saveProjectDoc(dup);
       } catch {
-        return { ok: false, error: "Could not save the imported album." };
+        return { ok: false, code: "import.save-failed", error: "Could not save the imported album." };
       }
       set((s) => ({ projects: upsertMeta(s.projects, metaOf(dup)) }));
       await get().openProject(dup.id);

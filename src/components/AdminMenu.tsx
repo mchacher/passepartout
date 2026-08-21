@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import { UsersPanel } from "./UsersPanel";
 import { UpdatesSheet } from "./UpdatesSheet";
 
@@ -7,6 +8,7 @@ import { UpdatesSheet } from "./UpdatesSheet";
 // signed-in user, user management, the app version + check for updates, and log out.
 export function AdminMenu() {
   const { currentUser, logout, versionInfo, versionChecking, refreshVersion } = useAlbum();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [updatesOpen, setUpdatesOpen] = useState(false);
@@ -26,7 +28,7 @@ export function AdminMenu() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        title="Account & instance"
+        title={t("admin.title")}
         className="flex h-[32px] w-[32px] items-center justify-center rounded-full border border-line-strong bg-surface-2 text-muted transition-colors hover:border-faint hover:text-ink"
       >
         <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
@@ -36,24 +38,22 @@ export function AdminMenu() {
 
       {open && (
         <>
-          <button aria-label="Close menu" className="fixed inset-0 z-20 cursor-default" onClick={close} />
+          <button aria-label={t("admin.close")} className="fixed inset-0 z-20 cursor-default" onClick={close} />
           <div className="absolute right-0 z-30 mt-1.5 w-[248px] rounded-xl border border-line bg-surface p-1.5 shadow-soft">
             {currentUser && (
-              <div className="px-2 py-1.5 text-[11px] text-faint">
-                Signed in as <span className="text-muted">{currentUser.username}</span>
-              </div>
+              <div className="px-2 py-1.5 text-[11px] text-faint">{t("admin.signedInAs", { user: currentUser.username })}</div>
             )}
 
             <button onClick={() => { close(); setUsersOpen(true); }} className={item}>
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
-              Users
+              {t("admin.users")}
             </button>
 
             <div className="mt-1 border-t border-line px-2 pb-1 pt-1.5">
               <div className="flex items-center justify-between text-[12px]">
-                <span className="text-muted">Version</span>
+                <span className="text-muted">{t("admin.version")}</span>
                 <span className="font-mono text-faint">v{v?.current ?? __APP_VERSION__}</span>
               </div>
               {v?.updateAvailable ? (
@@ -61,7 +61,7 @@ export function AdminMenu() {
                   onClick={() => { close(); setUpdatesOpen(true); }}
                   className="mt-1.5 w-full rounded-md bg-accent-soft px-2 py-1 text-[12px] text-accent hover:bg-accent hover:text-white"
                 >
-                  v{v.latest} available &mdash; update
+                  {t("admin.updateTo", { version: v.latest ?? "" })}
                 </button>
               ) : (
                 <button
@@ -69,13 +69,11 @@ export function AdminMenu() {
                   disabled={versionChecking}
                   className="mt-1.5 w-full rounded-md border border-line px-2 py-1 text-[12px] text-muted hover:border-faint hover:text-ink disabled:opacity-50"
                 >
-                  {versionChecking ? "Checking..." : "Check for updates"}
+                  {versionChecking ? t("admin.checking") : t("admin.checkUpdates")}
                 </button>
               )}
               {checked && !versionChecking && v && !v.updateAvailable && (
-                <div className="mt-1 text-[11px] text-faint">
-                  {v.latest ? "Up to date." : "Update check unavailable (no GitHub token)."}
-                </div>
+                <div className="mt-1 text-[11px] text-faint">{v.latest ? t("admin.upToDate") : t("admin.noToken")}</div>
               )}
             </div>
 
@@ -84,7 +82,7 @@ export function AdminMenu() {
                 <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
                 </svg>
-                Log out
+                {t("admin.logout")}
               </button>
             </div>
           </div>

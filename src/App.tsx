@@ -14,11 +14,14 @@ import { MaskDefs } from "./components/MaskDefs";
 import { Login } from "./components/Login";
 import { Setup } from "./components/Setup";
 import { UpdatingOverlay } from "./components/UpdatingOverlay";
+import { useT, useApplyLang } from "./useT";
 
 export function App() {
   const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent, remote, authed, needsSetup } =
     useAlbum();
   const updating = useAlbum((s) => s.updating);
+  const { t } = useT();
+  useApplyLang();
   const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
@@ -56,7 +59,7 @@ export function App() {
   if (!ready) {
     return (
       <div className="grid h-screen place-items-center text-[13px] text-muted">
-        Loading your projects...
+        {t("app.loading")}
       </div>
     );
   }
@@ -77,7 +80,7 @@ export function App() {
         <TopBar />
         {!persistent && (
           <div className="border-b border-line bg-surface-2 px-5 py-1.5 text-center text-[11.5px] text-muted">
-            This browser cannot save projects locally, so your work will be lost when you close the tab.
+            {t("app.noLocalSave")}
           </div>
         )}
       </div>
@@ -108,7 +111,7 @@ export function App() {
                 <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
                   <path d="M12 5v14M5 12h14" />
                 </svg>
-                Add page
+                {t("app.addPage")}
               </button>
               <div id="cover-insideBack">
                 <CoverCard which="insideBack" />
@@ -123,25 +126,21 @@ export function App() {
                 <div className="h-full w-full rounded-sm border border-line bg-gradient-to-br from-accent-soft to-surface" />
               </div>
               <h1 className="mb-2.5 font-display text-[26px] font-medium tracking-tight text-ink">
-                Your photos, never cropped.
+                {t("app.empty.title")}
               </h1>
-              <p className="mx-auto mb-[22px] max-w-[380px] text-[13.5px] leading-relaxed">
-                Choose, page by page, how many photos to place and which ones. The engine
-                arranges them in whitespace, keeping their original framing. There is no
-                crop tool: that is the whole point.
-              </p>
+              <p className="mx-auto mb-[22px] max-w-[380px] text-[13.5px] leading-relaxed">{t("app.empty.body")}</p>
               <div className="flex justify-center gap-2.5">
                 <button
                   onClick={() => fileRef.current?.click()}
                   className="rounded-lg border border-accent bg-accent px-3 py-[7px] text-[12.5px] text-white hover:bg-accent-ink"
                 >
-                  Import photos
+                  {t("app.empty.import")}
                 </button>
                 <button
                   onClick={loadDemo}
                   className="rounded-lg border border-line-strong bg-surface-2 px-3 py-[7px] text-[12.5px] hover:bg-surface"
                 >
-                  Load an example
+                  {t("app.empty.demo")}
                 </button>
               </div>
               <input

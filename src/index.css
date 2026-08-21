@@ -126,10 +126,12 @@ body {
 }
 
 /* Keep the album preview clean: only hint "Add a caption" when hovering the
-   photo or while editing, never on every photo at rest. */
+   photo or while editing, never on every photo at rest. The text comes from the
+   --caption-placeholder variable set by the language effect (spec 032), with an
+   English default if the app has not set it yet. */
 .group:hover .caption[data-empty="true"]:not(:focus)::before,
 .caption[data-empty="true"]:focus::before {
-  content: "Add a caption";
+  content: var(--caption-placeholder, "Add a caption");
   color: var(--faint);
 }
 .caption:focus {

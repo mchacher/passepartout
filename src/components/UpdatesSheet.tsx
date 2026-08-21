@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 
 interface UpdatesSheetProps {
   open: boolean;
@@ -13,20 +14,20 @@ const MANUAL_COMMAND = "docker compose pull && docker compose up -d";
 // the server's version and reloads once the new one is live.
 export function UpdatesSheet({ open, onClose }: UpdatesSheetProps) {
   const { versionInfo, beginUpdate } = useAlbum();
-  const [phase, setPhase] = useState<"idle" | "error">("idle");
-  const [message, setMessage] = useState("");
+  const { t } = useT();
+  const [failed, setFailed] = useState(false);
 
   if (!open || !versionInfo) return null;
   const { current, latest, canApply } = versionInfo;
 
   // Hand off to the store: on success the non-interruptible overlay (spec 031) takes over the
-  // whole screen, so there is nothing more to render here. On a real failure show the server's
-  // own message plus the manual command as a fallback.
+  // whole screen, so there is nothing more to render here. On a real failure show a translated
+  // message plus the manual command as a fallback (the server error is English, so we don't echo
+  // it, spec 032).
   const startUpdate = async () => {
     const res = await beginUpdate();
     if (res.locked) return;
-    setPhase("error");
-    setMessage(res.error ? `Could not start the update: ${res.error}.` : "Could not start the update on the server.");
+    setFailed(true);
   };
 
   const closeBtn = (label: string) => (
@@ -37,46 +38,42 @@ export function UpdatesSheet({ open, onClose }: UpdatesSheetProps) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4">
-      <button aria-label="Close" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <button aria-label={t("update.close")} className="absolute inset-0 cursor-default" onClick={onClose} />
       <div className="relative w-[360px] rounded-xl border border-line bg-surface p-5 shadow-soft">
-        <div className="font-display text-[15px] text-ink">Update available</div>
+        <div className="font-display text-[15px] text-ink">{t("update.available")}</div>
         <div className="mt-3 flex items-center gap-2 text-[13px]">
           <span className="font-mono text-muted">v{current}</span>
           <span className="text-faint">&rarr;</span>
           <span className="font-mono font-semibold text-accent">v{latest}</span>
         </div>
 
-        {phase === "idle" &&
+        {!failed &&
           (canApply ? (
             <>
-              <p className="mt-3 text-[12.5px] leading-snug text-muted">
-                Pull the new version and restart the server. It takes a minute; the page reloads when it is back.
-              </p>
+              <p className="mt-3 text-[12.5px] leading-snug text-muted">{t("update.body")}</p>
               <div className="mt-4 flex justify-end gap-2">
-                {closeBtn("Later")}
+                {closeBtn(t("update.later"))}
                 <button
                   onClick={() => void startUpdate()}
                   className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] text-white transition-colors hover:bg-accent-ink"
                 >
-                  Update now
+                  {t("update.now")}
                 </button>
               </div>
             </>
           ) : (
             <>
-              <p className="mt-3 text-[12.5px] leading-snug text-muted">
-                One-click update is off on this server (the Docker socket is not mounted). Update from the host:
-              </p>
+              <p className="mt-3 text-[12.5px] leading-snug text-muted">{t("update.socketOff")}</p>
               <pre className="mt-2 overflow-x-auto rounded-md bg-surface-2 px-3 py-2 font-mono text-[11.5px] text-ink">{MANUAL_COMMAND}</pre>
-              <div className="mt-4 flex justify-end">{closeBtn("Close")}</div>
+              <div className="mt-4 flex justify-end">{closeBtn(t("update.close"))}</div>
             </>
           ))}
 
-        {phase === "error" && (
+        {failed && (
           <>
-            <p className="mt-3 text-[12.5px] leading-snug text-[#c0392b]">{message}</p>
+            <p className="mt-3 text-[12.5px] leading-snug text-[#c0392b]">{t("update.err.start")}</p>
             <pre className="mt-2 overflow-x-auto rounded-md bg-surface-2 px-3 py-2 font-mono text-[11.5px] text-ink">{MANUAL_COMMAND}</pre>
-            <div className="mt-3 flex justify-end">{closeBtn("Close")}</div>
+            <div className="mt-3 flex justify-end">{closeBtn(t("update.close"))}</div>
           </>
         )}
       </div>

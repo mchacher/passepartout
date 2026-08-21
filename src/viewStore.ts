@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { clampZoom, ZOOM_DEFAULT } from "./lib/zoom";
+import { detectLang, type Lang } from "./lib/i18n";
 
 // Ephemeral view preferences (not album data, so kept out of the album store and out of
 // the project document). Persisted to localStorage so a preference survives a refresh.
@@ -7,6 +8,7 @@ import { clampZoom, ZOOM_DEFAULT } from "./lib/zoom";
 const GRID_KEY = "pp.showGrid";
 const ZOOM_KEY = "pp.zoom";
 const LIB_COLS_KEY = "pp.libraryCols";
+const LANG_KEY = "pp.lang";
 
 // Library thumbnail density (spec 030): the number of columns. More columns = smaller thumbs
 // (scan a big library), fewer = larger (see detail). Works regardless of capture dates.
@@ -39,6 +41,17 @@ function readLibraryCols(): number {
   }
 }
 
+// The active UI language (spec 032): a stored choice, else inferred once from the browser locale.
+function readLang(): Lang {
+  try {
+    const stored = localStorage.getItem(LANG_KEY);
+    if (stored === "en" || stored === "fr") return stored;
+  } catch {
+    /* fall through to the browser locale */
+  }
+  return detectLang(typeof navigator !== "undefined" ? navigator.language : undefined);
+}
+
 interface ViewState {
   // Show the discreet 12 x 12 page grid on editor pages (spec 013).
   showGrid: boolean;
@@ -49,6 +62,9 @@ interface ViewState {
   // Library thumbnail columns (spec 030): one of LIBRARY_COLS.
   libraryCols: number;
   setLibraryCols: (n: number) => void;
+  // Active UI language (spec 032). Album content is never translated, only chrome.
+  lang: Lang;
+  setLang: (l: Lang) => void;
 }
 
 export const useView = create<ViewState>((set, get) => ({
@@ -81,5 +97,14 @@ export const useView = create<ViewState>((set, get) => ({
       /* ignore a storage failure; still applies in memory */
     }
     set({ libraryCols: n });
+  },
+  lang: readLang(),
+  setLang: (l) => {
+    try {
+      localStorage.setItem(LANG_KEY, l);
+    } catch {
+      /* ignore a storage failure; the language still applies in memory */
+    }
+    set({ lang: l });
   },
 }));

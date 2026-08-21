@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import {
   COLOR_THEMES,
   FONT_THEMES,
@@ -14,6 +15,7 @@ import { TEXT_ROLES, TEXT_SIZE_LEVELS } from "../lib/text-sizes";
 export function ThemeMenu() {
   const { fontTheme, colorTheme, textSizes, setFontTheme, setColorTheme, setTextSize } =
     useAlbum();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const active = colorThemeOrDefault(colorTheme);
 
@@ -22,7 +24,7 @@ export function ThemeMenu() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-[6px] text-[12.5px] text-ink hover:border-faint"
-        title="Album style"
+        title={t("theme.albumStyle")}
       >
         <span
           className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-line-strong text-[10px] font-semibold"
@@ -30,7 +32,7 @@ export function ThemeMenu() {
         >
           A
         </span>
-        <span>Style</span>
+        <span>{t("theme.style")}</span>
         <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -39,12 +41,12 @@ export function ThemeMenu() {
       {open && (
         <>
           <button
-            aria-label="Close style menu"
+            aria-label={t("theme.closeMenu")}
             className="fixed inset-0 z-20 cursor-default"
             onClick={() => setOpen(false)}
           />
           <div className="absolute right-0 z-30 mt-1.5 w-[300px] rounded-xl border border-line bg-surface p-2.5 shadow-soft">
-            <div className="px-1 pb-1 text-[11px] uppercase tracking-wide text-faint">Font</div>
+            <div className="px-1 pb-1 text-[11px] uppercase tracking-wide text-faint">{t("theme.font")}</div>
             <div className="flex flex-col gap-0.5">
               {FONT_THEMES.map((f) => (
                 <button
@@ -56,13 +58,13 @@ export function ThemeMenu() {
                   }`}
                   style={{ fontFamily: f.stack }}
                 >
-                  <span>{f.name}</span>
+                  <span>{t(`font.${f.id}`)}</span>
                   {fontTheme === f.id && <span className="text-accent">•</span>}
                 </button>
               ))}
             </div>
 
-            <div className="mt-2.5 px-1 pb-1.5 text-[11px] uppercase tracking-wide text-faint">Palette</div>
+            <div className="mt-2.5 px-1 pb-1.5 text-[11px] uppercase tracking-wide text-faint">{t("theme.palette")}</div>
             <div className="grid grid-cols-5 gap-1.5">
               {COLOR_THEMES.map((c) => {
                 const selected = colorTheme === c.id;
@@ -71,7 +73,7 @@ export function ThemeMenu() {
                     key={c.id}
                     onClick={() => setColorTheme(c.id)}
                     aria-pressed={selected}
-                    title={c.name}
+                    title={t(`color.${c.id}`)}
                     className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border ${
                       selected ? "border-accent ring-2 ring-accent" : "border-line hover:border-faint"
                     }`}
@@ -83,13 +85,13 @@ export function ThemeMenu() {
                 );
               })}
             </div>
-            <div className="mt-1.5 px-1 text-center text-[11px] text-muted">{active.name}</div>
+            <div className="mt-1.5 px-1 text-center text-[11px] text-muted">{t(`color.${active.id}`)}</div>
 
-            <div className="mt-2.5 px-1 pb-1.5 text-[11px] uppercase tracking-wide text-faint">Text size</div>
+            <div className="mt-2.5 px-1 pb-1.5 text-[11px] uppercase tracking-wide text-faint">{t("theme.textSize")}</div>
             <div className="flex flex-col gap-1">
               {TEXT_ROLES.map((r) => (
                 <div key={r.role} className="flex items-center justify-between gap-2">
-                  <span className="whitespace-nowrap text-[12px] text-muted">{r.name}</span>
+                  <span className="whitespace-nowrap text-[12px] text-muted">{t(`role.${r.role}`)}</span>
                   <div className="flex gap-0.5 rounded-lg border border-line bg-surface-2 p-[3px]">
                     {TEXT_SIZE_LEVELS.map((lvl) => {
                       const selected = textSizes[r.role] === lvl.level;
@@ -98,7 +100,7 @@ export function ThemeMenu() {
                           key={lvl.level}
                           onClick={() => setTextSize(r.role, lvl.level)}
                           aria-pressed={selected}
-                          title={`${r.name} ${lvl.label}`}
+                          title={`${t(`role.${r.role}`)} ${lvl.label}`}
                           className={`w-7 rounded-md py-[3px] text-[12px] transition-colors ${
                             selected ? "bg-accent text-white shadow-soft" : "text-muted hover:text-ink"
                           }`}

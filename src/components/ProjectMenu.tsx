@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 
 // Trigger a browser download of some bytes as a named file.
 function downloadFile(bytes: Uint8Array, name: string): void {
@@ -31,6 +32,7 @@ export function ProjectMenu() {
     importBundle,
     remote,
   } = useAlbum();
+  const { t } = useT();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -55,7 +57,7 @@ export function ProjectMenu() {
 
   const onDelete = () => {
     if (!activeId) return;
-    if (confirm(`Delete project "${activeName}"? This cannot be undone.`)) {
+    if (confirm(t("project.confirmDelete", { name: activeName }))) {
       void deleteProject(activeId);
       close();
     }
@@ -80,7 +82,7 @@ export function ProjectMenu() {
     try {
       const res = await importBundle(file);
       if (res.ok) close();
-      else alert(res.error);
+      else alert(t(`err.${res.code}`));
     } finally {
       setBusy(false);
     }
@@ -91,12 +93,12 @@ export function ProjectMenu() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 py-[6px] text-[12.5px] text-ink hover:border-faint"
-        title="Projects"
+        title={t("project.title")}
       >
         <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
           <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
         </svg>
-        <span className="max-w-[160px] truncate">{activeId ? activeName : "No project"}</span>
+        <span className="max-w-[160px] truncate">{activeId ? activeName : t("project.none")}</span>
         <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -105,24 +107,24 @@ export function ProjectMenu() {
       {open && (
         <>
           <button
-            aria-label="Close projects menu"
+            aria-label={t("project.closeMenu")}
             className="fixed inset-0 z-20 cursor-default"
             onClick={close}
           />
           <div className="absolute left-0 z-30 mt-1.5 w-[260px] rounded-xl border border-line bg-surface p-1.5 shadow-soft">
             <div className="flex items-center justify-between px-2 py-1">
-              <span className="text-[11px] uppercase tracking-wide text-faint">Projects</span>
+              <span className="text-[11px] uppercase tracking-wide text-faint">{t("project.title")}</span>
               <div className="flex items-center gap-0.5">
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={busy}
-                  title="Import an album bundle (.zip) as a new project"
+                  title={t("project.importTitle")}
                   className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] text-muted hover:bg-surface-2 hover:text-ink disabled:opacity-50"
                 >
                   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
                     <path d="M12 15V3M7 8l5-5 5 5M5 21h14" />
                   </svg>
-                  Import
+                  {t("project.import")}
                 </button>
                 <button
                   onClick={() => {
@@ -134,7 +136,7 @@ export function ProjectMenu() {
                   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
                     <path d="M12 5v14M5 12h14" />
                   </svg>
-                  New
+                  {t("project.new")}
                 </button>
               </div>
             </div>
@@ -149,7 +151,7 @@ export function ProjectMenu() {
             <div className="max-h-[240px] overflow-y-auto py-1">
               {projects.length === 0 ? (
                 <div className="px-2 py-3 text-center text-[12px] text-faint">
-                  No projects yet.
+                  {t("project.empty")}
                 </div>
               ) : (
                 projects.map((p) => (
@@ -188,22 +190,22 @@ export function ProjectMenu() {
                       onClick={commitRename}
                       className="rounded-md bg-accent px-2 py-1 text-[12px] text-white"
                     >
-                      Save
+                      {t("project.save")}
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 px-1">
-                    <MenuAction label="Rename" onClick={startRename}>
+                    <MenuAction label={t("project.rename")} onClick={startRename}>
                       <path d="M4 20h4L18.5 9.5a2.12 2.12 0 0 0-3-3L5 17v3z" />
                     </MenuAction>
-                    <MenuAction label="Duplicate" onClick={() => void duplicateProject(activeId)}>
+                    <MenuAction label={t("project.duplicate")} onClick={() => void duplicateProject(activeId)}>
                       <rect x="9" y="9" width="11" height="11" rx="2" />
                       <path d="M5 15V5a2 2 0 0 1 2-2h10" />
                     </MenuAction>
-                    <MenuAction label="Export" onClick={() => void onExport()}>
+                    <MenuAction label={t("project.export")} onClick={() => void onExport()}>
                       <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
                     </MenuAction>
-                    <MenuAction label="Delete" danger onClick={onDelete}>
+                    <MenuAction label={t("project.delete")} danger onClick={onDelete}>
                       <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" />
                     </MenuAction>
                   </div>
@@ -213,7 +215,7 @@ export function ProjectMenu() {
 
             {!persistent && (
               <div className="mt-1 rounded-md bg-surface-2 px-2 py-1.5 text-[11px] leading-snug text-muted">
-                Saving is unavailable in this browser; projects live only until you close the tab.
+                {t("project.noSave")}
               </div>
             )}
 
