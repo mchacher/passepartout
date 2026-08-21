@@ -14,8 +14,25 @@ permissions:
   packages: write # push the image to GHCR
 
 jobs:
+  # A release note for the tagged version MUST exist in docs/release-notes.md, or nothing is
+  # published (spec 028). This gates the whole release, before any image is built.
+  verify-notes:
+    name: Verify release notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require a release note for this tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! grep -qE "^## v${VERSION}([[:space:]]|$)" docs/release-notes.md; then
+            echo "::error::No release note for v${VERSION} in docs/release-notes.md. Add a '## v${VERSION}' section before tagging."
+            exit 1
+          fi
+          echo "Found the release note for v${VERSION}."
+
   publish:
     name: Build and publish the Docker image
+    needs: verify-notes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
