@@ -1,9 +1,11 @@
-# Self-hosting Passepartout (spec 022, step A). `docker compose up -d --build` builds the
-# app and serves it on http://<host>:8080. Put your existing reverse proxy (Caddy/Traefik/
-# nginx, as for Sowel) in front to terminate TLS and forward to this container's port 80.
+# Self-hosting Passepartout. `docker compose up -d --build` builds the app + the API and
+# serves everything on http://<host>:8080. Put your reverse proxy (Caddy/Traefik/nginx, as
+# for Sowel) in front to terminate TLS and forward to port 80.
 #
-# Data is local-first: albums live in each browser's IndexedDB, not on the server, until
-# step B adds the backend below.
+# Server mode (spec 024): with the `api` service running, albums live on the server behind a
+# single password (set PASSEPARTOUT_PASSWORD + SESSION_SECRET). If you remove the `api`
+# service, the app falls back to local-first mode (data in each browser) - nginx's /api probe
+# just fails and the SPA uses IndexedDB.
 
 services:
   web:
@@ -15,19 +17,21 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+    depends_on:
+      - api
 
-  # Step B (server-backed data) - add the backend, then uncomment the /api proxy in
-  # docker/nginx.conf so the SPA talks to it over the same origin:
-  #
-  # api:
-  #   build:
-  #     context: .
-  #     dockerfile: server/Dockerfile
-  #   restart: unless-stopped
-  #   environment:
-  #     - NODE_ENV=production
-  #   volumes:
-  #     - passepartout-data:/data   # SQLite doc store + image blobs
+  api:
+    # For registry-based updates: image: ghcr.io/mchacher/passepartout-server:latest
+    build: ./server
+    image: passepartout-server:local
+    restart: unless-stopped
+    environment:
+      # CHANGE THESE. The password opens the album server; the secret signs the session
+      # cookie (set a stable one so sessions survive a restart).
+      - PASSEPARTOUT_PASSWORD=${PASSEPARTOUT_PASSWORD:-change-me}
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-too}
+    volumes:
+      - passepartout-data:/data # SQLite doc store + image blobs
 
-# volumes:
-#   passepartout-data:
+volumes:
+  passepartout-data:
