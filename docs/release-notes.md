@@ -3,6 +3,11 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.4.1 - 2026-08-21
+
+- Maintenance release, no functional change. Used to exercise the non-interruptible update flow
+  from v0.4.0 end to end.
+
 ## v0.4.0 - 2026-08-21
 
 - **Non-interruptible updates**: once a one-click update starts, a locked "Updating..." screen
