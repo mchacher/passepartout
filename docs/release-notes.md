@@ -3,6 +3,15 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.4.0 - 2026-08-21
+
+- **Non-interruptible updates**: once a one-click update starts, a locked "Updating..." screen
+  takes over and stays until the new version is live. It cannot be dismissed or re-triggered and
+  survives a page refresh, so the update can no longer be interrupted mid-swap. If it takes too
+  long, a safety timeout offers a manual reload.
+- Fix: a genuine update failure now shows the real reason reported by the server instead of a
+  generic message, and a stuck server-side update flag clears itself after a few minutes.
+
 ## v0.3.0 — 2026-08-21
 
 - **Library density**: pick 2, 3 or 4 columns for the photo thumbnails, so a large library is
