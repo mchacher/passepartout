@@ -69,4 +69,4 @@ Early prototype. The layout engine, per-page editing, titles and captions work. 
 
 ## License
 
-Private, personal project.
+[Apache License 2.0](LICENSE). Copyright 2026 Marc Chachereau.
