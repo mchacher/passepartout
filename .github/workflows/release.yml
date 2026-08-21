@@ -54,7 +54,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push (web)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -72,7 +72,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push (server)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./server
           push: true
