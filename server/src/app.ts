@@ -7,6 +7,8 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import { Store, isSafeId } from "./db";
 import { verifyPassword } from "./auth";
+import { readCurrentVersion, fetchLatest, isNewer } from "./version";
+import { isDockerAvailable, isUpdating, startUpdate, MANUAL_COMMAND } from "./updater";
 
 const SESSION_COOKIE = "pp_session";
 const SESSION_VALUE = "ok";
@@ -19,6 +21,8 @@ export interface AppConfig {
   passwordHash: string;
   sessionSecret: string;
   cookieSecure: boolean;
+  /** Optional GitHub token to read the latest release of a private repo (spec 025). */
+  githubToken?: string;
 }
 
 export function buildApp(cfg: AppConfig): FastifyInstance {
@@ -73,6 +77,34 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
   });
 
   app.get("/auth/me", async () => ({ ok: true }));
+
+  // --- Version / update (spec 025) ---
+
+  app.get("/version", async () => {
+    const current = readCurrentVersion();
+    const latest = await fetchLatest(cfg.githubToken);
+    return {
+      current,
+      latest,
+      updateAvailable: latest ? isNewer(current, latest) : false,
+      canApply: isDockerAvailable(),
+    };
+  });
+
+  // Opt-in one-click update: requires the Docker socket. Without it, 409 + the manual command.
+  app.post("/update", async (_req, reply) => {
+    if (!isDockerAvailable()) {
+      return reply.code(409).send({ error: "one-click update unavailable", manualCommand: MANUAL_COMMAND });
+    }
+    if (isUpdating()) {
+      return reply.code(409).send({ error: "update already in progress", manualCommand: MANUAL_COMMAND });
+    }
+    const res = await startUpdate();
+    if (!res.started) {
+      return reply.code(409).send({ error: res.error ?? "could not start update", manualCommand: MANUAL_COMMAND });
+    }
+    return reply.code(202).send({ started: true });
+  });
 
   // --- Projects (the doc is stored and returned opaque) ---
 

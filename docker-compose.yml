@@ -30,8 +30,17 @@ services:
       # cookie (set a stable one so sessions survive a restart).
       - PASSEPARTOUT_PASSWORD=${PASSEPARTOUT_PASSWORD:-change-me}
       - SESSION_SECRET=${SESSION_SECRET:-change-me-too}
+      # Optional: a GitHub token (read access) so the app can see the latest release of the
+      # private repo and show "update available" (spec 025). Detection is skipped without it.
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
     volumes:
       - passepartout-data:/data # SQLite doc store + image blobs
+      # OPT-IN one-click update (spec 025). Uncommenting this mounts the Docker socket, which
+      # gives this container effective control over the host Docker daemon: a successful RCE
+      # against the app would escalate to ROOT on the host. Leave it commented to update
+      # manually (`docker compose pull && docker compose up -d`) - the in-app "Update now"
+      # button is then disabled and the manual command shown instead.
+      # - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   passepartout-data:

@@ -23,6 +23,9 @@ beforeEach(() => {
     vi.fn((url: string, init?: RequestInit) => {
       calls.push({ url, method: init?.method ?? "GET", body: init?.body as string | undefined });
       if (url.endsWith("/api/health")) return Promise.resolve(ok({ status: "ok" }));
+      if (url.endsWith("/api/version")) {
+        return Promise.resolve(ok({ current: "0.1.0", latest: "0.2.0", updateAvailable: true, canApply: false }));
+      }
       if (url.endsWith("/api/projects") && (init?.method ?? "GET") === "GET") {
         return Promise.resolve(ok([{ id: "a", name: "A", createdAt: 1, updatedAt: 2 }]));
       }
@@ -72,5 +75,19 @@ describe("remote backend", () => {
     const login = calls.find((c) => c.url.endsWith("/api/auth/login"));
     expect(login?.method).toBe("POST");
     expect(JSON.parse(login!.body as string)).toEqual({ password: "secret" });
+  });
+
+  it("reads version info from /api/version", async () => {
+    const backend = await initBackend();
+    const v = await backend.version();
+    expect(v.updateAvailable).toBe(true);
+    expect(v.latest).toBe("0.2.0");
+  });
+
+  it("posts to /api/update on applyUpdate", async () => {
+    const backend = await initBackend();
+    const res = await backend.applyUpdate();
+    expect(res.started).toBe(true);
+    expect(calls.some((c) => c.url.endsWith("/api/update") && c.method === "POST")).toBe(true);
   });
 });

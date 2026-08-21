@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,6 +6,11 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app";
 import { Store } from "./db";
 import { hashPassword } from "./auth";
+import { clearVersionCache } from "./version";
+
+// No Docker socket in tests: force the "unavailable" path so /update 409s deterministically
+// (the host running these tests may actually have a socket).
+process.env.DOCKER_SOCKET_PATH = "/tmp/passepartout-no-such.sock";
 
 const PASSWORD = "correct horse battery";
 
@@ -105,4 +110,35 @@ describe("server", () => {
     expect([400, 404]).toContain(res.statusCode);
     await app.close();
   });
+
+  it("reports version info, gated (spec 025)", async () => {
+    clearVersionCache();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: "v99.0.0" }) })));
+    const app = makeApp();
+    expect((await app.inject({ method: "GET", url: "/version" })).statusCode).toBe(401);
+    const cookie = await login(app);
+    const res = await app.inject({ method: "GET", url: "/version", headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(typeof body.current).toBe("string");
+    expect(body.latest).toBe("99.0.0");
+    expect(body.updateAvailable).toBe(true); // 99.0.0 > our version
+    expect(typeof body.canApply).toBe("boolean");
+    await app.close();
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses one-click update without the Docker socket (409 + manual command)", async () => {
+    const app = makeApp();
+    // Gated without a session.
+    expect((await app.inject({ method: "POST", url: "/update" })).statusCode).toBe(401);
+    const cookie = await login(app);
+    // No /var/run/docker.sock in the test env -> 409 with the manual command.
+    const res = await app.inject({ method: "POST", url: "/update", headers: { cookie } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().manualCommand).toContain("docker compose pull");
+    await app.close();
+  });
 });
+
+afterEach(() => vi.unstubAllGlobals());
