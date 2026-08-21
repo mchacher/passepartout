@@ -22,6 +22,20 @@ The app is served at `http://<host>:8080`. Change the published port in
 
 Stop it with `docker compose down`.
 
+### Production (published images, recommended)
+
+To pull the published images from GHCR instead of building locally, use
+[`docker-compose.prod.yml`](../docker-compose.prod.yml). The repo and its images are public, so
+**no `docker login` and no token are needed**:
+
+```bash
+echo "SESSION_SECRET=$(openssl rand -hex 32)" > .env
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Update with `docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d`,
+or the in-app **Update now** button (server mode). This is the mode where one-click updates work.
+
 ## Behind a reverse proxy (TLS)
 
 The container speaks plain HTTP on port 80. Terminate TLS and attach your public hostname at

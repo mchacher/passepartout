@@ -1,0 +1,35 @@
+# Production self-hosting (image mode). Pulls the published images from GHCR - the repo and its
+# packages are public, so NO `docker login` and NO GITHUB_TOKEN are needed. Update with:
+#
+#   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
+#
+# (or the in-app "Update now" button, which does the same via the mounted Docker socket).
+#
+# Put your reverse proxy (Caddy/Traefik/nginx) in front to terminate TLS and forward to :8080.
+# First run: open the URL and create the first account (username + password).
+#
+# Set SESSION_SECRET in a .env file next to this one (a long random string). Pin a version
+# instead of :latest if you prefer reproducible deploys.
+
+services:
+  web:
+    image: ghcr.io/mchacher/passepartout:latest
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  api:
+    image: ghcr.io/mchacher/passepartout-server:latest
+    restart: unless-stopped
+    environment:
+      - SESSION_SECRET=${SESSION_SECRET:?set SESSION_SECRET in a .env file}
+    volumes:
+      - passepartout-data:/data
+      # One-click update (spec 025). The container gets effective control over the host Docker
+      # daemon (an RCE would escalate to root) - remove this line to update manually instead.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  passepartout-data:
