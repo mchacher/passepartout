@@ -58,6 +58,15 @@ export async function startUpdate(): Promise<{ started: boolean; error?: string 
       return { started: false, error: "not managed by docker compose" };
     }
 
+    // Pull the helper image first: createContainer does not auto-pull, so a missing image
+    // would otherwise fail the whole update.
+    await new Promise<void>((resolve, reject) => {
+      docker.pull(HELPER_IMAGE, (err: unknown, stream: NodeJS.ReadableStream | undefined) => {
+        if (err || !stream) return reject(err instanceof Error ? err : new Error("helper image pull failed"));
+        docker.modem.followProgress(stream, (e: unknown) => (e ? reject(e) : resolve()));
+      });
+    });
+
     // Clear any leftover helper, then run a fresh one bound to the socket + the compose dir.
     try {
       await docker.getContainer(HELPER_NAME).remove({ force: true });
