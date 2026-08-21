@@ -68,13 +68,13 @@ describe("remote backend", () => {
     expect(calls.length).toBe(before); // no fetch for URL resolution
   });
 
-  it("posts the password on login", async () => {
+  it("posts credentials on login (spec 026)", async () => {
     const backend = await initBackend();
-    const okLogin = await backend.login("secret");
-    expect(okLogin).toBe(true);
+    const res = await backend.login("alice", "secret");
+    expect(res.ok).toBe(true);
     const login = calls.find((c) => c.url.endsWith("/api/auth/login"));
     expect(login?.method).toBe("POST");
-    expect(JSON.parse(login!.body as string)).toEqual({ password: "secret" });
+    expect(JSON.parse(login!.body as string)).toEqual({ username: "alice", password: "secret" });
   });
 
   it("reads version info from /api/version", async () => {

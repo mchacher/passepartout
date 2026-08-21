@@ -12,9 +12,10 @@ import { PageRail } from "./components/PageRail";
 import { ZoomControl } from "./components/ZoomControl";
 import { MaskDefs } from "./components/MaskDefs";
 import { Login } from "./components/Login";
+import { Setup } from "./components/Setup";
 
 export function App() {
-  const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent, remote, authed, login } =
+  const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent, remote, authed, needsSetup } =
     useAlbum();
   const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -51,10 +52,13 @@ export function App() {
     );
   }
 
-  // Server mode (spec 024): gate the app behind the single-password login until the session
-  // is active. Local mode never sets `remote`, so this is skipped for the static build.
+  // Server mode (spec 024/026): route on the account state. First run with no users -> setup;
+  // otherwise sign in. Local mode never sets `remote`, so the static build skips all of it.
+  if (remote && needsSetup) {
+    return <Setup />;
+  }
   if (remote && !authed) {
-    return <Login onSubmit={login} />;
+    return <Login />;
   }
 
   return (

@@ -52,7 +52,7 @@ import {
   type ProjectMeta,
 } from "./lib/project";
 import * as db from "./persistence";
-import { initBackend, type PersistenceBackend, type VersionInfo } from "./persistence";
+import { initBackend, type PersistenceBackend, type VersionInfo, type User, type ActionResult } from "./persistence";
 import { buildBundle, parseBundle, BundleError } from "./lib/bundle";
 
 const DEFAULT_PER_PAGE = 3;
@@ -139,7 +139,10 @@ interface AlbumState {
   ready: boolean; // initial load finished
   persistent: boolean; // storage usable (IndexedDB present, or a server reachable)
   remote: boolean; // true when backed by the server API (spec 024)
-  authed: boolean; // remote mode: whether the single-password session is active
+  authed: boolean; // remote mode: whether a user session is active
+  needsSetup: boolean; // remote mode: no users yet -> show first-run setup (spec 026)
+  currentUser: User | null; // the logged-in user (remote mode)
+  users: User[]; // account list (remote mode; loaded on demand)
 
   // Update/version (spec 025): null until first checked (remote mode).
   versionInfo: VersionInfo | null;
@@ -147,8 +150,14 @@ interface AlbumState {
   applyUpdate: () => Promise<{ started: boolean; manualCommand?: string }>;
 
   initProjects: () => Promise<void>;
-  login: (password: string) => Promise<boolean>;
+  // Auth & users (spec 026).
+  setup: (username: string, password: string) => Promise<ActionResult>;
+  login: (username: string, password: string) => Promise<ActionResult>;
   logout: () => Promise<void>;
+  refreshUsers: () => Promise<void>;
+  addUser: (username: string, password: string) => Promise<ActionResult>;
+  deleteUser: (id: string) => Promise<ActionResult>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<ActionResult>;
   createProject: (name?: string) => Promise<void>;
   openProject: (id: string) => Promise<void>;
   renameProject: (id: string, name: string) => Promise<void>;
@@ -348,6 +357,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
     persistent: false,
     remote: false,
     authed: false,
+    needsSetup: false,
+    currentUser: null,
+    users: [],
     versionInfo: null,
 
     refreshVersion: async () => {
@@ -365,15 +377,16 @@ export const useAlbum = create<AlbumState>((set, get) => {
       backend = await initBackend();
       set({ persistent: backend.persistent, remote: backend.mode === "remote" });
 
-      // Remote mode: gate on the single-password session. When not authenticated, stop here
-      // and let the login screen drive; login() re-runs this to load the projects.
+      // Remote mode (spec 026): route on the account status. No users -> first-run setup;
+      // not logged in -> login. Either way stop here; setup()/login() re-run this to load.
       if (backend.mode === "remote") {
-        const authed = await backend.isAuthed();
-        set({ authed });
-        if (!authed) {
+        const status = await backend.authStatus();
+        set({ needsSetup: status.needsSetup, authed: status.authed });
+        if (status.needsSetup || !status.authed) {
           set({ ready: true });
           return;
         }
+        set({ currentUser: await backend.me() });
       } else if (!backend.persistent) {
         set({ ready: true });
         return;
@@ -395,13 +408,22 @@ export const useAlbum = create<AlbumState>((set, get) => {
       if (backend.mode === "remote") void get().refreshVersion(); // check for updates (spec 025)
     },
 
-    login: async (password) => {
-      const ok = await backend.login(password);
-      if (ok) {
-        set({ authed: true });
-        await get().initProjects(); // load the projects now that the session is active
+    setup: async (username, password) => {
+      const res = await backend.setup(username, password);
+      if (res.ok) {
+        set({ needsSetup: false, authed: true });
+        await get().initProjects();
       }
-      return ok;
+      return res;
+    },
+
+    login: async (username, password) => {
+      const res = await backend.login(username, password);
+      if (res.ok) {
+        set({ authed: true });
+        await get().initProjects(); // load projects now that the session is active
+      }
+      return res;
     },
 
     logout: async () => {
@@ -410,6 +432,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
       db.setLastActiveId(null);
       set({
         authed: false,
+        currentUser: null,
+        users: [],
         projects: [],
         activeId: null,
         activeName: DEFAULT_PROJECT_NAME,
@@ -426,6 +450,32 @@ export const useAlbum = create<AlbumState>((set, get) => {
         backCover: newCover(),
       });
     },
+
+    refreshUsers: async () => {
+      if (!backend) return;
+      set({ users: await backend.listUsers() });
+    },
+
+    addUser: async (username, password) => {
+      const res = await backend.createUser(username, password);
+      if (res.ok) await get().refreshUsers();
+      return res;
+    },
+
+    deleteUser: async (id) => {
+      const res = await backend.deleteUser(id);
+      if (res.ok) {
+        // Deleting your own account ends your session; reload to the login screen.
+        if (get().currentUser?.id === id) {
+          await get().logout();
+        } else {
+          await get().refreshUsers();
+        }
+      }
+      return res;
+    },
+
+    changePassword: async (currentPassword, newPassword) => backend.changePassword(currentPassword, newPassword),
 
     createProject: async (name) => {
       await flushPending(); // persist the outgoing project before switching away

@@ -1,24 +1,25 @@
-// The Passepartout API (spec 024). A small Fastify app: single-password auth via a signed
-// cookie, project documents (opaque JSON) and image blobs. Everything under the API requires
-// the session except `health` and the login/logout endpoints. Behind nginx the SPA reaches
-// these at /api/* (the proxy strips the prefix), so routes here are at the root.
+// The Passepartout API (spec 024, 026). A small Fastify app: user-account auth via a signed
+// session cookie, project documents (opaque JSON) and image blobs. Everything under the API
+// requires a logged-in user except health, auth/status and the setup/login/logout endpoints.
+// Behind nginx the SPA reaches these at /api/* (the proxy strips the prefix), so routes here
+// are at the root.
 
-import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import { randomUUID } from "node:crypto";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import { Store, isSafeId } from "./db";
-import { verifyPassword } from "./auth";
+import { hashPassword, verifyPassword } from "./auth";
 import { readCurrentVersion, fetchLatest, isNewer } from "./version";
 import { isDockerAvailable, isUpdating, startUpdate, MANUAL_COMMAND } from "./updater";
 
 const SESSION_COOKIE = "pp_session";
-const SESSION_VALUE = "ok";
 // 64 MB body cap: large enough for a full-resolution photo, bounded so a client cannot
 // exhaust memory.
 const BODY_LIMIT = 64 * 1024 * 1024;
+const MIN_PASSWORD = 8;
 
 export interface AppConfig {
   store: Store;
-  passwordHash: string;
   sessionSecret: string;
   cookieSecure: boolean;
   /** Optional GitHub token to read the latest release of a private repo (spec 025). */
@@ -34,33 +35,17 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
   app.addContentTypeParser(/^image\//, { parseAs: "buffer" }, asBuffer);
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer" }, asBuffer);
 
-  const isAuthed = (req: FastifyRequest): boolean => {
+  // The logged-in user id from the signed cookie, or null. The session is valid only while the
+  // user still exists (so a deleted account's session stops working).
+  const currentUserId = (req: FastifyRequest): string | null => {
     const raw = req.cookies?.[SESSION_COOKIE];
-    if (!raw) return false;
+    if (!raw) return null;
     const un = req.unsignCookie(raw);
-    return un.valid && un.value === SESSION_VALUE;
+    if (!un.valid || !un.value) return null;
+    return cfg.store.getUser(un.value) ? un.value : null;
   };
-
-  // Gate the whole API except health and the login/logout endpoints. `auth/me` is gated on
-  // purpose: it returns 401 when not authenticated, which is exactly the check the app needs.
-  app.addHook("onRequest", async (req, reply) => {
-    const open =
-      (req.method === "GET" && req.url === "/health") ||
-      (req.method === "POST" && (req.url === "/auth/login" || req.url === "/auth/logout"));
-    if (open) return;
-    if (!isAuthed(req)) {
-      reply.code(401).send({ error: "unauthorized" });
-    }
-  });
-
-  app.get("/health", async () => ({ status: "ok" }));
-
-  app.post("/auth/login", async (req, reply) => {
-    const body = (req.body ?? {}) as { password?: string };
-    if (!body.password || !verifyPassword(body.password, cfg.passwordHash)) {
-      return reply.code(401).send({ error: "invalid password" });
-    }
-    reply.setCookie(SESSION_COOKIE, SESSION_VALUE, {
+  const setSession = (reply: FastifyReply, userId: string) =>
+    reply.setCookie(SESSION_COOKIE, userId, {
       signed: true,
       httpOnly: true,
       sameSite: "lax",
@@ -68,7 +53,49 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
       path: "/",
       maxAge: 60 * 60 * 24 * 30, // 30 days
     });
-    return { ok: true };
+  const badUsername = (u?: string) => !u || u.trim().length === 0;
+  const badPassword = (p?: string) => !p || p.length < MIN_PASSWORD;
+
+  // Gate the whole API except health, auth/status and the setup/login/logout endpoints.
+  app.addHook("onRequest", async (req, reply) => {
+    const open =
+      (req.method === "GET" && (req.url === "/health" || req.url === "/auth/status")) ||
+      (req.method === "POST" && (req.url === "/auth/setup" || req.url === "/auth/login" || req.url === "/auth/logout"));
+    if (open) return;
+    if (!currentUserId(req)) {
+      reply.code(401).send({ error: "unauthorized" });
+    }
+  });
+
+  app.get("/health", async () => ({ status: "ok" }));
+
+  // --- Auth & first-run setup (spec 026) ---
+
+  app.get("/auth/status", async (req) => ({
+    needsSetup: cfg.store.countUsers() === 0,
+    authed: currentUserId(req) !== null,
+  }));
+
+  app.post("/auth/setup", async (req, reply) => {
+    if (cfg.store.countUsers() > 0) return reply.code(409).send({ error: "setup already completed" });
+    const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
+    if (badUsername(username)) return reply.code(400).send({ error: "username is required" });
+    if (badPassword(password)) return reply.code(400).send({ error: `password must be at least ${MIN_PASSWORD} characters` });
+    const id = randomUUID();
+    cfg.store.createUser(id, username!.trim(), hashPassword(password!), Date.now());
+    setSession(reply, id);
+    return reply.code(201).send({ id, username: username!.trim() });
+  });
+
+  app.post("/auth/login", async (req, reply) => {
+    const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
+    if (!username || !password) return reply.code(401).send({ error: "invalid credentials" });
+    const user = cfg.store.findUserByName(username.trim());
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      return reply.code(401).send({ error: "invalid credentials" });
+    }
+    setSession(reply, user.id);
+    return { id: user.id, username: user.username };
   });
 
   app.post("/auth/logout", async (_req, reply) => {
@@ -76,7 +103,48 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
     return { ok: true };
   });
 
-  app.get("/auth/me", async () => ({ ok: true }));
+  app.get("/auth/me", async (req, reply) => {
+    const id = currentUserId(req);
+    const user = id ? cfg.store.getUser(id) : undefined;
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    return user;
+  });
+
+  // --- Users (spec 026): any logged-in user manages accounts (no roles) ---
+
+  app.get("/users", async () => cfg.store.listUsers());
+
+  app.post("/users", async (req, reply) => {
+    const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
+    if (badUsername(username)) return reply.code(400).send({ error: "username is required" });
+    if (badPassword(password)) return reply.code(400).send({ error: `password must be at least ${MIN_PASSWORD} characters` });
+    try {
+      const id = randomUUID();
+      cfg.store.createUser(id, username!.trim(), hashPassword(password!), Date.now());
+      return reply.code(201).send({ id, username: username!.trim() });
+    } catch {
+      return reply.code(409).send({ error: "username already taken" });
+    }
+  });
+
+  app.delete("/users/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (cfg.store.countUsers() <= 1) return reply.code(409).send({ error: "cannot delete the last user" });
+    cfg.store.deleteUser(id);
+    return { ok: true };
+  });
+
+  app.post("/account/password", async (req, reply) => {
+    const id = currentUserId(req)!; // gated: always present
+    const { currentPassword, newPassword } = (req.body ?? {}) as { currentPassword?: string; newPassword?: string };
+    const hash = cfg.store.getUserHash(id);
+    if (!hash || !currentPassword || !verifyPassword(currentPassword, hash)) {
+      return reply.code(401).send({ error: "current password is incorrect" });
+    }
+    if (badPassword(newPassword)) return reply.code(400).send({ error: `password must be at least ${MIN_PASSWORD} characters` });
+    cfg.store.updateUserPassword(id, hashPassword(newPassword!));
+    return { ok: true };
+  });
 
   // --- Version / update (spec 025) ---
 
