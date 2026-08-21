@@ -146,7 +146,8 @@ interface AlbumState {
 
   // Update/version (spec 025): null until first checked (remote mode).
   versionInfo: VersionInfo | null;
-  refreshVersion: () => Promise<void>;
+  versionChecking: boolean; // a manual "check for updates" is in flight (spec 027)
+  refreshVersion: (force?: boolean) => Promise<void>;
   applyUpdate: () => Promise<{ started: boolean; manualCommand?: string }>;
 
   initProjects: () => Promise<void>;
@@ -361,13 +362,17 @@ export const useAlbum = create<AlbumState>((set, get) => {
     currentUser: null,
     users: [],
     versionInfo: null,
+    versionChecking: false,
 
-    refreshVersion: async () => {
+    refreshVersion: async (force) => {
       if (!backend) return;
+      if (force) set({ versionChecking: true });
       try {
-        set({ versionInfo: await backend.version() });
+        set({ versionInfo: await backend.version(force) });
       } catch {
         /* leave the previous value */
+      } finally {
+        if (force) set({ versionChecking: false });
       }
     },
 

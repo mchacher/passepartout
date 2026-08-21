@@ -48,4 +48,13 @@ describe("fetchLatest", () => {
     await fetchLatest("t");
     expect(f).toHaveBeenCalledTimes(1);
   });
+
+  it("force bypasses the cache (spec 027)", async () => {
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: "1.0.0" }) }));
+    vi.stubGlobal("fetch", f);
+    await fetchLatest("t"); // caches
+    await fetchLatest("t"); // cached -> still 1
+    await fetchLatest("t", { force: true }); // re-fetch
+    expect(f).toHaveBeenCalledTimes(2);
+  });
 });

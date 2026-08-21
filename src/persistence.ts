@@ -199,8 +199,8 @@ export interface PersistenceBackend {
   createUser(username: string, password: string): Promise<ActionResult>;
   deleteUser(id: string): Promise<ActionResult>;
   changePassword(currentPassword: string, newPassword: string): Promise<ActionResult>;
-  /** Version/update info (spec 025); trivial in local mode. */
-  version(): Promise<VersionInfo>;
+  /** Version/update info (spec 025); `force` skips the server cache for a manual check (027). */
+  version(force?: boolean): Promise<VersionInfo>;
   /** Trigger a one-click update (remote + Docker socket); no-op in local mode. */
   applyUpdate(): Promise<{ started: boolean; manualCommand?: string }>;
 }
@@ -379,9 +379,9 @@ const remoteBackend: PersistenceBackend = {
   async changePassword(currentPassword, newPassword) {
     return postResult("/account/password", { currentPassword, newPassword });
   },
-  async version() {
+  async version(force) {
     try {
-      const r = await api("/version");
+      const r = await api(force ? "/version?refresh=1" : "/version");
       if (r.ok) return (await r.json()) as VersionInfo;
     } catch {
       /* fall through */

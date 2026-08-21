@@ -84,6 +84,12 @@ describe("remote backend", () => {
     expect(v.latest).toBe("0.2.0");
   });
 
+  it("forces a fresh check with ?refresh=1 (spec 027)", async () => {
+    const backend = await initBackend();
+    await backend.version(true);
+    expect(calls.some((c) => c.url.endsWith("/api/version?refresh=1"))).toBe(true);
+  });
+
   it("posts to /api/update on applyUpdate", async () => {
     const backend = await initBackend();
     const res = await backend.applyUpdate();

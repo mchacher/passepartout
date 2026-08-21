@@ -148,9 +148,10 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
 
   // --- Version / update (spec 025) ---
 
-  app.get("/version", async () => {
+  app.get("/version", async (req) => {
+    const force = (req.query as { refresh?: string })?.refresh === "1";
     const current = readCurrentVersion();
-    const latest = await fetchLatest(cfg.githubToken);
+    const latest = await fetchLatest(cfg.githubToken, { force });
     return {
       current,
       latest,
