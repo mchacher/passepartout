@@ -36,13 +36,41 @@ passepartout.example.com {
 
 ## Updating
 
+Two ways, depending on whether you build on the server or pull a published image.
+
+**Build on the server** (the default `docker-compose.yml`):
+
 ```bash
 git pull
 docker compose up -d --build
 ```
 
-The build output is content-hashed and `index.html` is served with `Cache-Control: no-store`,
-so browsers pick up the new version on the next refresh (no stale bundle).
+**Pull a published image** (Sowel-style, recommended once releases exist - spec 023): each
+release publishes `ghcr.io/mchacher/passepartout:<version>` and `:latest`. In
+`docker-compose.yml`, comment out `build:` on the `web` service and set
+`image: ghcr.io/mchacher/passepartout:latest` (or pin a version). Then:
+
+```bash
+docker login ghcr.io            # once: the repo is private, use a read:packages token
+docker compose pull
+docker compose up -d
+```
+
+Either way, the build output is content-hashed and `index.html` is served with
+`Cache-Control: no-store`, so browsers pick up the new version on the next refresh (no stale
+bundle). The app's version is shown in the project menu.
+
+## Cutting a release
+
+From a clean working tree on `master`:
+
+```bash
+scripts/release.sh 0.2.0
+```
+
+It bumps `package.json`, commits `release: v0.2.0`, tags `v0.2.0` and pushes. The tag triggers
+`.github/workflows/release.yml`, which builds and pushes the image to GHCR and creates a GitHub
+Release. Servers then update with `docker compose pull && up -d` (above).
 
 ## Data lives in the browser
 

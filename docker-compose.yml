@@ -7,6 +7,9 @@
 
 services:
   web:
+    # Local build (default). For registry-based updates (spec 023), comment out `build` and
+    # use the published image instead, then update with `docker compose pull && up -d`:
+    #   image: ghcr.io/mchacher/passepartout:latest   # or pin a version, e.g. :0.1.0
     build: .
     image: passepartout:local
     ports:
