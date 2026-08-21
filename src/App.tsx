@@ -13,10 +13,12 @@ import { ZoomControl } from "./components/ZoomControl";
 import { MaskDefs } from "./components/MaskDefs";
 import { Login } from "./components/Login";
 import { Setup } from "./components/Setup";
+import { UpdatingOverlay } from "./components/UpdatingOverlay";
 
 export function App() {
   const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent, remote, authed, needsSetup } =
     useAlbum();
+  const updating = useAlbum((s) => s.updating);
   const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
@@ -43,6 +45,13 @@ export function App() {
   useEffect(() => {
     void initProjects();
   }, [initProjects]);
+
+  // A running update takes over the whole screen and cannot be dismissed or re-triggered
+  // (spec 031). It outranks every other screen, including loading and the auth flow, so a
+  // refresh mid-update stays locked instead of dropping back to login.
+  if (updating) {
+    return <UpdatingOverlay />;
+  }
 
   if (!ready) {
     return (

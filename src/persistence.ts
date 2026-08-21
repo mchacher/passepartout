@@ -201,8 +201,11 @@ export interface PersistenceBackend {
   changePassword(currentPassword: string, newPassword: string): Promise<ActionResult>;
   /** Version/update info (spec 025); `force` skips the server cache for a manual check (027). */
   version(force?: boolean): Promise<VersionInfo>;
-  /** Trigger a one-click update (remote + Docker socket); no-op in local mode. */
-  applyUpdate(): Promise<{ started: boolean; manualCommand?: string }>;
+  /**
+   * Trigger a one-click update (remote + Docker socket); no-op in local mode.
+   * `inProgress` means an update is already running: the caller should lock the UI, not error.
+   */
+  applyUpdate(): Promise<{ started: boolean; inProgress?: boolean; error?: string; manualCommand?: string }>;
 }
 
 function makeLocalBackend(persistent: boolean): PersistenceBackend {
@@ -264,6 +267,22 @@ function makeLocalBackend(persistent: boolean): PersistenceBackend {
 const API_BASE = "/api";
 const api = (path: string, init?: RequestInit): Promise<Response> =>
   fetch(`${API_BASE}${path}`, { credentials: "same-origin", ...init });
+
+/**
+ * Fetch the server version directly, independent of the active backend (spec 031). The update
+ * lock's poll uses this: during a one-click update the containers are recreated, so `initBackend`
+ * may have briefly fallen back to local mode - the poll must still reach the server to learn when
+ * the new version is live. Returns null while the server is unreachable (expected mid-recreate).
+ */
+export async function pingServerVersion(): Promise<VersionInfo | null> {
+  try {
+    const r = await api("/version");
+    if (r.ok) return (await r.json()) as VersionInfo;
+  } catch {
+    /* server is down during recreation - keep waiting */
+  }
+  return null;
+}
 
 // POST a JSON body and map the response to an ActionResult, surfacing the server's error text.
 async function postResult(path: string, body: unknown): Promise<ActionResult> {
@@ -392,8 +411,8 @@ const remoteBackend: PersistenceBackend = {
     try {
       const r = await api("/update", { method: "POST" });
       if (r.ok) return { started: true };
-      const body = (await r.json().catch(() => ({}))) as { manualCommand?: string };
-      return { started: false, manualCommand: body.manualCommand };
+      const body = (await r.json().catch(() => ({}))) as { inProgress?: boolean; error?: string; manualCommand?: string };
+      return { started: false, inProgress: body.inProgress, error: body.error, manualCommand: body.manualCommand };
     } catch {
       return { started: false };
     }

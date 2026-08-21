@@ -12,41 +12,21 @@ const MANUAL_COMMAND = "docker compose pull && docker compose up -d";
 // (when the server has the Docker socket) or the manual command. After "Update now" it polls
 // the server's version and reloads once the new one is live.
 export function UpdatesSheet({ open, onClose }: UpdatesSheetProps) {
-  const { versionInfo, applyUpdate, refreshVersion } = useAlbum();
-  const [phase, setPhase] = useState<"idle" | "updating" | "error">("idle");
+  const { versionInfo, beginUpdate } = useAlbum();
+  const [phase, setPhase] = useState<"idle" | "error">("idle");
   const [message, setMessage] = useState("");
 
   if (!open || !versionInfo) return null;
   const { current, latest, canApply } = versionInfo;
 
+  // Hand off to the store: on success the non-interruptible overlay (spec 031) takes over the
+  // whole screen, so there is nothing more to render here. On a real failure show the server's
+  // own message plus the manual command as a fallback.
   const startUpdate = async () => {
-    setPhase("updating");
-    setMessage("Pulling the new version and restarting the server. The page reloads when it is back...");
-    const res = await applyUpdate();
-    if (!res.started) {
-      setPhase("error");
-      setMessage("Could not start the update on the server.");
-      return;
-    }
-    // Poll the server version; the containers are recreated, so failures are expected during
-    // the swap. Reload once it reports the target version.
-    let tries = 0;
-    const tick = async () => {
-      tries += 1;
-      await refreshVersion();
-      const now = useAlbum.getState().versionInfo?.current;
-      if (latest && now === latest) {
-        location.reload();
-        return;
-      }
-      if (tries > 60) {
-        setPhase("error");
-        setMessage("The update is taking longer than expected. Check the server logs, or reload the page.");
-        return;
-      }
-      setTimeout(() => void tick(), 3000);
-    };
-    setTimeout(() => void tick(), 4000);
+    const res = await beginUpdate();
+    if (res.locked) return;
+    setPhase("error");
+    setMessage(res.error ? `Could not start the update: ${res.error}.` : "Could not start the update on the server.");
   };
 
   const closeBtn = (label: string) => (
@@ -57,7 +37,7 @@ export function UpdatesSheet({ open, onClose }: UpdatesSheetProps) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4">
-      <button aria-label="Close" className="absolute inset-0 cursor-default" onClick={phase === "updating" ? undefined : onClose} />
+      <button aria-label="Close" className="absolute inset-0 cursor-default" onClick={onClose} />
       <div className="relative w-[360px] rounded-xl border border-line bg-surface p-5 shadow-soft">
         <div className="font-display text-[15px] text-ink">Update available</div>
         <div className="mt-3 flex items-center gap-2 text-[13px]">
@@ -91,8 +71,6 @@ export function UpdatesSheet({ open, onClose }: UpdatesSheetProps) {
               <div className="mt-4 flex justify-end">{closeBtn("Close")}</div>
             </>
           ))}
-
-        {phase === "updating" && <p className="mt-3 text-[12.5px] leading-snug text-muted">{message}</p>}
 
         {phase === "error" && (
           <>
