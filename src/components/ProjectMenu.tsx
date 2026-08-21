@@ -215,6 +215,11 @@ export function ProjectMenu() {
                 Saving is unavailable in this browser; projects live only until you close the tab.
               </div>
             )}
+
+            {/* App version (spec 023): shows which build is running. */}
+            <div className="mt-1 px-2 pb-0.5 pt-1 text-right text-[10.5px] text-faint">
+              v{__APP_VERSION__}
+            </div>
           </div>
         </>
       )}
