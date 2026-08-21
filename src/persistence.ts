@@ -400,13 +400,21 @@ const remoteBackend: PersistenceBackend = {
   },
 };
 
-/** Pick the backend: the server when its /api/health responds, else IndexedDB (local-first). */
+/**
+ * Pick the backend: the server when its /api/health returns the expected JSON, else IndexedDB
+ * (local-first). The body check matters: a static host (nginx SPA fallback, `vite preview`)
+ * answers /api/health with index.html and a 200, so requiring `status: "ok"` avoids a false
+ * "remote" in dev / static-only deployments.
+ */
 export async function initBackend(): Promise<PersistenceBackend> {
   try {
     const r = await fetch(`${API_BASE}/health`, { method: "GET" });
-    if (r.ok) return remoteBackend;
+    if (r.ok) {
+      const body = (await r.json()) as { status?: string };
+      if (body?.status === "ok") return remoteBackend;
+    }
   } catch {
-    /* no server reachable: fall back to local */
+    /* no server (or a non-JSON SPA fallback): fall back to local */
   }
   return makeLocalBackend(await isAvailable());
 }

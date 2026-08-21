@@ -1,7 +1,22 @@
 import { useMemo, useState } from "react";
 import { useAlbum } from "../store";
+import { useView, LIBRARY_COLS } from "../viewStore";
 import { countUsage, usageCount } from "../lib/usage";
 import { PHOTO_DND_TYPE } from "./dnd";
+
+// A small glyph of `cols` bars, to convey thumbnail density (spec 030).
+function DensityIcon({ cols }: { cols: number }) {
+  const gap = 2;
+  const pad = 2;
+  const colW = (16 - pad * 2 - gap * (cols - 1)) / cols;
+  return (
+    <svg width={14} height={14} viewBox="0 0 16 16" aria-hidden="true">
+      {Array.from({ length: cols }, (_, i) => (
+        <rect key={i} x={pad + i * (colW + gap)} y={pad} width={colW} height={12} rx={1} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
 
 // The tray of imported photos, a permanent catalog (spec 017). A photo can be reused on
 // several pages: each thumbnail is dimmed when used and badged with how many times it is
@@ -10,6 +25,8 @@ import { PHOTO_DND_TYPE } from "./dnd";
 export function Library() {
   const { photos, pages, frontCover, insideFrontCover, insideBackCover, backCover, unplaceFromAllPages } = useAlbum();
   const [unusedOnly, setUnusedOnly] = useState(false);
+  const libraryCols = useView((s) => s.libraryCols);
+  const setLibraryCols = useView((s) => s.setLibraryCols);
 
   const usage = useMemo(
     () => countUsage(pages, [frontCover.photoId, insideFrontCover.photoId, insideBackCover.photoId, backCover.photoId]),
@@ -31,7 +48,7 @@ export function Library() {
           Chronological order (capture date). Drag a photo onto a page.
         </p>
       </div>
-      <div className="px-3.5 pb-2.5">
+      <div className="flex items-center justify-between gap-2 px-3.5 pb-2.5">
         <button
           onClick={() => setUnusedOnly((v) => !v)}
           aria-pressed={unusedOnly}
@@ -47,10 +64,30 @@ export function Library() {
           </svg>
           Unused only
         </button>
+
+        {/* Thumbnail density (spec 030): more columns = smaller thumbs to scan a big library. */}
+        <div className="flex items-center gap-0.5" role="group" aria-label="Thumbnail size">
+          {LIBRARY_COLS.map((n) => (
+            <button
+              key={n}
+              onClick={() => setLibraryCols(n)}
+              aria-pressed={libraryCols === n}
+              title={`${n} columns`}
+              className={`flex h-[26px] w-[26px] items-center justify-center rounded-md border transition-colors ${
+                libraryCols === n
+                  ? "border-accent bg-accent-soft text-accent"
+                  : "border-line bg-surface-2 text-muted hover:border-faint hover:text-ink"
+              }`}
+            >
+              <DensityIcon cols={n} />
+            </button>
+          ))}
+        </div>
       </div>
 
       <div
-        className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2.5 overflow-y-auto px-3.5 pb-4"
+        className="grid min-h-0 flex-1 content-start gap-2.5 overflow-y-auto px-3.5 pb-4"
+        style={{ gridTemplateColumns: `repeat(${libraryCols}, minmax(0, 1fr))` }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           const id = e.dataTransfer.getData(PHOTO_DND_TYPE);
@@ -58,11 +95,11 @@ export function Library() {
         }}
       >
         {photos.length === 0 ? (
-          <div className="col-span-2 px-2 py-8 text-center text-xs leading-relaxed text-faint">
+          <div className="col-span-full px-2 py-8 text-center text-xs leading-relaxed text-faint">
             No photos imported.
           </div>
         ) : shown.length === 0 ? (
-          <div className="col-span-2 px-2 py-8 text-center text-xs leading-relaxed text-faint">
+          <div className="col-span-full px-2 py-8 text-center text-xs leading-relaxed text-faint">
             Every photo is used. Uncheck the filter to see them all.
           </div>
         ) : (

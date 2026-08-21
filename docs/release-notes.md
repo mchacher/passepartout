@@ -3,6 +3,14 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.3.0 — 2026-08-21
+
+- **Library density**: pick 2, 3 or 4 columns for the photo thumbnails, so a large library is
+  easy to scan (more, smaller thumbnails) or to inspect (fewer, larger). The choice is
+  remembered. Works whatever the capture dates.
+- Fix: the app no longer mistakes a static host for a server (the `/api/health` probe now
+  checks the response body), so `npm run dev` / a static-only deploy stays in local mode.
+
 ## v0.2.0 — 2026-08-21
 
 First self-hostable release.
