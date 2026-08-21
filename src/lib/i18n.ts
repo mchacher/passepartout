@@ -371,9 +371,13 @@ const en: Record<string, string> = {
   "size.blurb-landscape-10x8": "Landscape 10x8",
   "size.blurb-landscape-13x11": "Large Landscape 13x11",
 
-  // Catalog: masks
+  // Catalog: masks (circle + rounded sizes land with the mask-shapes PR; kept here so the two
+  // PRs merge in any order without the catalog-drift test failing)
+  "mask.circle": "Circle",
   "mask.oval": "Oval",
+  "mask.rounded-sm": "Rounded (subtle)",
   "mask.rounded": "Rounded",
+  "mask.rounded-lg": "Rounded (strong)",
   "mask.arch": "Arch",
 
   // Catalog: frames + border widths + frame colors
@@ -718,9 +722,13 @@ const fr: Record<string, string> = {
   "size.blurb-landscape-10x8": "Paysage 10x8",
   "size.blurb-landscape-13x11": "Grand paysage 13x11",
 
-  // Catalog: masks
+  // Catalog: masks (circle + rounded sizes land with the mask-shapes PR; kept here so the two
+  // PRs merge in any order without the catalog-drift test failing)
+  "mask.circle": "Cercle",
   "mask.oval": "Ovale",
+  "mask.rounded-sm": "Arrondi (léger)",
   "mask.rounded": "Arrondi",
+  "mask.rounded-lg": "Arrondi (fort)",
   "mask.arch": "Arche",
 
   // Catalog: frames + border widths + frame colors
