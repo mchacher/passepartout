@@ -46,7 +46,7 @@ jobs:
 
       - name: Derive image tags and labels
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -64,7 +64,7 @@ jobs:
 
       - name: Derive server image tags and labels
         id: meta-server
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}-server
           tags: |
