@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { UsersPanel } from "./UsersPanel";
 
 // Trigger a browser download of some bytes as a named file.
 function downloadFile(bytes: Uint8Array, name: string): void {
@@ -31,12 +32,14 @@ export function ProjectMenu() {
     importBundle,
     remote,
     logout,
+    currentUser,
   } = useAlbum();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [usersOpen, setUsersOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const close = () => {
@@ -218,9 +221,26 @@ export function ProjectMenu() {
               </div>
             )}
 
-            {/* Server mode (spec 024): sign out of the single-password session. */}
+            {/* Server mode (spec 026): the current user, account management, and sign out. */}
             {remote && (
               <div className="mt-1 border-t border-line pt-1">
+                {currentUser && (
+                  <div className="px-2 py-1 text-[11px] text-faint">
+                    Signed in as <span className="text-muted">{currentUser.username}</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    close();
+                    setUsersOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] text-muted hover:bg-surface-2 hover:text-ink"
+                >
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                  Users
+                </button>
                 <button
                   onClick={() => {
                     close();
@@ -243,6 +263,8 @@ export function ProjectMenu() {
           </div>
         </>
       )}
+
+      <UsersPanel open={usersOpen} onClose={() => setUsersOpen(false)} />
     </div>
   );
 }

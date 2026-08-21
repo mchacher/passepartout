@@ -161,6 +161,21 @@ export interface VersionInfo {
   canApply: boolean; // one-click possible (server has the Docker socket mounted)
 }
 
+/** Auth routing (spec 026): first-run setup vs login vs in. */
+export interface AuthStatus {
+  needsSetup: boolean;
+  authed: boolean;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  createdAt?: number;
+}
+
+/** The result of an auth/user action, with a server message on failure. */
+export type ActionResult = { ok: true } | { ok: false; error?: string };
+
 export interface PersistenceBackend {
   mode: "local" | "remote";
   /** Whether projects can be saved at all (IndexedDB present, or a server is reachable). */
@@ -174,9 +189,16 @@ export interface PersistenceBackend {
   copyImage(fromId: string, toId: string): Promise<void>;
   /** Display URLs for photo ids: object URLs (local) or /api/images URLs (remote). */
   imageUrls(ids: string[]): Promise<Map<string, string>>;
-  isAuthed(): Promise<boolean>;
-  login(password: string): Promise<boolean>;
+  // Auth & users (spec 026); trivial/no-op in local mode.
+  authStatus(): Promise<AuthStatus>;
+  me(): Promise<User | null>;
+  setup(username: string, password: string): Promise<ActionResult>;
+  login(username: string, password: string): Promise<ActionResult>;
   logout(): Promise<void>;
+  listUsers(): Promise<User[]>;
+  createUser(username: string, password: string): Promise<ActionResult>;
+  deleteUser(id: string): Promise<ActionResult>;
+  changePassword(currentPassword: string, newPassword: string): Promise<ActionResult>;
   /** Version/update info (spec 025); trivial in local mode. */
   version(): Promise<VersionInfo>;
   /** Trigger a one-click update (remote + Docker socket); no-op in local mode. */
@@ -202,14 +224,33 @@ function makeLocalBackend(persistent: boolean): PersistenceBackend {
       }
       return urls;
     },
-    async isAuthed() {
-      return true;
+    // Local mode has no accounts: always "in", user actions are inert.
+    async authStatus() {
+      return { needsSetup: false, authed: true };
+    },
+    async me() {
+      return null;
+    },
+    async setup() {
+      return { ok: true };
     },
     async login() {
-      return true;
+      return { ok: true };
     },
     async logout() {
       /* no auth in local mode */
+    },
+    async listUsers() {
+      return [];
+    },
+    async createUser() {
+      return { ok: false };
+    },
+    async deleteUser() {
+      return { ok: false };
+    },
+    async changePassword() {
+      return { ok: false };
     },
     async version() {
       return { current: __APP_VERSION__, latest: null, updateAvailable: false, canApply: false };
@@ -223,6 +264,18 @@ function makeLocalBackend(persistent: boolean): PersistenceBackend {
 const API_BASE = "/api";
 const api = (path: string, init?: RequestInit): Promise<Response> =>
   fetch(`${API_BASE}${path}`, { credentials: "same-origin", ...init });
+
+// POST a JSON body and map the response to an ActionResult, surfacing the server's error text.
+async function postResult(path: string, body: unknown): Promise<ActionResult> {
+  try {
+    const r = await api(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    if (r.ok) return { ok: true };
+    const b = (await r.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: b.error };
+  } catch {
+    return { ok: false, error: "network error" };
+  }
+}
 
 const remoteBackend: PersistenceBackend = {
   mode: "remote",
@@ -272,24 +325,28 @@ const remoteBackend: PersistenceBackend = {
     for (const id of ids) urls.set(id, `${API_BASE}/images/${id}`);
     return urls;
   },
-  async isAuthed() {
+  async authStatus() {
     try {
-      return (await api("/auth/me")).ok;
+      const r = await api("/auth/status");
+      if (r.ok) return (await r.json()) as AuthStatus;
     } catch {
-      return false;
+      /* fall through */
+    }
+    return { needsSetup: false, authed: false };
+  },
+  async me() {
+    try {
+      const r = await api("/auth/me");
+      return r.ok ? ((await r.json()) as User) : null;
+    } catch {
+      return null;
     }
   },
-  async login(password) {
-    try {
-      const r = await api("/auth/login", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      return r.ok;
-    } catch {
-      return false;
-    }
+  async setup(username, password) {
+    return postResult("/auth/setup", { username, password });
+  },
+  async login(username, password) {
+    return postResult("/auth/login", { username, password });
   },
   async logout() {
     try {
@@ -297,6 +354,30 @@ const remoteBackend: PersistenceBackend = {
     } catch {
       /* ignore */
     }
+  },
+  async listUsers() {
+    try {
+      const r = await api("/users");
+      return r.ok ? ((await r.json()) as User[]) : [];
+    } catch {
+      return [];
+    }
+  },
+  async createUser(username, password) {
+    return postResult("/users", { username, password });
+  },
+  async deleteUser(id) {
+    try {
+      const r = await api(`/users/${id}`, { method: "DELETE" });
+      if (r.ok) return { ok: true };
+      const b = (await r.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: b.error };
+    } catch {
+      return { ok: false, error: "network error" };
+    }
+  },
+  async changePassword(currentPassword, newPassword) {
+    return postResult("/account/password", { currentPassword, newPassword });
   },
   async version() {
     try {

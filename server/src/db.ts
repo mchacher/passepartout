@@ -13,6 +13,13 @@ export interface ProjectMeta {
   updatedAt: number;
 }
 
+/** A user account, public view (no hash). */
+export interface UserMeta {
+  id: string;
+  username: string;
+  createdAt: number;
+}
+
 /** A doc is stored opaque; only these top-level fields are read out for the columns. */
 interface DocHead {
   id: string;
@@ -47,6 +54,12 @@ export class Store {
        CREATE TABLE IF NOT EXISTS images (
          id TEXT PRIMARY KEY,
          mime TEXT NOT NULL DEFAULT 'application/octet-stream'
+       );
+       CREATE TABLE IF NOT EXISTS users (
+         id TEXT PRIMARY KEY,
+         username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+         passwordHash TEXT NOT NULL,
+         createdAt INTEGER NOT NULL
        );`,
     );
     this.blobDir = join(dataDir, "blobs");
@@ -120,5 +133,45 @@ export class Store {
       /* ignore */
     }
     this.db.prepare("DELETE FROM images WHERE id = ?").run(id);
+  }
+
+  // --- Users (spec 026) ---
+
+  countUsers(): number {
+    return (this.db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number }).n;
+  }
+
+  /** Insert a user. Throws on a duplicate username (UNIQUE COLLATE NOCASE). */
+  createUser(id: string, username: string, passwordHash: string, createdAt: number): void {
+    this.db
+      .prepare("INSERT INTO users (id, username, passwordHash, createdAt) VALUES (?, ?, ?, ?)")
+      .run(id, username, passwordHash, createdAt);
+  }
+
+  findUserByName(username: string): { id: string; username: string; passwordHash: string } | undefined {
+    return this.db
+      .prepare("SELECT id, username, passwordHash FROM users WHERE username = ? COLLATE NOCASE")
+      .get(username) as { id: string; username: string; passwordHash: string } | undefined;
+  }
+
+  getUser(id: string): UserMeta | undefined {
+    return this.db.prepare("SELECT id, username, createdAt FROM users WHERE id = ?").get(id) as UserMeta | undefined;
+  }
+
+  getUserHash(id: string): string | undefined {
+    const row = this.db.prepare("SELECT passwordHash FROM users WHERE id = ?").get(id) as { passwordHash: string } | undefined;
+    return row?.passwordHash;
+  }
+
+  listUsers(): UserMeta[] {
+    return this.db.prepare("SELECT id, username, createdAt FROM users ORDER BY createdAt ASC").all() as UserMeta[];
+  }
+
+  deleteUser(id: string): void {
+    this.db.prepare("DELETE FROM users WHERE id = ?").run(id);
+  }
+
+  updateUserPassword(id: string, passwordHash: string): void {
+    this.db.prepare("UPDATE users SET passwordHash = ? WHERE id = ?").run(passwordHash, id);
   }
 }

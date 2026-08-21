@@ -105,18 +105,19 @@ Passepartout runs in one of two modes, decided at page load by probing `/api/hea
 
 ### Server mode
 
-The default compose runs both `web` and `api`. Set the password and cookie secret before you
-start (a `.env` file next to `docker-compose.yml` works):
+The default compose runs both `web` and `api`. Set the cookie secret before you start (a
+`.env` file next to `docker-compose.yml` works):
 
 ```bash
-PASSEPARTOUT_PASSWORD=your-household-password
 SESSION_SECRET=a-long-random-string
 ```
 
-Then `docker compose up -d --build`. Open the instance; you get a **single-password login**.
-After login, projects and photos are stored server-side and any other browser that logs in
-sees the same albums. Data persists in the `passepartout-data` Docker volume across container
-recreates. Migrate an existing local album up with **Import** (a `.passepartout.zip` bundle).
+Then `docker compose up -d --build` and open the instance. On the first run you are asked to
+**create the first account** (username + password); after that everyone signs in with their own
+account (all accounts are equal - manage them from the project menu under **Users**). Projects
+and photos are stored server-side and shared: any account sees the same albums. Data persists in
+the `passepartout-data` Docker volume across container recreates. Migrate an existing local
+album up with **Import** (a `.passepartout.zip` bundle).
 
 To run **local mode** instead (data in the browser), remove the `api` service from
 `docker-compose.yml`; the SPA's `/api` probe then fails and it uses IndexedDB.

@@ -26,10 +26,10 @@ services:
     image: passepartout-server:local
     restart: unless-stopped
     environment:
-      # CHANGE THESE. The password opens the album server; the secret signs the session
-      # cookie (set a stable one so sessions survive a restart).
-      - PASSEPARTOUT_PASSWORD=${PASSEPARTOUT_PASSWORD:-change-me}
-      - SESSION_SECRET=${SESSION_SECRET:-change-me-too}
+      # No shared password: on first run the app asks you to create the first account
+      # (spec 026). SESSION_SECRET signs the session cookie - set a stable random value so
+      # sessions survive a restart.
+      - SESSION_SECRET=${SESSION_SECRET:-change-me}
       # Optional: a GitHub token (read access) so the app can see the latest release of the
       # private repo and show "update available" (spec 025). Detection is skipped without it.
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
