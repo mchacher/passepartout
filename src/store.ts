@@ -52,8 +52,17 @@ import {
   type ProjectMeta,
 } from "./lib/project";
 import * as db from "./persistence";
-import { initBackend, type PersistenceBackend, type VersionInfo, type User, type ActionResult } from "./persistence";
+import { initBackend, pingServerVersion, type PersistenceBackend, type VersionInfo, type User, type ActionResult } from "./persistence";
 import { buildBundle, parseBundle, BundleError } from "./lib/bundle";
+import {
+  readUpdateLock,
+  writeUpdateLock,
+  clearUpdateLock,
+  isLockActive,
+  UPDATE_TIMEOUT_MS,
+  UPDATE_POLL_MS,
+  type UpdateLock,
+} from "./lib/update-lock";
 
 const DEFAULT_PER_PAGE = 3;
 const SAVE_DEBOUNCE_MS = 400;
@@ -148,7 +157,13 @@ interface AlbumState {
   versionInfo: VersionInfo | null;
   versionChecking: boolean; // a manual "check for updates" is in flight (spec 027)
   refreshVersion: (force?: boolean) => Promise<void>;
-  applyUpdate: () => Promise<{ started: boolean; manualCommand?: string }>;
+  applyUpdate: () => Promise<{ started: boolean; inProgress?: boolean; error?: string; manualCommand?: string }>;
+
+  // Non-interruptible update lock (spec 031): non-null while an update runs. Persisted to
+  // localStorage so a page refresh keeps the lock (the user cannot re-trigger or interrupt it).
+  updating: UpdateLock | null;
+  beginUpdate: () => Promise<{ locked: boolean; error?: string; manualCommand?: string }>;
+  dismissUpdate: () => void;
 
   initProjects: () => Promise<void>;
   // Auth & users (spec 026).
@@ -322,6 +337,36 @@ export const useAlbum = create<AlbumState>((set, get) => {
     if (!get().activeId) await get().createProject();
   };
 
+  // Drive the update lock to completion (spec 031). Polls the server version directly (works even
+  // while the API is mid-recreate); reloads the page once the target version is live. Marks the
+  // lock `failed` after a safety timeout so the UI is never stuck forever. Idempotent per tick:
+  // stops as soon as the lock is cleared or already failed.
+  let updatePollTimer: ReturnType<typeof setTimeout> | null = null;
+  const runUpdatePoll = () => {
+    if (updatePollTimer) return; // a poll is already running in this tab
+    const tick = async () => {
+      updatePollTimer = null;
+      const lock = get().updating;
+      if (!lock || lock.failed) return;
+      if (Date.now() - lock.startedAt > UPDATE_TIMEOUT_MS) {
+        set({ updating: { ...lock, failed: true } });
+        clearUpdateLock();
+        return;
+      }
+      const info = await pingServerVersion();
+      if (info) {
+        set({ versionInfo: info });
+        if (lock.target && info.current === lock.target) {
+          clearUpdateLock();
+          location.reload();
+          return;
+        }
+      }
+      updatePollTimer = setTimeout(() => void tick(), UPDATE_POLL_MS);
+    };
+    updatePollTimer = setTimeout(() => void tick(), UPDATE_POLL_MS);
+  };
+
   // Best-effort flush when the tab is hidden/closed, to shrink the window where an
   // edit made within the debounce interval would be lost on a refresh.
   if (typeof document !== "undefined") {
@@ -378,9 +423,50 @@ export const useAlbum = create<AlbumState>((set, get) => {
 
     applyUpdate: async () => (backend ? backend.applyUpdate() : { started: false }),
 
+    updating: null,
+
+    // Start a one-click update and lock the UI (spec 031). Locks when the server confirms it
+    // started, or reports one already in progress (a refresh mid-update lands here). Any other
+    // failure returns unlocked with the real error so the caller can show the manual command.
+    beginUpdate: async () => {
+      if (!backend) return { locked: false };
+      if (get().updating) return { locked: true }; // already locked in this tab
+      const target = get().versionInfo?.latest ?? "";
+      const res = await backend.applyUpdate();
+      if (res.started || res.inProgress) {
+        const lock: UpdateLock = { target, startedAt: Date.now() };
+        writeUpdateLock(lock);
+        set({ updating: lock });
+        runUpdatePoll();
+        return { locked: true };
+      }
+      return { locked: false, error: res.error, manualCommand: res.manualCommand };
+    },
+
+    // Release the lock. Only reachable from the "taking too long" recovery state - a running
+    // update cannot be dismissed. Re-run init: a refresh mid-update short-circuits the normal
+    // load, so recovering here must bring the app back to a proper state (auth + projects).
+    dismissUpdate: () => {
+      clearUpdateLock();
+      set({ updating: null, ready: false });
+      void get().initProjects();
+    },
+
     initProjects: async () => {
       backend = await initBackend();
       set({ persistent: backend.persistent, remote: backend.mode === "remote" });
+
+      // Restore a persisted update lock (spec 031) before anything else. During a one-click
+      // update the containers are recreated, so a refresh here may have fallen back to local
+      // mode - the lock (and its server-direct poll) must run regardless of backend. While an
+      // update is in flight the overlay owns the screen; skip the normal project load.
+      const lock = readUpdateLock();
+      if (isLockActive(lock, Date.now())) {
+        set({ updating: lock, ready: true });
+        runUpdatePoll();
+        return;
+      }
+      if (lock) clearUpdateLock(); // stale: the update finished or timed out while away
 
       // Remote mode (spec 026): route on the account status. No users -> first-run setup;
       // not logged in -> login. Either way stop here; setup()/login() re-run this to load.

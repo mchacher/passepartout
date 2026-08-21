@@ -91,6 +91,11 @@ Applying the update needs the Docker socket:
   `docker compose pull && docker compose up -d`. The **Update now** button is then disabled and
   the panel shows the command instead.
 
+Once an update starts it takes over the whole screen with a locked "Updating..." overlay that
+cannot be dismissed and survives a page refresh (spec 031), so it cannot be interrupted or
+re-triggered. The app reloads on its own when the new version is live; a safety timeout offers a
+manual reload if it takes too long.
+
 Either way the host must be able to pull the private image: `docker login ghcr.io` once with a
 `read:packages` token.
 

@@ -16,6 +16,10 @@ const LABEL_PROJECT = "com.docker.compose.project";
 const LABEL_WORKING_DIR = "com.docker.compose.project.working_dir";
 
 let updating = false;
+let updateStartedAt = 0;
+// Auto-clear a stuck `updating` after this long: on success the container is recreated (a fresh
+// process resets it), so a lingering flag means the recreate never happened - don't lock forever.
+const STALE_MS = 5 * 60 * 1000;
 
 // The socket path is overridable (DOCKER_SOCKET_PATH) so tests can point it at a missing file
 // to exercise the "unavailable" path deterministically, regardless of the host's real socket.
@@ -28,6 +32,7 @@ export function isDockerAvailable(): boolean {
 }
 
 export function isUpdating(): boolean {
+  if (updating && Date.now() - updateStartedAt > STALE_MS) updating = false;
   return updating;
 }
 
@@ -40,10 +45,11 @@ export function buildUpdateCommand(): string {
  * Start a detached helper that updates the stack. Returns immediately; the helper recreates
  * this container, so the client must poll /version to see the new one. Never throws.
  */
-export async function startUpdate(): Promise<{ started: boolean; error?: string }> {
+export async function startUpdate(): Promise<{ started: boolean; error?: string; inProgress?: boolean }> {
   if (!isDockerAvailable()) return { started: false, error: "Docker socket not available" };
-  if (updating) return { started: false, error: "update already in progress" };
+  if (isUpdating()) return { started: false, error: "update already in progress", inProgress: true };
   updating = true;
+  updateStartedAt = Date.now();
   try {
     const { default: Docker } = await import("dockerode");
     const docker = new Docker({ socketPath: socketPath() });

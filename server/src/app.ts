@@ -166,11 +166,11 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
       return reply.code(409).send({ error: "one-click update unavailable", manualCommand: MANUAL_COMMAND });
     }
     if (isUpdating()) {
-      return reply.code(409).send({ error: "update already in progress", manualCommand: MANUAL_COMMAND });
+      return reply.code(409).send({ error: "update already in progress", inProgress: true, manualCommand: MANUAL_COMMAND });
     }
     const res = await startUpdate();
     if (!res.started) {
-      return reply.code(409).send({ error: res.error ?? "could not start update", manualCommand: MANUAL_COMMAND });
+      return reply.code(409).send({ error: res.error ?? "could not start update", inProgress: res.inProgress, manualCommand: MANUAL_COMMAND });
     }
     return reply.code(202).send({ started: true });
   });
