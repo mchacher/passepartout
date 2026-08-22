@@ -6,6 +6,7 @@ import { useApplyTheme } from "./useApplyTheme";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
 import { PageCard } from "./components/PageCard";
+import { InsertPageBar } from "./components/InsertPageBar";
 import { CoverCard } from "./components/CoverCard";
 import { SpineCard } from "./components/SpineCard";
 import { PageRail } from "./components/PageRail";
@@ -100,7 +101,8 @@ export function App() {
                 <CoverCard which="insideFront" />
               </div>
               {pages.map((page, i) => (
-                <div id={`page-${page.id}`} key={page.id}>
+                <div id={`page-${page.id}`} key={page.id} className="relative">
+                  <InsertPageBar index={i} />
                   <PageCard page={page} index={i} />
                 </div>
               ))}

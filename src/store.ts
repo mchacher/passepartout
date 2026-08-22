@@ -196,6 +196,7 @@ interface AlbumState {
   setPageCount: (pageId: string, n: number) => void;
 
   addPage: () => void;
+  insertPage: (index: number) => void;
   deletePage: (pageId: string) => void;
   movePage: (pageId: string, toIndex: number) => void;
   setPageTitle: (pageId: string, title: string) => void;
@@ -875,6 +876,20 @@ export const useAlbum = create<AlbumState>((set, get) => {
 
     addPage: () => {
       set((s) => ({ pages: [...s.pages, newPage()] }));
+      scheduleSave();
+    },
+
+    // Insert a fresh blank page at an arbitrary position (spec 053). `index` is an insertion
+    // slot in [0, pages.length]: slot 0 = before the first page, slot length = after the last
+    // (same model as movePage's toIndex). Out-of-range values are clamped. Covers/spine are
+    // separate state and never affected.
+    insertPage: (index) => {
+      set((s) => {
+        const at = Math.max(0, Math.min(index, s.pages.length));
+        const pages = [...s.pages];
+        pages.splice(at, 0, newPage());
+        return { pages };
+      });
       scheduleSave();
     },
 
