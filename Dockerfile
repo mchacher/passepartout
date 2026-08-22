@@ -4,7 +4,7 @@
 # with nginx. Step B will add a backend build stage + service alongside this one.
 
 # Stage 1 - build the static app.
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 # Install deps against the committed lockfile first, so this layer caches across source edits.
 COPY package.json package-lock.json ./
