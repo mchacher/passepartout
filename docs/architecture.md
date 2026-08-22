@@ -92,7 +92,9 @@ Three hard boundaries:
   `frameColor` / `frameText` / `frameWidth` / `frameFocus`, spec 019, catalog
   `src/lib/frames.ts`): a Border mats the photo whole in a uniform border (additive, never
   clips) or a Polaroid shows it in a square, pannable, cover-cropped window with a note band;
-  the engine sizes a framed cell to the frame's outer ratio (`frameLayoutRatio`), and an
+  the engine sizes a framed cell to the frame's outer ratio (`frameLayoutRatio`). When a Border
+  and a mask are both set, the Border mat is clipped to the mask shape so it reads as a shaped
+  ring (spec 033, `FramedPhoto` applies `maskClipValue` to the mat). There is also an
   optional `rotation` (spec 020): a small decorative tilt applied as a visual transform on
   top of the layout (the whole crop/mask/frame unit tilts; the engine never sees it). It stores NO placement:
   a photo can appear on many pages / cover faces at once and its usage is derived (spec 017,
