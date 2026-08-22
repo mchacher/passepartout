@@ -30,6 +30,10 @@ export interface Photo {
   // (src/lib/masks.ts), or absent for the default rectangle. The mask scales to the photo's
   // box and only hides the pixels outside the shape; it never changes the ratio or size.
   mask?: string;
+  // For the rounded mask (spec 034): the corner radius as a fraction of the box's shorter side,
+  // one of ROUNDED_SIZES. A constant, circular radius (does not follow the photo's aspect).
+  // Absent = the default size; ignored by every other mask.
+  maskRadius?: number;
   // Opt-in decorative frame (spec 019): a mat around the photo, from src/lib/frames.ts.
   // `frame` is a style id, `frameColor` a color id. Border keeps the photo whole and takes a
   // `frameWidth` (fraction of the box width). Polaroid squares the photo (cover-crop) with a

@@ -54,6 +54,9 @@ designs live under `specs/`.
   alongside the ellipse, and three rounded-corner sizes instead of one too-strong radius
 - Mask-shaped borders (spec 033): when a photo has a Border frame and a mask, the border follows
   the mask shape (a circle mask gives a circular border ring). Screen-only, engine untouched
+- Rounded mask sizes (spec 034): one Rounded mask with a size sub-control (three sizes); the corner
+  is a constant circular radius (a fraction of the shorter side) that does not follow the photo's
+  aspect. Composes with the mask-shaped border. Engine untouched
 
 ## Requested (this round)
 

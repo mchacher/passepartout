@@ -10,6 +10,8 @@ interface FramedPhotoProps {
   name: string;
   crop?: CropRect;
   mask?: string;
+  // Rounded mask corner size (spec 034), threaded to the mat clip and the inner photo.
+  maskRadius?: number;
   // The photo's EFFECTIVE ratio (crop applied), used to contain it inside a Border.
   ratio: number;
   // The photo's NATIVE ratio, used to square it for a Polaroid window.
@@ -30,9 +32,9 @@ interface FramedPhotoProps {
 // clips). Polaroid shows the photo in a square window (cover-cropped at a pannable focus)
 // over a bottom band that holds an optional handwritten note. No rounded corners. Falls back
 // to a plain contained photo if the frame id is unknown.
-export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, color, text, width, focus, rotation, w, h }: FramedPhotoProps) {
+export function FramedPhoto({ url, name, crop, mask, maskRadius, ratio, sourceRatio, frame, color, text, width, focus, rotation, w, h }: FramedPhotoProps) {
   const style = frameById(frame);
-  if (!style) return <CroppedImg url={url} name={name} crop={crop} mask={mask} rotation={rotation} w={w} h={h} frameClass={FALLBACK_FRAME} />;
+  if (!style) return <CroppedImg url={url} name={name} crop={crop} mask={mask} maskRadius={maskRadius} rotation={rotation} w={w} h={h} frameClass={FALLBACK_FRAME} />;
 
   const c = frameColorOf(color, style.defaultColor);
   const inner = frameInner(style, w, h, borderWidthOf(width));
@@ -41,7 +43,7 @@ export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, 
   // shape so the border becomes a shaped ring around the shaped photo (spec 033). The inner photo
   // is already masked below, and the Border sizes its inner area concentric to the outer box, so
   // the two same-shape clips leave an even ring. Polaroid (square) never takes a mat clip.
-  const matClip = style.square ? undefined : maskClipValue(mask);
+  const matClip = style.square ? undefined : maskClipValue(mask, { w, h, radius: maskRadius });
 
   let photo: React.ReactNode;
   if (style.square) {
@@ -49,7 +51,7 @@ export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, 
     const sq = squareCrop(sourceRatio, focus ?? DEFAULT_CROP_FOCUS);
     photo = (
       <div className="absolute" style={{ left: `${inner.x}px`, top: `${inner.y}px` }}>
-        <CroppedImg url={url} name={name} crop={sq} mask={mask} w={inner.w} h={inner.h} />
+        <CroppedImg url={url} name={name} crop={sq} mask={mask} maskRadius={maskRadius} w={inner.w} h={inner.h} />
       </div>
     );
   } else {
@@ -58,7 +60,7 @@ export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, 
     const ph = inner.w / inner.h > ratio ? inner.h : inner.w / ratio;
     photo = (
       <div className="absolute" style={{ left: `${inner.x + (inner.w - pw) / 2}px`, top: `${inner.y + (inner.h - ph) / 2}px` }}>
-        <CroppedImg url={url} name={name} crop={crop} mask={mask} w={pw} h={ph} />
+        <CroppedImg url={url} name={name} crop={crop} mask={mask} maskRadius={maskRadius} w={pw} h={ph} />
       </div>
     );
   }

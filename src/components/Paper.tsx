@@ -381,9 +381,9 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
           }}
         >
           {photo.frame ? (
-            <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={w} h={h} />
+            <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={w} h={h} />
           ) : (
-            <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+            <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
           )}
         </div>
         <div
@@ -444,9 +444,9 @@ function EditCell({ photo, w, h, ox, oy, panHint, selected, onMoveDown, onResize
     >
       <div className="pointer-events-none absolute" style={{ left: `${ox}px`, top: `${oy}px` }}>
         {photo.frame ? (
-          <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} rotation={photo.rotation} w={w} h={h} />
+          <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} rotation={photo.rotation} w={w} h={h} />
         ) : (
-          <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} rotation={photo.rotation} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+          <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} rotation={photo.rotation} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
         )}
       </div>
       {selected &&
