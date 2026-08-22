@@ -4,7 +4,10 @@ import { useT } from "../useT";
 import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { effectiveRatio } from "../lib/crop";
+import { photoLayoutRatio } from "../lib/frames";
 import { CroppedImg } from "./CroppedImg";
+import { FramedPhoto } from "./FramedPhoto";
+import { PhotoDecorControls } from "./PhotoDecorControls";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
@@ -52,8 +55,10 @@ export function CoverCard({ which }: CoverCardProps) {
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
+    // Size the box by the photo's LAYOUT ratio (crop + any frame's outer ratio, spec 054), so
+    // a framed cover photo gets a box shaped for the frame, exactly like a page photo does.
     const res = computeLayout(
-      [{ ratio: effectiveRatio(photo.ratio, photo.crop) }],
+      [{ ratio: photoLayoutRatio(photo) }],
       cw,
       ch,
       resolveCells("single", 1),
@@ -62,7 +67,7 @@ export function CoverCard({ which }: CoverCardProps) {
     const cell = res.cells[0];
     setSize(cell ? { w: cell.w, h: cell.h } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo?.id, photo?.ratio, cover.whitespace, aspect]);
+  }, [photo?.id, photo?.ratio, photo?.crop, photo?.frame, photo?.frameWidth, photo?.mask, cover.whitespace, aspect]);
 
   useLayoutEffect(() => {
     measure();
@@ -82,6 +87,8 @@ export function CoverCard({ which }: CoverCardProps) {
           {label}
         </span>
         <span className="mr-auto text-[11px] text-muted">{t("cover.dragHint")}</span>
+        {/* Mask + frame for the cover photo (spec 054), the same controls as a page photo. */}
+        {photo && <PhotoDecorControls photo={photo} apply={(fn) => fn(photo.id)} />}
         <label
           className="flex items-center gap-2 text-[11px] text-muted"
           title={t("page.whitespaceTitle", { n: cover.whitespace, total: WHITESPACE_LEVELS })}
@@ -186,7 +193,11 @@ function CoverPhoto({ photo, w, h, onRemove }: CoverPhotoProps) {
       >
         ×
       </button>
-      <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+      {photo.frame ? (
+        <FramedPhoto url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={w} h={h} />
+      ) : (
+        <CroppedImg url={photo.url} name={photo.name} crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} w={w} h={h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+      )}
     </div>
   );
 }
