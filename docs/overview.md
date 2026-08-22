@@ -59,13 +59,14 @@ project through `src/persistence.ts` (the only IndexedDB module).
 ## The reactive flow
 
 ```
-Import / demo
-  -> store.photos (sorted by capture time)
-    -> store.pages (auto-distributed, DEFAULT_PER_PAGE per page)
-      -> PageCard controls (title, count 1-6, layout picker, whitespace, delete)
+Import
+  -> store.photos (sorted by capture time), library only; one empty page if none
+    -> PageCard controls (title, slot count 1-6, layout picker, whitespace, delete)
+      -> drag a photo from the Library onto a page -> fills the next empty slot
         -> Paper measures its content box in pixels
           -> computeLayout(items, w, h, cells, { density })  [pure]
             -> one fixed region per cell, each photo contained + centered
+               (slots beyond the placed photos render as empty "+" drop targets)
 ```
 
 ## The layout engine
@@ -90,14 +91,15 @@ paint a 300 DPI PDF page: same math, different canvas.
 
 ## Interaction
 
-- **Drag** a photo from the Library onto a page to place it; drag it back to the
-  Library (or use the hover `×`) to remove it.
-- **Count buttons (1-6)** grow the page by pulling the next photos in chronological
-  order (first from the Library, then borrowing from the following pages when the
-  Library is empty), or shrink it by returning the last ones to the Library.
-  Changing the count resets the page to that count's default layout.
-- **Layout picker** offers the arrangements available for the current count (rows and
-  grids); picking one reshapes the page without touching the photos' framing.
+- **Import** adds photos to the Library only; nothing is placed automatically. The
+  album starts with one empty page ready to fill.
+- **Drag** a photo from the Library onto a page to fill its next empty slot; drag it
+  back to the Library (or use the hover `×`) to remove it, which leaves the slot empty.
+- **Count buttons (1-6)** set the page's slot count (how many photos it is laid out
+  for). Empty slots show as `+` drop targets you fill by dragging; no photo is ever
+  pulled from the Library. Lowering the count returns the overflow photos to the Library.
+- **Layout picker** offers the arrangements available for the current slot count (rows
+  and grids); picking one reshapes the page without touching the photos' framing.
 - **Whitespace levels (1-8)** scale the photos inside the fixed layout (level 1 fills
   the region, 8 is airiest); they never re-group. A fresh page starts at level 1, so
   photos are maximized by default (spec 010).

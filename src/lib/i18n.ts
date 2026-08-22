@@ -63,7 +63,6 @@ const en: Record<string, string> = {
   "app.empty.body":
     "Choose, page by page, how many photos to place and which ones. The engine arranges them in whitespace, keeping their original framing. There is no crop tool: that is the whole point.",
   "app.empty.import": "Import photos",
-  "app.empty.demo": "Load an example",
   "app.addPage": "Add page",
 
   // Top bar
@@ -105,6 +104,7 @@ const en: Record<string, string> = {
   "page.titlePlaceholder": "Page title (optional)",
   "page.subtitlePlaceholder": "Subtitle (optional)",
   "page.photos": "Photos",
+  "page.emptySlot": "Drag a photo here",
   "page.delete": "Delete page",
   "page.arrange": "Arrange",
   "page.arrangeStart": "Move and resize photos on the grid",
@@ -416,7 +416,6 @@ const fr: Record<string, string> = {
   "app.empty.body":
     "Choisissez, page par page, combien de photos placer et lesquelles. Le moteur les dispose dans des blancs, en préservant leur cadrage d'origine. Il n'y a pas d'outil de recadrage : c'est tout l'intérêt.",
   "app.empty.import": "Importer des photos",
-  "app.empty.demo": "Charger un exemple",
   "app.addPage": "Ajouter une page",
 
   // Top bar
@@ -458,6 +457,7 @@ const fr: Record<string, string> = {
   "page.titlePlaceholder": "Titre de la page (optionnel)",
   "page.subtitlePlaceholder": "Sous-titre (optionnel)",
   "page.photos": "Photos",
+  "page.emptySlot": "Glissez une photo ici",
   "page.delete": "Supprimer la page",
   "page.arrange": "Disposer",
   "page.arrangeStart": "Déplacer et redimensionner les photos sur la grille",

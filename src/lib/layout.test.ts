@@ -255,4 +255,27 @@ describe("autoCells fallback", () => {
       }
     }
   });
+
+  // Spec 035: a page can have more slots than placed photos. The engine must place only
+  // the photos, each ratio-preserved and fitting its region; the spare regions stay empty.
+  it("places only the photos when there are spare slots, ratio kept and no overflow", () => {
+    const ratios = [2 / 3, 16 / 9];
+    const cells3 = cellsOf("three-row"); // 3 slots
+    const placed = computeLayout(ratios.map(item), 900, 600, cells3, { density: 70 }).cells;
+    expect(placed).toHaveLength(ratios.length); // 2 placed, the third slot is empty
+    placed.forEach((c, i) => {
+      expect(ratioOf(c.w, c.h)).toBeCloseTo(ratios[i], 6); // no crop / distortion
+      expect(c.w).toBeLessThanOrEqual(c.rw + EPS); // fits its region
+      expect(c.h).toBeLessThanOrEqual(c.rh + EPS);
+    });
+  });
+
+  it("keeps a panorama's ratio and never clips it in a spare-slot page", () => {
+    const pano = item(4); // very wide
+    const placed = computeLayout([pano], 400, 800, cellsOf("three-col"), { density: 100 }).cells;
+    expect(placed).toHaveLength(1);
+    expect(ratioOf(placed[0].w, placed[0].h)).toBeCloseTo(4, 6);
+    expect(placed[0].w).toBeLessThanOrEqual(placed[0].rw + EPS);
+    expect(placed[0].h).toBeLessThanOrEqual(placed[0].rh + EPS);
+  });
 });

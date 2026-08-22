@@ -8,6 +8,7 @@ import {
   getLayout,
   layoutsForCount,
   resolveCells,
+  slotCount,
 } from "./layouts";
 import type { CellRect } from "../types";
 
@@ -115,5 +116,26 @@ describe("resolveCells", () => {
   it("falls back to autoCells for an unknown id or a count mismatch", () => {
     expect(resolveCells("nope", 3)).toEqual(autoCells(3));
     expect(resolveCells("grid-2x2", 5)).toEqual(autoCells(5)); // template is count 4
+  });
+});
+
+describe("slotCount (spec 035)", () => {
+  it("uses the named template's leaf count, not the photo count", () => {
+    expect(slotCount("three-row", 1)).toBe(3); // 3-slot layout holding 1 photo
+    expect(slotCount("single", 0)).toBe(1); // an empty page still has one slot
+    expect(slotCount("six-3x2", 2)).toBe(6);
+  });
+
+  it("uses the custom placement length when there is no template match", () => {
+    const placement: CellRect[] = [
+      { col: 0, row: 0, colSpan: 8, rowSpan: 12 },
+      { col: 8, row: 0, colSpan: 4, rowSpan: 12 },
+    ];
+    expect(slotCount("auto", 1, placement)).toBe(2);
+  });
+
+  it("falls back to the photo count beyond the catalog (auto, always full)", () => {
+    expect(slotCount("auto", 9)).toBe(9);
+    expect(slotCount("unknown-id", 4)).toBe(4);
   });
 });

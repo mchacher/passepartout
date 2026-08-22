@@ -6,9 +6,10 @@ import { newCover, newProjectDoc } from "./lib/project";
 import type { ProjectDoc } from "./lib/project";
 import type { AlbumPage, Photo } from "./types";
 
-// syncLayout is the load-bearing rule: a page's layoutId must always match a
-// template whose leaf count equals the page's photo count. Any action that changes
-// the count has to keep that invariant, or a persisted layout would render wrong.
+// A page's SLOT COUNT is its layout capacity (spec 035), independent of how many photos
+// are placed: photoIds fills the first slots and the rest are empty. Photos only enter a
+// page by dragging (placeOnPage); the count buttons (setPageCount) set the capacity and
+// never pull from the library. syncLayout keeps the invariant photoIds.length <= slotCount.
 
 const photo = (id: string): Photo => ({
   id,
@@ -44,38 +45,39 @@ describe("store layout sync", () => {
     expect(useAlbum.getState().pages[0].photoIds).toHaveLength(2);
   });
 
-  it("setPageCount resets the layout when growing from the library pool", () => {
+  it("setPageCount sets the capacity without pulling photos when growing (spec 035)", () => {
     useAlbum.setState({
       photos: [photo("a"), photo("b"), photo("c"), photo("d")],
       pages: [page("pg", ["a", "b", "c"], "one-beside-two")],
     });
     useAlbum.getState().setPageCount("pg", 4);
-    expect(layoutOf("pg")).toBe("four-row"); // defaultLayoutId(4)
+    expect(layoutOf("pg")).toBe("four-row"); // defaultLayoutId(4): 4 slots
+    // No photo is pulled from the library; the page still holds only its three photos.
+    expect(useAlbum.getState().pages[0].photoIds).toEqual(["a", "b", "c"]);
   });
 
-  it("setPageCount grows only from unused photos, never borrowing a used one (spec 017)", () => {
-    useAlbum.setState({
-      photos: [photo("a"), photo("b"), photo("c"), photo("d"), photo("e"), photo("f")],
-      pages: [
-        page("p1", ["a", "b", "c"], "three-row"),
-        page("p2", ["d", "e", "f"], "three-row"),
-      ],
-    });
-    // Every photo is already used, so p1 cannot grow: no borrowing, no duplicates.
-    useAlbum.getState().setPageCount("p1", 5);
-    const s = useAlbum.getState();
-    expect(s.pages.find((p) => p.id === "p1")!.photoIds).toEqual(["a", "b", "c"]);
-    expect(s.pages.find((p) => p.id === "p2")!.photoIds).toEqual(["d", "e", "f"]);
-  });
-
-  it("setPageCount grows by pulling the unused library photos in order", () => {
+  it("setPageCount never borrows an unused library photo (spec 035)", () => {
     useAlbum.setState({
       photos: [photo("a"), photo("b"), photo("c"), photo("d"), photo("e")],
       pages: [page("p1", ["a"], "single"), page("p2", ["b"], "single")],
     });
-    useAlbum.getState().setPageCount("p1", 3); // c and d are unused
+    useAlbum.getState().setPageCount("p1", 3); // c, d, e are unused but must NOT be pulled
     const s = useAlbum.getState();
-    expect(s.pages.find((p) => p.id === "p1")!.photoIds).toEqual(["a", "c", "d"]);
+    expect(layoutOf("p1")).toBe("three-row"); // 3 slots
+    expect(s.pages.find((p) => p.id === "p1")!.photoIds).toEqual(["a"]); // still just "a"
+  });
+
+  it("setPageCount shrinks the capacity and returns the overflow to the library (spec 035)", () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b"), photo("c"), photo("d")],
+      pages: [page("pg", ["a", "b", "c", "d"], "grid-2x2")],
+    });
+    useAlbum.getState().setPageCount("pg", 2);
+    const s = useAlbum.getState();
+    expect(layoutOf("pg")).toBe("two-row"); // 2 slots
+    expect(s.pages[0].photoIds).toEqual(["a", "b"]); // c, d dropped from the page
+    expect(s.photos.map((p) => p.id)).toContain("c"); // but still in the library
+    expect(s.photos.map((p) => p.id)).toContain("d");
   });
 
   it("setPageCount keeps a custom layout when the count is unchanged", () => {
@@ -107,24 +109,34 @@ describe("store layout sync", () => {
     expect(layoutOf("p2")).toBe("three-row");
   });
 
-  it("placeOnPage across a count boundary re-syncs the layout", () => {
+  it("placeOnPage grows the layout when dropping onto a full page (spec 035)", () => {
     useAlbum.setState({
       photos: [photo("a"), photo("b"), photo("c"), photo("d")],
       pages: [page("pg", ["a", "b", "c"], "two-over-one")],
     });
-    useAlbum.getState().placeOnPage("d", "pg");
+    useAlbum.getState().placeOnPage("d", "pg"); // page was full (3 slots) -> grow to 4
     expect(useAlbum.getState().pages[0].photoIds).toHaveLength(4);
-    expect(layoutOf("pg")).toBe("four-row"); // 3-photo layout no longer valid
+    expect(layoutOf("pg")).toBe("four-row");
   });
 
-  it("removeFromPage across a count boundary re-syncs the layout", () => {
+  it("placeOnPage fills a free slot without changing the capacity (spec 035)", () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b"), photo("c")],
+      pages: [page("pg", ["a"], "three-row")], // 3 slots, only 1 filled
+    });
+    useAlbum.getState().placeOnPage("b", "pg");
+    expect(useAlbum.getState().pages[0].photoIds).toEqual(["a", "b"]);
+    expect(layoutOf("pg")).toBe("three-row"); // still 3 slots, one now empty
+  });
+
+  it("removeFromPage leaves the capacity unchanged: an empty slot appears (spec 035)", () => {
     useAlbum.setState({
       photos: [photo("a"), photo("b"), photo("c")],
       pages: [page("pg", ["a", "b", "c"], "one-beside-two")],
     });
     useAlbum.getState().removeFromPage("c", "pg");
-    expect(useAlbum.getState().pages[0].photoIds).toHaveLength(2);
-    expect(layoutOf("pg")).toBe("two-row");
+    expect(useAlbum.getState().pages[0].photoIds).toEqual(["a", "b"]);
+    expect(layoutOf("pg")).toBe("one-beside-two"); // still a 3-slot page, one slot now empty
   });
 });
 
@@ -240,25 +252,25 @@ describe("store custom grid placement (spec 013)", () => {
     expect(placementOf("p1")).toEqual(twoCells);
   });
 
-  it("removeFromPage keeps the other cells of a custom placement, aligned by index", () => {
+  it("removeFromPage keeps all placement cells; a slot just goes empty (spec 035)", () => {
     useAlbum.setState({
       photos: [photo("a"), photo("b")],
       pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
     });
-    useAlbum.getState().removeFromPage("a", "p1"); // drops index 0's cell, keeps b's
+    useAlbum.getState().removeFromPage("a", "p1");
     expect(useAlbum.getState().pages[0].photoIds).toEqual(["b"]);
-    expect(placementOf("p1")).toEqual([twoCells[1]]);
+    expect(placementOf("p1")).toEqual(twoCells); // capacity unchanged: both cells kept, one empty
   });
 
-  it("placeOnPage appends a cell so a custom page keeps its other cells", () => {
+  it("placeOnPage onto a full custom page grows to a template and drops the placement (spec 035)", () => {
     useAlbum.setState({
       photos: [photo("a"), photo("b"), photo("c")],
-      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: twoCells }], // full: 2 slots
     });
-    useAlbum.getState().placeOnPage("c", "p1");
-    const pl = placementOf("p1")!;
-    expect(pl).toHaveLength(3);
-    expect(pl.slice(0, 2)).toEqual(twoCells); // originals kept
+    useAlbum.getState().placeOnPage("c", "p1"); // beyond the 2 slots -> grow to a 3-slot layout
+    expect(useAlbum.getState().pages[0].photoIds).toEqual(["a", "b", "c"]);
+    expect(placementOf("p1")).toBeUndefined();
+    expect(layoutOf("p1")).toBe("three-row");
   });
 
   it("placeOnPage onto a photo's own page is a no-op (keeps the placement)", () => {

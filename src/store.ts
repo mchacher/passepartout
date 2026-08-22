@@ -17,11 +17,9 @@ import { clampCrop } from "./lib/crop";
 import { isMask, roundedRadiusOf } from "./lib/masks";
 import { borderWidthOf, frameColorOf, isFrame } from "./lib/frames";
 import { clampRotation } from "./lib/rotation";
-import { countUsage } from "./lib/usage";
 import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
-import { makeDemoPhotos } from "./lib/demo";
-import { defaultLayoutId, getLayout } from "./lib/layouts";
+import { defaultLayoutId, slotCount } from "./lib/layouts";
 import {
   DEFAULT_COLOR_THEME,
   DEFAULT_FONT_THEME,
@@ -64,7 +62,6 @@ import {
   type UpdateLock,
 } from "./lib/update-lock";
 
-const DEFAULT_PER_PAGE = 3;
 const SAVE_DEBOUNCE_MS = 400;
 
 // Map a cover face to its state / document field.
@@ -89,22 +86,26 @@ function newPage(): AlbumPage {
   };
 }
 
-// Keep a page's layout consistent with its photo count. The chosen template stays
-// when it still fits the count; otherwise it resets to that count's default.
+// Keep a page's invariants around its SLOT COUNT (spec 035). The slot count is the layout
+// capacity (see slotCount), independent of how many photos are placed; this repairs a page
+// whose capacity fell below its photos (only reachable when a drag overflowed) and clears
+// modes that no longer apply. It never shrinks the capacity down to the photo count: empty
+// slots are intentional.
 function syncLayout(page: AlbumPage): void {
-  const count = page.photoIds.length;
-  const tpl = getLayout(page.layoutId);
-  if (!tpl || tpl.count !== count) {
-    page.layoutId = defaultLayoutId(count);
+  const photos = page.photoIds.length;
+  let slots = slotCount(page.layoutId, photos, page.placement);
+  // A page must always have room for its photos; grow the layout if a drop overflowed.
+  if (slots < photos) {
+    page.layoutId = defaultLayoutId(photos);
+    page.placement = undefined;
+    slots = slotCount(page.layoutId, photos, page.placement);
   }
-  // Full-page mode is only meaningful for a single photo; drop it otherwise so a page
-  // reverts to its normal layout when it gains or loses photos (spec 012).
-  if (count !== 1 && page.fullPage !== undefined) {
+  // Full-page mode is only meaningful for a single-slot page (spec 012).
+  if (slots !== 1 && page.fullPage !== undefined) {
     page.fullPage = undefined;
   }
-  // A custom grid placement is only valid with one rectangle per photo; drop a stale one
-  // so the page falls back to its named template (spec 013).
-  if (page.placement && page.placement.length !== count) {
+  // A custom grid placement is one rectangle per SLOT; drop a stale one (spec 013).
+  if (page.placement && page.placement.length !== slots) {
     page.placement = undefined;
   }
 }
@@ -188,7 +189,6 @@ interface AlbumState {
   importBundle: (file: File) => Promise<{ ok: true } | { ok: false; error: string; code: string }>;
 
   importFiles: (files: FileList | File[]) => Promise<void>;
-  loadDemo: () => Promise<void>;
 
   placeOnPage: (photoId: string, pageId: string) => void;
   removeFromPage: (photoId: string, pageId: string) => void;
@@ -221,23 +221,6 @@ interface AlbumState {
   setFontTheme: (fontTheme: FontThemeId) => void;
   setColorTheme: (colorTheme: ColorThemeId) => void;
   setTextSize: (role: TextRole, level: TextSizeLevel) => void;
-}
-
-function distribute(photos: Photo[]): AlbumPage[] {
-  const pages: AlbumPage[] = [];
-  let cur: AlbumPage | null = null;
-  photos.forEach((p, i) => {
-    if (i % DEFAULT_PER_PAGE === 0) {
-      cur = newPage();
-      pages.push(cur);
-    }
-    cur!.photoIds.push(p.id);
-  });
-  if (pages.length === 0) {
-    pages.push(newPage());
-  }
-  pages.forEach(syncLayout);
-  return pages;
 }
 
 // Load one File into a Photo (with a runtime object URL) plus the File itself so the
@@ -810,39 +793,30 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const added = loaded.map((l) => l.photo);
       set((s) => {
         const photos = [...s.photos, ...added].sort((a, b) => a.time - b.time);
-        // First import seeds the pages; later imports drop into the library.
-        const pages = s.pages.length === 0 ? distribute(photos) : s.pages;
+        // Import never places photos on a page (spec 035): they stay in the library and the
+        // user drags them onto pages. Seed one empty page when the album has none, so there
+        // is somewhere to drag to.
+        const pages = s.pages.length === 0 ? [newPage()] : s.pages;
         return { photos, pages };
       });
       scheduleSave();
     },
 
-    loadDemo: async () => {
-      await ensureActiveProject();
-      const demo = await makeDemoPhotos();
-      if (get().persistent) {
-        await Promise.all(demo.map(({ photo, blob }) => backend.putImage(photo.id, blob).catch(() => {})));
-      }
-      revokeUrls(get().photos);
-      const photos = demo.map((d) => d.photo);
-      set({ photos, pages: distribute(photos) });
-      scheduleSave();
-    },
-
     placeOnPage: (photoId, pageId) => {
       set((s) => {
-        const photos = s.photos;
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
-        const photo = photos.find((p) => p.id === photoId);
+        const photo = s.photos.find((p) => p.id === photoId);
         const target = pages.find((pg) => pg.id === pageId);
         if (!photo || !target) return {};
-        // Reuse (spec 017): add the photo to the target page and keep it wherever else it
-        // already sits. Dropping it onto a page it is already on is a no-op (no duplicate,
-        // and its custom placement cell is preserved).
+        // Reuse (spec 017): dropping a photo already on this page is a no-op (no duplicate).
         if (target.photoIds.includes(photoId)) return {};
+        // A drop fills the next empty slot (spec 035). If the page had no free slot, grow the
+        // layout so the new photo has a cell (reset any custom placement to the named layout).
         target.photoIds.push(photoId);
-        // Give the incoming photo a default cell so a custom page keeps its other cells.
-        if (target.placement) target.placement = [...target.placement, { col: 3, row: 3, colSpan: 6, rowSpan: 6 }];
+        if (slotCount(target.layoutId, target.photoIds.length, target.placement) < target.photoIds.length) {
+          target.layoutId = defaultLayoutId(target.photoIds.length);
+          target.placement = undefined;
+        }
         pages.forEach(syncLayout);
         return { pages };
       });
@@ -853,12 +827,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
       set((s) => {
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
         const pg = pages.find((x) => x.id === pageId);
-        if (!pg) return {};
-        const i = pg.photoIds.indexOf(photoId);
-        if (i < 0) return {};
-        // Keep a custom placement aligned: drop the removed photo's cell by its index.
+        if (!pg || !pg.photoIds.includes(photoId)) return {};
+        // Removing a photo leaves the slot empty; the page's capacity is unchanged (spec 035).
+        // A custom placement keeps all its cells (one per slot); the freed cell just empties.
         pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
-        if (pg.placement) pg.placement = pg.placement.filter((_, idx) => idx !== i);
         pages.forEach(syncLayout);
         return { pages };
       });
@@ -886,26 +858,14 @@ export const useAlbum = create<AlbumState>((set, get) => {
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
         const target = pages.find((pg) => pg.id === pageId);
         if (!target) return {};
-        // Shrink: drop the trailing photos off this page. They stay in the library (and on
-        // any other page that reuses them); a mismatched custom placement is cleared by
-        // syncLayout (setPageCount is a coarse reset).
-        while (target.photoIds.length > n) target.photoIds.pop();
-        // Grow: pull UNUSED photos (used nowhere, in capture-time order) that are not
-        // already on this page, and stop when there are none left. With reuse (spec 017)
-        // the count buttons never borrow from other pages or duplicate a used photo; to
-        // reuse a specific photo, drag it from the Library.
-        if (target.photoIds.length < n) {
-          const used = countUsage(pages, [
-            s.frontCover.photoId,
-            s.insideFrontCover.photoId,
-            s.insideBackCover.photoId,
-            s.backCover.photoId,
-          ]);
-          const pool = s.photos.filter((p) => (used.get(p.id) ?? 0) === 0 && !target.photoIds.includes(p.id));
-          let pi = 0;
-          while (target.photoIds.length < n && pi < pool.length) {
-            target.photoIds.push(pool[pi++].id);
-          }
+        // Set the page's slot capacity to n (spec 035). Photos are NEVER pulled from the
+        // library; the user fills the slots by dragging. Only change the layout when the
+        // capacity actually changes, so re-clicking the active number keeps a chosen layout.
+        if (n !== slotCount(target.layoutId, target.photoIds.length, target.placement)) {
+          target.layoutId = defaultLayoutId(n); // default n-slot layout; a coarse reset
+          target.placement = undefined;
+          while (target.photoIds.length > n) target.photoIds.pop(); // overflow -> library
+          if (n !== 1) target.fullPage = undefined;
         }
         pages.forEach(syncLayout);
         return { pages };
