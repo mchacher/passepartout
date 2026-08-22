@@ -21,6 +21,7 @@ export interface PreviewPhoto {
   caption: string;
   crop?: CropRect;
   mask?: string;
+  maskRadius?: number;
   frame?: string;
   frameColor?: string;
   frameText?: string;
@@ -159,9 +160,9 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
                   }}
                 >
                   {photo.frame ? (
-                    <FramedPhoto url={photo.url} name="" crop={photo.crop} mask={photo.mask} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={cell.w} h={cell.h} />
+                    <FramedPhoto url={photo.url} name="" crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={cell.w} h={cell.h} />
                   ) : (
-                    <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+                    <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} w={cell.w} h={cell.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
                   )}
                   {photo.caption.trim().length > 0 && (
                     <div

@@ -14,7 +14,7 @@ import {
   type Spine,
 } from "./types";
 import { clampCrop } from "./lib/crop";
-import { isMask } from "./lib/masks";
+import { isMask, roundedRadiusOf } from "./lib/masks";
 import { borderWidthOf, frameColorOf, isFrame } from "./lib/frames";
 import { clampRotation } from "./lib/rotation";
 import { countUsage } from "./lib/usage";
@@ -208,6 +208,7 @@ interface AlbumState {
   setCaption: (photoId: string, caption: string) => void;
   setPhotoCrop: (photoId: string, crop: CropRect | null) => void;
   setPhotoMask: (photoId: string, maskId: string | null) => void;
+  setPhotoMaskRadius: (photoId: string, value: number) => void;
   setPhotoFrame: (photoId: string, frameId: string | null) => void;
   setPhotoFrameColor: (photoId: string, colorId: string | null) => void;
   setPhotoFrameText: (photoId: string, text: string) => void;
@@ -1025,6 +1026,15 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const next = maskId && isMask(maskId) ? maskId : undefined;
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, mask: next } : p)),
+      }));
+      scheduleSave();
+    },
+
+    setPhotoMaskRadius: (photoId, value) => {
+      // The rounded mask's corner size (spec 034), coerced to a valid fraction of the shorter side.
+      const next = roundedRadiusOf(value);
+      set((s) => ({
+        photos: s.photos.map((p) => (p.id === photoId ? { ...p, maskRadius: next } : p)),
       }));
       scheduleSave();
     },

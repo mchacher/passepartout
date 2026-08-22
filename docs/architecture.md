@@ -88,7 +88,9 @@ Three hard boundaries:
 - **Photo**: one imported image. Native size, `ratio`, `caption`, capture `time`, an
   optional `crop` (spec 015): a normalized kept sub-rectangle, an optional `mask` (spec
   018): the id of a decorative shape from the enrichable catalog `src/lib/masks.ts` (opt-in,
-  clips only the pixels outside the shape), optional decorative frame fields (`frame` /
+  clips only the pixels outside the shape; the rounded shape also takes a `maskRadius` - a
+  constant circular corner radius as a fraction of the shorter side, resolved per box by
+  `maskClipValue`, spec 034), optional decorative frame fields (`frame` /
   `frameColor` / `frameText` / `frameWidth` / `frameFocus`, spec 019, catalog
   `src/lib/frames.ts`): a Border mats the photo whole in a uniform border (additive, never
   clips) or a Polaroid shows it in a square, pannable, cover-cropped window with a note band;

@@ -25,6 +25,15 @@ import {
   bookSizeOrDefault,
   type BookSizeId,
 } from "./book-sizes";
+import { ROUNDED_SIZES } from "./masks";
+
+// Migrate a stored photo across catalog changes (spec 034): the retired per-size rounded masks
+// (`rounded-sm` / `rounded-lg`, v0.5.0) become the single `rounded` mask plus a `maskRadius`.
+function migratePhoto(sp: StoredPhoto): StoredPhoto {
+  if (sp.mask === "rounded-sm") return { ...sp, mask: "rounded", maskRadius: sp.maskRadius ?? ROUNDED_SIZES[0].value };
+  if (sp.mask === "rounded-lg") return { ...sp, mask: "rounded", maskRadius: sp.maskRadius ?? ROUNDED_SIZES[2].value };
+  return sp;
+}
 
 export interface ProjectMeta {
   id: string;
@@ -174,7 +183,8 @@ export function hydratePhotos(
   urlFor: (photoId: string) => string | undefined,
 ): Photo[] {
   const photos: Photo[] = [];
-  for (const sp of doc.photos) {
+  for (const raw of doc.photos) {
+    const sp = migratePhoto(raw);
     const url = urlFor(sp.id);
     if (url === undefined) continue;
     photos.push({ ...sp, url });

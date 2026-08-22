@@ -9,6 +9,8 @@ interface CroppedImgProps {
   // Opt-in decorative mask id (spec 018); absent = the plain rectangle. The shape scales to
   // this box via an objectBoundingBox clipPath (see MaskDefs), so it follows the photo size.
   mask?: string;
+  // Rounded mask corner size (spec 034), a fraction of the shorter side; rounded mask only.
+  maskRadius?: number;
   // Opt-in decorative tilt in degrees (spec 020); rotates the whole (masked) photo about its
   // center. Not applied when this image is nested inside a FramedPhoto (the frame tilts).
   rotation?: number;
@@ -26,7 +28,7 @@ interface CroppedImgProps {
 // the kept rectangle fills the box. The image is never distorted (its own aspect is
 // preserved; the box carries the effective ratio). A mask only hides pixels outside the
 // shape; the frame's rounding / shadow is dropped when a mask reshapes the box.
-export function CroppedImg({ url, name, crop, mask, rotation, w, h, frameClass }: CroppedImgProps) {
+export function CroppedImg({ url, name, crop, mask, maskRadius, rotation, w, h, frameClass }: CroppedImgProps) {
   const b = cropImgBox(crop, w, h);
   // Only a known catalog id clips; a stale/unknown id falls back to the plain rectangle
   // (symmetric with the print path). See spec 018 edge cases.
@@ -34,7 +36,7 @@ export function CroppedImg({ url, name, crop, mask, rotation, w, h, frameClass }
   return (
     <div
       className={`relative block overflow-hidden ${shape ? "" : frameClass ?? ""}`}
-      style={{ width: `${w}px`, height: `${h}px`, clipPath: maskClipValue(shape), transform: rotation ? `rotate(${rotation}deg)` : undefined }}
+      style={{ width: `${w}px`, height: `${h}px`, clipPath: maskClipValue(shape, { w, h, radius: maskRadius }), transform: rotation ? `rotate(${rotation}deg)` : undefined }}
     >
       <img
         src={url}

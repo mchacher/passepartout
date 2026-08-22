@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
@@ -11,7 +12,11 @@ export interface ThumbPhoto {
   ratio: number;
   crop?: CropRect;
   mask?: string;
+  maskRadius?: number;
 }
+
+// Content margin: the inner box is inset this fraction on every side (mirrors the `inset: 7%`).
+const INSET = 0.07;
 
 interface ThumbProps {
   photos: ThumbPhoto[];
@@ -36,6 +41,21 @@ const NH = 100;
 export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus, placement }: ThumbProps) {
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const NW = NH * aspect;
+  // The rounded mask needs a constant px radius (spec 034), but the thumbnail is positioned in
+  // percent at any scale, so measure the rendered box to convert a cell's nominal size to px.
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxW, setBoxW] = useState(0);
+  useLayoutEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const update = () => setBoxW(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const innerW = boxW * (1 - 2 * INSET);
+  const innerH = (boxW / aspect) * (1 - 2 * INSET);
   const gridCells = resolveCells(layoutId, photos.length, placement);
   const { cells } = computeLayout(
     photos.map((p) => ({ ratio: effectiveRatio(p.ratio, p.crop) })),
@@ -68,6 +88,7 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
 
   return (
     <div
+      ref={boxRef}
       className="relative overflow-hidden rounded-[2px] bg-paper shadow-[0_1px_2px_rgba(0,0,0,.12)]"
       style={{ aspectRatio: String(aspect) }}
     >
@@ -93,7 +114,9 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
                   top: `${(c.oy / c.rh) * 100}%`,
                   width: `${(c.w / c.rw) * 100}%`,
                   height: `${(c.h / c.rh) * 100}%`,
-                  clipPath: maskClipValue(photos[i].mask),
+                  // Convert the cell's nominal size to px (via the measured box) so a rounded
+                  // mask gets a constant circular radius; other masks ignore the box (spec 034).
+                  clipPath: maskClipValue(photos[i].mask, { w: (c.w / NW) * innerW, h: (c.h / NH) * innerH, radius: photos[i].maskRadius }),
                 }}
               >
                 {(() => {

@@ -375,10 +375,12 @@ const en: Record<string, string> = {
   // PRs merge in any order without the catalog-drift test failing)
   "mask.circle": "Circle",
   "mask.oval": "Oval",
-  "mask.rounded-sm": "Rounded (subtle)",
   "mask.rounded": "Rounded",
-  "mask.rounded-lg": "Rounded (strong)",
   "mask.arch": "Arch",
+  // Rounded mask corner sizes (spec 034 sub-control)
+  "roundedSize.sm": "Subtle",
+  "roundedSize.md": "Medium",
+  "roundedSize.lg": "Strong",
 
   // Catalog: frames + border widths + frame colors
   "frame.polaroid": "Polaroid",
@@ -726,10 +728,12 @@ const fr: Record<string, string> = {
   // PRs merge in any order without the catalog-drift test failing)
   "mask.circle": "Cercle",
   "mask.oval": "Ovale",
-  "mask.rounded-sm": "Arrondi (léger)",
   "mask.rounded": "Arrondi",
-  "mask.rounded-lg": "Arrondi (fort)",
   "mask.arch": "Arche",
+  // Rounded mask corner sizes (spec 034 sub-control)
+  "roundedSize.sm": "Léger",
+  "roundedSize.md": "Moyen",
+  "roundedSize.lg": "Fort",
 
   // Catalog: frames + border widths + frame colors
   "frame.polaroid": "Polaroid",

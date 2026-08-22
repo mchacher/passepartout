@@ -6,7 +6,7 @@ import { layoutsForCount } from "../lib/layouts";
 import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
 import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
-import { MASKS, maskClipValue } from "../lib/masks";
+import { MASKS, maskClipValue, ROUNDED_SIZES, roundedRadiusOf } from "../lib/masks";
 import { FRAMES, FRAME_COLORS, frameById, BORDER_WIDTHS, borderWidthOf } from "../lib/frames";
 import { ROTATION_STEPS } from "../lib/rotation";
 
@@ -20,7 +20,7 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 // One album page: the control header (title, photo count, delete), a controls row
 // (layout + whitespace), then the rendered paper below.
 export function PageCard({ page, index }: PageCardProps) {
-  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, setPhotoFrame, setPhotoFrameColor, setPhotoFrameText, setPhotoFrameWidth, setPhotoRotation, deletePage } =
+  const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, setPhotoMaskRadius, setPhotoFrame, setPhotoFrameColor, setPhotoFrameText, setPhotoFrameWidth, setPhotoRotation, deletePage } =
     useAlbum();
   const { t } = useT();
   const photos = useAlbum((s) => s.photos);
@@ -170,32 +170,53 @@ export function PageCard({ page, index }: PageCardProps) {
                 {maskOpen && (
                   <>
                     <button aria-label={t("page.maskClose")} className="fixed inset-0 z-20 cursor-default" onClick={() => setMaskOpen(false)} />
-                    <div className="absolute left-0 top-full z-30 mt-1.5 flex gap-1.5 rounded-lg border border-line bg-surface p-2 shadow-soft">
-                      <button
-                        onClick={() => { setPhotoMask(sel.photoId, null); setMaskOpen(false); }}
-                        title={t("page.maskNoneTitle")}
-                        className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
-                          selPhoto?.mask ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
-                        }`}
-                      >
-                        {t("page.none")}
-                      </button>
-                      {MASKS.map((m) => (
+                    <div className="absolute left-0 top-full z-30 mt-1.5 flex flex-col gap-2 rounded-lg border border-line bg-surface p-2 shadow-soft">
+                      <div className="flex gap-1.5">
                         <button
-                          key={m.id}
-                          onClick={() => { setPhotoMask(sel.photoId, m.id); setMaskOpen(false); }}
-                          title={t(`mask.${m.id}`)}
-                          aria-pressed={selPhoto?.mask === m.id}
-                          className={`flex h-9 w-9 items-center justify-center rounded-md border p-1 ${
-                            selPhoto?.mask === m.id ? "border-accent" : "border-line hover:border-faint"
+                          onClick={() => { setPhotoMask(sel.photoId, null); setMaskOpen(false); }}
+                          title={t("page.maskNoneTitle")}
+                          className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
+                            selPhoto?.mask ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
                           }`}
                         >
-                          <span
-                            className="block h-full w-full bg-muted"
-                            style={{ clipPath: maskClipValue(m.id) }}
-                          />
+                          {t("page.none")}
                         </button>
-                      ))}
+                        {MASKS.map((m) => (
+                          <button
+                            key={m.id}
+                            // The rounded mask reveals a size sub-control below, so keep the popover
+                            // open when it is picked; the other shapes close it (spec 034).
+                            onClick={() => { setPhotoMask(sel.photoId, m.id); if (!m.rounded) setMaskOpen(false); }}
+                            title={t(`mask.${m.id}`)}
+                            aria-pressed={selPhoto?.mask === m.id}
+                            className={`flex h-9 w-9 items-center justify-center rounded-md border p-1 ${
+                              selPhoto?.mask === m.id ? "border-accent" : "border-line hover:border-faint"
+                            }`}
+                          >
+                            <span
+                              className="block h-full w-full bg-muted"
+                              style={{ clipPath: maskClipValue(m.id, m.rounded ? { w: 28, h: 28, radius: selPhoto?.maskRadius } : {}) }}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      {selPhoto?.mask === "rounded" && (
+                        <div className="flex gap-1 border-t border-line pt-2">
+                          {ROUNDED_SIZES.map((sz) => {
+                            const active = roundedRadiusOf(selPhoto.maskRadius) === sz.value;
+                            return (
+                              <button
+                                key={sz.id}
+                                onClick={() => setPhotoMaskRadius(sel.photoId, sz.value)}
+                                aria-pressed={active}
+                                className={`flex-1 rounded-md border px-2 py-1 text-[11px] ${active ? "border-accent text-ink" : "border-line text-muted hover:border-faint hover:text-ink"}`}
+                              >
+                                {t(`roundedSize.${sz.id}`)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
