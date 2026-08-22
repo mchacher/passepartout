@@ -1,5 +1,5 @@
 import { cropImgBox } from "../lib/crop";
-import { isMask } from "../lib/masks";
+import { isMask, maskClipValue } from "../lib/masks";
 import type { CropRect } from "../types";
 
 interface CroppedImgProps {
@@ -34,7 +34,7 @@ export function CroppedImg({ url, name, crop, mask, rotation, w, h, frameClass }
   return (
     <div
       className={`relative block overflow-hidden ${shape ? "" : frameClass ?? ""}`}
-      style={{ width: `${w}px`, height: `${h}px`, clipPath: shape ? `url(#pp-mask-${shape})` : undefined, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
+      style={{ width: `${w}px`, height: `${h}px`, clipPath: maskClipValue(shape), transform: rotation ? `rotate(${rotation}deg)` : undefined }}
     >
       <img
         src={url}
