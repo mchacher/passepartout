@@ -62,6 +62,13 @@ export function PageCard({ page, index }: PageCardProps) {
   }, []);
   const croppingPhoto = cropping ? photos.find((p) => p.id === cropping) : undefined;
   const selPhoto = sel ? photos.find((p) => p.id === sel.photoId) : undefined;
+  // Apply a style change to every selected photo (spec 055). Single-photo controls (crop,
+  // tilt, layer, remove, the handwritten note) stay on the primary; mask and frame batch.
+  const selCount = sel ? sel.photoIds.length : 0;
+  const applyToSel = (fn: (id: string) => void) => {
+    if (!sel) return;
+    (sel.photoIds.length ? sel.photoIds : [sel.photoId]).forEach(fn);
+  };
 
   // Full-page choices for a single-photo page (spec 012). Off = normal page; Fit fills the
   // page without cropping; Fill fills the page by cropping to the page ratio.
@@ -146,6 +153,11 @@ export function PageCard({ page, index }: PageCardProps) {
         {editing ? (
           sel ? (
             <div className="flex flex-wrap items-center gap-1.5">
+              {selCount > 1 && (
+                <span className="inline-flex items-center rounded-md border border-accent bg-accent-soft px-2 py-[5px] text-[11.5px] font-medium text-accent">
+                  {t("page.selectedCount", { n: selCount })}
+                </span>
+              )}
               <button
                 onClick={() => setCropping(sel.photoId)}
                 title={t("page.cropTitle")}
@@ -178,7 +190,7 @@ export function PageCard({ page, index }: PageCardProps) {
                     <div className="absolute left-0 top-full z-30 mt-1.5 flex flex-col gap-2 rounded-lg border border-line bg-surface p-2 shadow-soft">
                       <div className="flex gap-1.5">
                         <button
-                          onClick={() => { setPhotoMask(sel.photoId, null); setMaskOpen(false); }}
+                          onClick={() => { applyToSel((id) => setPhotoMask(id, null)); setMaskOpen(false); }}
                           title={t("page.maskNoneTitle")}
                           className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
                             selPhoto?.mask ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
@@ -191,7 +203,7 @@ export function PageCard({ page, index }: PageCardProps) {
                             key={m.id}
                             // The rounded mask reveals a size sub-control below, so keep the popover
                             // open when it is picked; the other shapes close it (spec 034).
-                            onClick={() => { setPhotoMask(sel.photoId, m.id); if (!m.rounded) setMaskOpen(false); }}
+                            onClick={() => { applyToSel((id) => setPhotoMask(id, m.id)); if (!m.rounded) setMaskOpen(false); }}
                             title={t(`mask.${m.id}`)}
                             aria-pressed={selPhoto?.mask === m.id}
                             className={`flex h-9 w-9 items-center justify-center rounded-md border p-1 ${
@@ -212,7 +224,7 @@ export function PageCard({ page, index }: PageCardProps) {
                             return (
                               <button
                                 key={sz.id}
-                                onClick={() => setPhotoMaskRadius(sel.photoId, sz.value)}
+                                onClick={() => applyToSel((id) => setPhotoMaskRadius(id, sz.value))}
                                 aria-pressed={active}
                                 className={`flex-1 rounded-md border px-2 py-1 text-[11px] ${active ? "border-accent text-ink" : "border-line text-muted hover:border-faint hover:text-ink"}`}
                               >
@@ -247,7 +259,7 @@ export function PageCard({ page, index }: PageCardProps) {
                     <div className="absolute left-0 top-full z-30 mt-1.5 w-[210px] rounded-lg border border-line bg-surface p-2 shadow-soft">
                       <div className="flex flex-wrap gap-1.5">
                         <button
-                          onClick={() => setPhotoFrame(sel.photoId, null)}
+                          onClick={() => applyToSel((id) => setPhotoFrame(id, null))}
                           title={t("page.frameNoneTitle")}
                           className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
                             selPhoto?.frame ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
@@ -258,7 +270,7 @@ export function PageCard({ page, index }: PageCardProps) {
                         {FRAMES.map((f) => (
                           <button
                             key={f.id}
-                            onClick={() => setPhotoFrame(sel.photoId, f.id)}
+                            onClick={() => applyToSel((id) => setPhotoFrame(id, f.id))}
                             title={t(`frame.${f.id}`)}
                             aria-pressed={selPhoto?.frame === f.id}
                             className={`flex h-9 items-center justify-center rounded-md border px-2 text-[10.5px] ${
@@ -277,7 +289,7 @@ export function PageCard({ page, index }: PageCardProps) {
                               return (
                                 <button
                                   key={c.id}
-                                  onClick={() => setPhotoFrameColor(sel.photoId, c.id)}
+                                  onClick={() => applyToSel((id) => setPhotoFrameColor(id, c.id))}
                                   title={t(`frameColor.${c.id}`)}
                                   aria-pressed={active}
                                   className={`h-6 w-6 rounded-full border ${active ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : "border-line"}`}
@@ -303,7 +315,7 @@ export function PageCard({ page, index }: PageCardProps) {
                                 return (
                                   <button
                                     key={bw.id}
-                                    onClick={() => setPhotoFrameWidth(sel.photoId, bw.value)}
+                                    onClick={() => applyToSel((id) => setPhotoFrameWidth(id, bw.value))}
                                     aria-pressed={active}
                                     className={`flex-1 rounded-md border px-2 py-1 text-[11px] ${active ? "border-accent text-ink" : "border-line text-muted hover:border-faint hover:text-ink"}`}
                                   >
