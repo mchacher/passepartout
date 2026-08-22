@@ -12,11 +12,15 @@ import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
 import { PHOTO_DND_TYPE, PHOTO_SLOT_DND_TYPE } from "./dnd";
+import { EMPTY_SELECTION, selectSingle, toggleSelection, type Selection } from "../lib/selection";
 
-// The selected photo's context, reported up so the page controls can show its toolbar.
+// The selection reported up so the page controls can show its toolbar. `photoId` is the
+// primary (last-touched) photo that drives the single-photo controls and active state;
+// `photoIds` is every selected photo, so a style (mask / frame) can apply to all (spec 055).
 export interface PaperSelection {
   photoId: string;
-  overlaps: boolean; // the selected cell overlaps another (front/back is meaningful)
+  photoIds: string[];
+  overlaps: boolean; // the primary cell overlaps another (front/back is meaningful)
 }
 
 // Imperative actions the page toolbar drives on the current selection.
@@ -73,12 +77,14 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
   // A live working copy of the cells during an edit session (seeded on enter, cleared on
   // exit); otherwise the page's resolved cells (custom placement or named template).
   const [editCells, setEditCells] = useState<CellRect[] | null>(null);
-  // The selected cell index while editing (spec 015): its actions show in the page toolbar.
-  const [selected, setSelected] = useState<number | null>(null);
+  // The selection while editing (spec 015 / 055): the primary cell drives the single-photo
+  // controls; a Ctrl/Cmd-click multi-selection lets a mask/frame apply to several at once.
+  const [sel, setSel] = useState<Selection>(EMPTY_SELECTION);
+  const selected = sel.primary;
   const workingRef = useRef<CellRect[]>([]);
   useEffect(() => {
     setEditCells(canEdit ? resolveCells(layoutId, slots, page.placement).map((c) => ({ ...c })) : null);
-    setSelected(canEdit && items.length > 0 ? 0 : null);
+    setSel(canEdit && items.length > 0 ? selectSingle(0) : EMPTY_SELECTION);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canEdit, page.id, items.length]);
 
@@ -142,7 +148,14 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
     if (!editCells || box.w <= 0 || box.h <= 0) return;
     e.preventDefault();
     e.stopPropagation();
-    setSelected(index);
+    // Ctrl/Cmd-click toggles this cell in the multi-selection (spec 055) and starts no drag,
+    // so a mask/frame can then be applied to every selected photo at once.
+    if (mode === "move" && (e.ctrlKey || e.metaKey)) {
+      setSel((s) => toggleSelection(s, index));
+      return;
+    }
+    // A plain interaction selects just this cell (dropping any multi-selection) and proceeds.
+    setSel(selectSingle(index));
 
     // Polaroid focus pan (spec 019): Shift-drag moves which square region of the photo shows
     // in the window, instead of panning the cell whitespace. Only the overflowing axis moves.
@@ -219,11 +232,25 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
     setPagePlacement(page.id, next);
   };
 
+  // Every selected photo, primary first, deduped (a photo can sit in two slots). A mask /
+  // frame from the toolbar applies to all of these (spec 055).
+  const selPhotoIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const i of sel.indices) {
+      const id = items[i]?.id;
+      if (id && !ids.includes(id)) ids.push(id);
+    }
+    return ids;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel.indices.join(","), page.photoIds.join(",")]);
+
   // Report the current selection up so the page controls can render its toolbar.
   useEffect(() => {
-    onSelection?.(canEdit && selCell ? { photoId: selCell.item.id, overlaps: selOverlaps } : null);
+    onSelection?.(
+      canEdit && selCell ? { photoId: selCell.item.id, photoIds: selPhotoIds, overlaps: selOverlaps } : null,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEdit, selCell?.item.id, selOverlaps]);
+  }, [canEdit, selCell?.item.id, selOverlaps, selPhotoIds]);
 
   useImperativeHandle(
     ref,
@@ -379,6 +406,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
                           oy={cell.oy}
                           panHint={shiftHeld}
                           selected={selected === idx}
+                          multi={selected !== idx && sel.indices.includes(idx)}
                           onMoveDown={(e) => beginDrag(e, idx, e.shiftKey ? "pan" : "move")}
                           onResizeDown={(e, corner) => beginDrag(e, idx, "resize", corner)}
                         />
@@ -497,6 +525,7 @@ interface EditCellProps {
   oy: number;
   panHint: boolean;
   selected: boolean;
+  multi: boolean; // part of the multi-selection but not the primary cell (spec 055)
   onMoveDown: (e: React.PointerEvent) => void;
   onResizeDown: (e: React.PointerEvent, corner: Corner) => void;
 }
@@ -504,11 +533,11 @@ interface EditCellProps {
 // A cell in "Edit layout" mode: drag the body to move, Shift-drag to pan the photo in its
 // whitespace, and (when selected) drag a corner to resize. Selecting a cell surfaces its
 // actions (crop / layer / remove) in the page toolbar above, so they are always visible.
-function EditCell({ photo, w, h, ox, oy, panHint, selected, onMoveDown, onResizeDown }: EditCellProps) {
+function EditCell({ photo, w, h, ox, oy, panHint, selected, multi, onMoveDown, onResizeDown }: EditCellProps) {
   return (
     <div
       className={`absolute inset-0 touch-none select-none rounded-[2px] ring-1 ${
-        selected ? "ring-2 ring-accent" : "ring-accent/40 hover:ring-accent/70"
+        selected ? "ring-2 ring-accent" : multi ? "ring-2 ring-accent/70" : "ring-accent/40 hover:ring-accent/70"
       } ${panHint ? "cursor-grab active:cursor-grabbing" : "cursor-move"}`}
       onPointerDown={onMoveDown}
     >
