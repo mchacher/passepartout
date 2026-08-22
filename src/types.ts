@@ -88,9 +88,14 @@ export interface AlbumPage {
   id: string;
   title: string;
   subtitle: string; // optional line under the title, contained in whitespace (never on a photo)
+  // The photos placed on the page, in slot order (spec 035). A page has a SLOT COUNT (its
+  // layout capacity, see slotCount in src/lib/layouts.ts) that is independent of how many
+  // photos are placed: photoIds fills the first slots and the rest render as empty drop
+  // targets. Photos only enter a page by dragging, never automatically. Invariant:
+  // photoIds.length <= slotCount(page).
   photoIds: string[];
   whitespace: number; // per-page whitespace level, 1 (least white) .. WHITESPACE_LEVELS (most)
-  layoutId: string; // which arrangement template (see src/lib/layouts.ts) is applied
+  layoutId: string; // arrangement template (src/lib/layouts.ts); its leaf count IS the slot count
   // Custom grid placement (spec 013). When present and its length matches the photo count,
   // it overrides the named template (the page is "detached"). Written by the free-placement
   // editor (Phase B); cleared when a template is re-selected or the count changes.

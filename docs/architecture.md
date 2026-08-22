@@ -108,6 +108,9 @@ Three hard boundaries:
   (spec 012): `fullPage` (`"contain"` = Fit, no crop; `"cover"` = Fill, cropped;
   effective only with one photo, cleared otherwise by `syncLayout`) and `fullPageFocus`
   (`{x,y}` in 0..1, the Fill crop focus, default centered).
+  A page's **slot count** is its layout capacity (`slotCount()` in `src/lib/layouts.ts`),
+  independent of how many photos are placed (spec 035): `photoIds` fills the first slots
+  and the rest render as empty drop targets. Invariant: `photoIds.length <= slotCount`.
 - **Book size** (`src/lib/book-sizes.ts`): the physical print size a project targets,
   one of a curated set of real Blurb trim sizes (mm + orientation). Its ratio drives the
   page and cover preview, so what you see is what prints. Carries the print constants
@@ -162,19 +165,20 @@ root.** Match the right altitude when adding a field.
 ## The reactive / render flow
 
 ```
-Import / demo
-  -> store.photos (sorted by capture time)
-    -> store.pages (auto-distributed, DEFAULT_PER_PAGE per page)
-      -> PageCard controls: title, count 1-6, layout picker, whitespace 1-8
+Import
+  -> store.photos (sorted by capture time), library only; one empty page if none (spec 035)
+    -> PageCard controls: title, slot count 1-6, layout picker, whitespace 1-8
+      -> drag a photo from the Library onto a page -> fills the next empty slot
         -> Paper measures its content box in pixels (ResizeObserver)
-          -> computeLayout(items, w, h, node, { density })   [PURE]
-            -> one fixed region per slot, each photo contained + centered, no overflow
+          -> computeLayout(items, w, h, cells, { density })   [PURE]
+            -> one fixed region per slot; each photo contained + centered, no overflow;
+               slots beyond the placed photos render as empty "+" drop targets
 ```
 
 State flows one way: a control calls a store action, the store produces a new
 `pages`/`photos` array, subscribed components re-render, and `Paper` re-measures and
-re-lays-out. `syncLayout` runs inside every mutation that changes a page's photo
-count (`setPageCount`, `placeOnPage`, `removeFromPage`) to keep `layoutId` valid.
+re-lays-out. `syncLayout` runs inside every mutation that changes a page (`setPageCount`,
+`placeOnPage`, `removeFromPage`) to keep the invariant `photoIds.length <= slotCount`.
 
 `App` renders the four cover faces in booklet order: **front cover** then **inside
 front cover**, the pages, then **inside back cover** then **back cover**, so a project
@@ -191,7 +195,7 @@ projects can coexist.
 App mount -> store.initProjects() -> load last-active ProjectDoc + its blobs
   -> hydratePhotos (fresh object URLs) -> photos/pages/format
 any album mutation -> scheduleSave() (debounced) -> saveProjectDoc(serializeProject(state))
-import / demo -> putImage(blob) once + object URL
+import -> putImage(blob) once + object URL
 switch project -> revoke old object URLs -> load new doc + blobs -> hydrate
 ```
 

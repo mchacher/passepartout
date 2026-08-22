@@ -2,8 +2,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
-import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
-import { resolveCells, GRID_COLS, GRID_ROWS } from "../lib/layouts";
+import { computeLayout, drawOrder, gridRegions, whitespaceToDensity } from "../lib/layout";
+import { resolveCells, slotCount, GRID_COLS, GRID_ROWS } from "../lib/layouts";
 import { moveCell, resizeCell, restack, panAnchor, snapAnchor, type Corner } from "../lib/grid-edit";
 import { effectiveRatio } from "../lib/crop";
 import { photoLayoutRatio, frameById, frameInner } from "../lib/frames";
@@ -40,6 +40,7 @@ const rectsOverlap = (a: CellRect, b: CellRect) =>
 // resizable on the grid (writing the page's custom placement).
 export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, editing = false, onSelection }, ref) {
   const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement, setPhotoFrameFocus } = useAlbum();
+  const { t } = useT();
   const showGrid = useView((s) => s.showGrid);
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const density = whitespaceToDensity(page.whitespace);
@@ -55,10 +56,16 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
     .map((id) => photos.find((p) => p.id === id))
     .filter((p): p is Photo => p !== undefined);
 
+  // The page's slot count (spec 035): its layout capacity. Photos fill the first slots in
+  // order; the remaining cells render as empty drop targets. slots >= items.length always.
+  const slots = slotCount(layoutId, items.length, page.placement);
+
   // Full-page mode (spec 012): one photo owns the whole page, no header or captions.
   // Effective only with exactly one photo (the store clears it otherwise).
   const fullPage = page.fullPage && items.length === 1 ? page.fullPage : undefined;
-  const canEdit = editing && !fullPage && items.length > 0;
+  // Free-placement editing needs a full page (spec 035): every slot filled, so the editor
+  // never has to arrange an empty cell.
+  const canEdit = editing && !fullPage && items.length > 0 && items.length === slots;
 
   // A live working copy of the cells during an edit session (seeded on enter, cleared on
   // exit); otherwise the page's resolved cells (custom placement or named template).
@@ -67,12 +74,14 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
   const [selected, setSelected] = useState<number | null>(null);
   const workingRef = useRef<CellRect[]>([]);
   useEffect(() => {
-    setEditCells(canEdit ? resolveCells(layoutId, items.length, page.placement).map((c) => ({ ...c })) : null);
+    setEditCells(canEdit ? resolveCells(layoutId, slots, page.placement).map((c) => ({ ...c })) : null);
     setSelected(canEdit && items.length > 0 ? 0 : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canEdit, page.id, items.length]);
 
-  const gridCells = editCells ?? resolveCells(layoutId, items.length, page.placement);
+  // The page renders `slots` cells (spec 035): the first items.length hold photos, the rest
+  // are empty placeholders.
+  const gridCells = editCells ?? resolveCells(layoutId, slots, page.placement);
   const gridKey = JSON.stringify(gridCells);
   // The engine lays out by each photo's EFFECTIVE ratio (its crop's ratio; spec 015), so a
   // cropped photo re-fits its cell as a photo of the kept region. The cell item keeps the
@@ -93,6 +102,10 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
     [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey, maskKey, frameKey],
   );
   const order = useMemo(() => drawOrder(gridCells), [gridKey]);
+  // Every slot's fixed region (spec 035): filled cells use `placed`, empty slots (indices
+  // >= items.length) render a placeholder over their region here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const regions = useMemo(() => gridRegions(gridCells, box.w, box.h), [gridKey, box.w, box.h]);
   const selCell = selected != null ? placed[selected] : undefined;
   const selOverlaps = useMemo(() => {
     if (selected == null) return false;
@@ -290,47 +303,57 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
             >
               <div className="relative h-full w-full">
                 {gridVisible && <GridOverlay />}
-                {items.length === 0 ? (
-                  <div className="absolute inset-[12%] flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong p-5 text-center text-[12.5px] leading-relaxed text-faint">
-                    Empty page. Drag photos here, or pick a number above.
-                  </div>
-                ) : (
-                  order.map((idx) => {
-                    const cell = placed[idx];
-                    if (!cell) return null;
+                {order.map((idx) => {
+                  const cell = placed[idx];
+                  // Empty slot (spec 035): a dashed placeholder. The whole page is the drop
+                  // target (onDrop), so a dropped photo fills the next empty slot.
+                  if (!cell) {
+                    const region = regions[idx];
+                    if (!region) return null;
                     return (
                       <div
-                        key={cell.item.id}
-                        className="absolute"
-                        style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
+                        key={`slot-${idx}`}
+                        title={t("page.emptySlot")}
+                        aria-label={t("page.emptySlot")}
+                        className="absolute flex items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong text-[18px] leading-none text-faint"
+                        style={{ left: region.x, top: region.y, width: region.w, height: region.h }}
                       >
-                        {canEdit ? (
-                          <EditCell
+                        +
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={cell.item.id}
+                      className="absolute"
+                      style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
+                    >
+                      {canEdit ? (
+                        <EditCell
+                          photo={items[idx] ?? cell.item}
+                          w={cell.w}
+                          h={cell.h}
+                          ox={cell.ox}
+                          oy={cell.oy}
+                          panHint={shiftHeld}
+                          selected={selected === idx}
+                          onMoveDown={(e) => beginDrag(e, idx, e.shiftKey ? "pan" : "move")}
+                          onResizeDown={(e, corner) => beginDrag(e, idx, "resize", corner)}
+                        />
+                      ) : (
+                        <div className="absolute" style={{ left: cell.ox, top: cell.oy, width: cell.w }}>
+                          <Cell
                             photo={items[idx] ?? cell.item}
                             w={cell.w}
                             h={cell.h}
-                            ox={cell.ox}
-                            oy={cell.oy}
-                            panHint={shiftHeld}
-                            selected={selected === idx}
-                            onMoveDown={(e) => beginDrag(e, idx, e.shiftKey ? "pan" : "move")}
-                            onResizeDown={(e, corner) => beginDrag(e, idx, "resize", corner)}
+                            onRemove={() => removeFromPage(cell.item.id, page.id)}
+                            onCaption={(text) => setCaption(cell.item.id, text)}
                           />
-                        ) : (
-                          <div className="absolute" style={{ left: cell.ox, top: cell.oy, width: cell.w }}>
-                            <Cell
-                              photo={items[idx] ?? cell.item}
-                              w={cell.w}
-                              h={cell.h}
-                              onRemove={() => removeFromPage(cell.item.id, page.id)}
-                              onCaption={(text) => setCaption(cell.item.id, text)}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>

@@ -12,7 +12,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 
 ## Features
 
-- **Per-page control**: choose 1 to 6 photos per page and exactly which photos, by drag and drop.
+- **Per-page control**: set how many photos a page holds (1 to 6), then drag exactly which ones into its slots. Imported photos wait in the Library until you place them; nothing is auto-arranged.
 - **Layouts**: pick an explicit arrangement per page (rows and grids); whitespace only scales the photos inside it, it never re-groups them.
 - **No cropping by default**: a photo is shown whole and contained; a portrait stays portrait, a panorama stays panorama. Cropping is always an explicit choice, never automatic.
 - **Crop when you want**: in Edit layout, a Crop button opens a free crop rectangle on the photo; the kept region then lays out and prints like any photo. The rest of your photos stay uncropped.

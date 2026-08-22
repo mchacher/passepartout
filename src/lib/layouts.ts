@@ -176,3 +176,14 @@ export function resolveCells(layoutId: string, count: number, placement?: CellRe
   if (tpl && tpl.count === count) return tpl.cells;
   return autoCells(count);
 }
+
+/**
+ * A page's SLOT COUNT (spec 035): how many cells the page is laid out for, independent of
+ * how many photos are actually placed. A named template's leaf count is the capacity; a
+ * detached page's capacity is its custom placement length; a page beyond the 1-6 catalog
+ * (only reachable by dragging) is exactly full, so it falls back to the photo count.
+ * The store keeps the invariant photoCount <= slotCount.
+ */
+export function slotCount(layoutId: string, photoCount: number, placement?: CellRect[]): number {
+  return getLayout(layoutId)?.count ?? placement?.length ?? photoCount;
+}

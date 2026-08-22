@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { WHITESPACE_LEVELS, type AlbumPage } from "../types";
-import { layoutsForCount } from "../lib/layouts";
+import { layoutsForCount, slotCount } from "../lib/layouts";
 import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
 import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
@@ -24,11 +24,16 @@ export function PageCard({ page, index }: PageCardProps) {
     useAlbum();
   const { t } = useT();
   const photos = useAlbum((s) => s.photos);
-  const count = page.photoIds.length;
-  const layouts = layoutsForCount(count);
+  // A page's slot count is its layout capacity (spec 035): the count buttons pick it, and
+  // photos fill the first slots (the rest render as empty drop targets in Paper).
+  const slots = slotCount(page.layoutId, page.photoIds.length, page.placement);
+  const placed = page.photoIds.length;
+  const layouts = layoutsForCount(slots);
   const isFullPage = page.fullPage !== undefined;
   const [editing, setEditing] = useState(false);
-  const canArrange = count >= 1 && !isFullPage;
+  // Free-placement editing needs a full page (every slot filled), so it operates on real
+  // cells rather than empty ones.
+  const canArrange = placed >= 1 && placed === slots && !isFullPage;
 
   // The selected photo (reported by Paper) drives the Edit-layout toolbar, and which photo
   // the crop editor opens (spec 015).
@@ -96,9 +101,9 @@ export function PageCard({ page, index }: PageCardProps) {
             <button
               key={n}
               onClick={() => setPageCount(page.id, n)}
-              aria-pressed={count === n}
+              aria-pressed={slots === n}
               className={`h-[26px] w-[26px] rounded-md border font-mono text-xs ${
-                count === n
+                slots === n
                   ? "border-accent bg-accent text-white"
                   : "border-line bg-surface text-muted"
               }`}
@@ -442,8 +447,9 @@ export function PageCard({ page, index }: PageCardProps) {
           </div>
         )}
 
-        {/* Full page: only offered for a single-photo page. Fit never crops; Fill crops. */}
-        {count === 1 && (
+        {/* Full page: only offered for a single-slot page that holds its one photo. Fit
+            never crops; Fill crops. */}
+        {slots === 1 && placed === 1 && (
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted">{t("page.pageFill")}</span>
             <div className="flex gap-0.5 rounded-lg border border-line bg-surface p-[3px]">

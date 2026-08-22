@@ -17,7 +17,7 @@ import { UpdatingOverlay } from "./components/UpdatingOverlay";
 import { useT, useApplyLang } from "./useT";
 
 export function App() {
-  const { photos, pages, addPage, importFiles, loadDemo, initProjects, ready, persistent, remote, authed, needsSetup } =
+  const { photos, pages, addPage, importFiles, initProjects, ready, persistent, remote, authed, needsSetup } =
     useAlbum();
   const updating = useAlbum((s) => s.updating);
   const { t } = useT();
@@ -135,12 +135,6 @@ export function App() {
                   className="rounded-lg border border-accent bg-accent px-3 py-[7px] text-[12.5px] text-white hover:bg-accent-ink"
                 >
                   {t("app.empty.import")}
-                </button>
-                <button
-                  onClick={loadDemo}
-                  className="rounded-lg border border-line-strong bg-surface-2 px-3 py-[7px] text-[12.5px] hover:bg-surface"
-                >
-                  {t("app.empty.demo")}
                 </button>
               </div>
               <input
