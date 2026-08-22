@@ -113,7 +113,9 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
 
   const coverPreviewPhoto = (cover: Cover): PreviewPhoto | null => {
     const p = photoById(cover.photoId);
-    return p ? { id: p.id, url: p.url, ratio: p.ratio, caption: "", crop: p.crop } : null;
+    return p
+      ? { id: p.id, url: p.url, ratio: p.ratio, caption: "", crop: p.crop, mask: p.mask, maskRadius: p.maskRadius, frame: p.frame, frameColor: p.frameColor, frameText: p.frameText, frameWidth: p.frameWidth, frameFocus: p.frameFocus }
+      : null;
   };
 
   const pageThumbPhotos = (photoIds: string[]): ThumbPhoto[] =>

@@ -206,13 +206,13 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
     const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     const cw = el.clientWidth - padX;
     const ch = el.clientHeight - padY;
-    const { cells } = computeLayout([{ ratio: effectiveRatio(photo.ratio, photo.crop) }], cw, ch, resolveCells("single", 1), {
+    const { cells } = computeLayout([{ ratio: photoLayoutRatio(photo) }], cw, ch, resolveCells("single", 1), {
       density: whitespaceToDensity(whitespace),
     });
     const c = cells[0];
     setBox(c ? { w: c.w, h: c.h } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo?.id, photo?.ratio, photo?.crop, whitespace, h]);
+  }, [photo?.id, photo?.ratio, photo?.crop, photo?.frame, photo?.frameWidth, photo?.mask, whitespace, h]);
 
   useLayoutEffect(() => {
     measure();
@@ -249,9 +249,12 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
         className="absolute inset-x-0 bottom-0 flex items-center justify-center px-[6cqw] pb-[6cqw]"
         style={{ top: photoTop }}
       >
-        {photo && box && (
-          <CroppedImg url={photo.url} name="" crop={photo.crop} w={box.w} h={box.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
-        )}
+        {photo && box &&
+          (photo.frame ? (
+            <FramedPhoto url={photo.url} name="" crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} ratio={effectiveRatio(photo.ratio, photo.crop)} sourceRatio={photo.ratio} frame={photo.frame} color={photo.frameColor} text={photo.frameText} width={photo.frameWidth} focus={photo.frameFocus} w={box.w} h={box.h} />
+          ) : (
+            <CroppedImg url={photo.url} name="" crop={photo.crop} mask={photo.mask} maskRadius={photo.maskRadius} w={box.w} h={box.h} frameClass="rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]" />
+          ))}
       </div>
     </div>
   );
