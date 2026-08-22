@@ -3,6 +3,21 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.7.0 - 2026-08-22
+
+- **Manual photo placement**: photos no longer fill pages automatically. Each page has a slot count
+  you choose, and you drag photos from the Library into the slots you want; unfilled slots show as
+  drop targets. New albums now start from your own photos (the built-in sample album was removed).
+- **Insert a page anywhere**: you can add a fresh blank page before or after any existing page, not
+  only at the end. Hover the gap above a page to reveal an "Insert a page here" button; the "Add
+  page" button still appends at the end.
+- **Swap two photos by dragging**: on a page that holds several photos, drag one photo onto another
+  to swap their positions. Dropping a photo from the Library still fills the next empty slot.
+- **Style several photos at once**: while arranging a page, Ctrl-click (or Cmd-click) to select
+  multiple photos, then apply the same mask or frame to all of them in a single click.
+- **Mask and frame on covers**: cover photos now support the same decorative masks and frames as
+  page photos, set from new controls in the cover header and shown in the book preview.
+
 ## v0.6.0 - 2026-08-22
 
 - **Borders follow the mask shape**: a framed photo that also has a mask now shows the border as a
