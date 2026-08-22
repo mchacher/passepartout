@@ -432,6 +432,63 @@ describe("store page reorder", () => {
   });
 });
 
+describe("store insert page (spec 053)", () => {
+  const ids = () => useAlbum.getState().pages.map((p) => p.id);
+
+  const seed = () =>
+    useAlbum.setState({
+      photos: [photo("x"), photo("y")],
+      pages: [
+        page("p1", ["x"], "single"),
+        page("p2", [], "single"),
+        page("p3", ["y"], "single"),
+      ],
+    });
+
+  it("inserts a fresh blank page before the first page (slot 0)", () => {
+    seed();
+    useAlbum.getState().insertPage(0);
+    const s = useAlbum.getState();
+    expect(s.pages).toHaveLength(4);
+    expect(ids().slice(1)).toEqual(["p1", "p2", "p3"]);
+    expect(s.pages[0].photoIds).toEqual([]); // brand new empty page
+    expect(s.pages[0].layoutId).toBe("single");
+  });
+
+  it("inserts between existing pages (slot k) and shifts the rest down", () => {
+    seed();
+    useAlbum.getState().insertPage(2); // between p2 and p3
+    const s = useAlbum.getState();
+    expect(ids()[0]).toBe("p1");
+    expect(ids()[1]).toBe("p2");
+    expect(ids()[3]).toBe("p3");
+    expect(s.pages[2].photoIds).toEqual([]); // the inserted one
+  });
+
+  it("appends when the slot equals the length, and clamps out-of-range", () => {
+    seed();
+    useAlbum.getState().insertPage(3); // == length -> after the last
+    expect(ids().slice(0, 3)).toEqual(["p1", "p2", "p3"]);
+    expect(useAlbum.getState().pages).toHaveLength(4);
+    seed();
+    useAlbum.getState().insertPage(99); // clamped to the end
+    expect(ids().slice(0, 3)).toEqual(["p1", "p2", "p3"]);
+    expect(useAlbum.getState().pages).toHaveLength(4);
+    seed();
+    useAlbum.getState().insertPage(-5); // clamped to the front
+    expect(ids().slice(1)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("gives every inserted page a unique id and touches no existing page", () => {
+    seed();
+    const before = useAlbum.getState().pages.find((p) => p.id === "p1")!;
+    useAlbum.getState().insertPage(1);
+    const s = useAlbum.getState();
+    expect(new Set(s.pages.map((p) => p.id)).size).toBe(s.pages.length);
+    expect(s.pages.find((p) => p.id === "p1")).toBe(before); // reference unchanged
+  });
+});
+
 describe("store project management", () => {
   beforeAll(() => {
     // jsdom-less node has no object URL API; the CRUD paths never render, so stub it.
