@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { effectiveRatio } from "../lib/crop";
@@ -14,23 +15,16 @@ interface CoverCardProps {
 
 const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 
-const FACE: Record<CoverFace, { label: string; titlePlaceholder: string; subtitlePlaceholder: string }> = {
-  front: { label: "Front cover", titlePlaceholder: "Album title", subtitlePlaceholder: "Subtitle or date" },
-  insideFront: { label: "Inside front cover", titlePlaceholder: "Note or dedication (optional)", subtitlePlaceholder: "Optional" },
-  insideBack: { label: "Inside back cover", titlePlaceholder: "Note (optional)", subtitlePlaceholder: "Optional" },
-  back: { label: "Back cover", titlePlaceholder: "Closing note", subtitlePlaceholder: "Optional" },
-};
-
 // A booklet cover face: editable title + subtitle, plus one optional photo dragged
 // from the Library. The photo is contained (sized by the engine's single-slot path),
-// never cropped.
+// never cropped. Face labels/placeholders are translated by face id (spec 032).
 export function CoverCard({ which }: CoverCardProps) {
   const { photos, bookSize, frontCover, insideFrontCover, insideBackCover, backCover, updateCover } =
     useAlbum();
+  const { t } = useT();
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const cover = { front: frontCover, insideFront: insideFrontCover, insideBack: insideBackCover, back: backCover }[which];
-  const face = FACE[which];
-  const label = face.label;
+  const label = t(`cover.${which}.label`);
 
   const photo = cover.photoId
     ? photos.find((p) => p.id === cover.photoId)
@@ -87,14 +81,12 @@ export function CoverCard({ which }: CoverCardProps) {
         <span className="whitespace-nowrap font-display text-[13px] font-semibold text-accent">
           {label}
         </span>
-        <span className="mr-auto text-[11px] text-muted">
-          Drag a photo here, or leave it text-only.
-        </span>
+        <span className="mr-auto text-[11px] text-muted">{t("cover.dragHint")}</span>
         <label
           className="flex items-center gap-2 text-[11px] text-muted"
-          title={`Whitespace level ${cover.whitespace} of ${WHITESPACE_LEVELS}`}
+          title={t("page.whitespaceTitle", { n: cover.whitespace, total: WHITESPACE_LEVELS })}
         >
-          <span>Whitespace</span>
+          <span>{t("page.whitespace")}</span>
           <input
             type="range"
             min={1}
@@ -141,14 +133,14 @@ export function CoverCard({ which }: CoverCardProps) {
           <div className="absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
             <input
               value={cover.title}
-              placeholder={face.titlePlaceholder}
+              placeholder={t(`cover.${which}.title`)}
               onChange={(e) => updateCover(which, { title: e.target.value })}
               className="w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none"
               style={{ fontSize: "calc(clamp(16px, 5cqw, 34px) * var(--cover-title-scale))", color: "var(--album-ink)" }}
             />
             <input
               value={cover.subtitle}
-              placeholder={face.subtitlePlaceholder}
+              placeholder={t(`cover.${which}.subtitle`)}
               onChange={(e) => updateCover(which, { subtitle: e.target.value })}
               className="mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none"
               style={{ fontSize: "calc(clamp(11px, 2.6cqw, 16px) * var(--cover-subtitle-scale))", color: "var(--album-ink-soft)" }}
@@ -166,7 +158,7 @@ export function CoverCard({ which }: CoverCardProps) {
               <CoverPhoto photo={photo} w={size.w} h={size.h} onRemove={() => updateCover(which, { photoId: null })} />
             ) : (
               <div className="pointer-events-none flex h-full w-full items-center justify-center rounded-md border-[1.5px] border-dashed border-line-strong text-center text-[12px] leading-relaxed text-faint">
-                Drag a photo here (optional)
+                {t("cover.dropHint")}
               </div>
             )}
           </div>
@@ -184,11 +176,12 @@ interface CoverPhotoProps {
 }
 
 function CoverPhoto({ photo, w, h, onRemove }: CoverPhotoProps) {
+  const { t } = useT();
   return (
     <div className="group relative">
       <button
         onClick={onRemove}
-        title="Remove cover photo"
+        title={t("cover.removePhoto")}
         className="absolute -right-2 -top-2 z-20 hidden h-5 w-5 items-center justify-center rounded-full border-0 bg-ink text-[12px] leading-none text-paper shadow-soft group-hover:flex"
       >
         ×

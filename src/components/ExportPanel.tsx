@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import { bookSizeOrDefault } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
 import { photoLayoutRatio } from "../lib/frames";
@@ -19,6 +20,7 @@ import type { Cover, Photo } from "../types";
 // the store at click time and hands it to the pdf-lib builder.
 export function ExportPanel() {
   const store = useAlbum();
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [paper, setPaper] = useState<PaperId>("standard");
   const [spineOverride, setSpineOverride] = useState("");
@@ -145,31 +147,31 @@ export function ExportPanel() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-2 rounded-lg border border-accent bg-accent px-3 py-[7px] text-[12.5px] text-white transition-colors hover:bg-accent-ink"
-        title="Export a print-ready PDF for Blurb"
+        title={t("export.buttonTitle")}
       >
         <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
           <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
         </svg>
-        Export
+        {t("export.export")}
       </button>
 
       {open && (
         <>
-          <button aria-label="Close export panel" className="fixed inset-0 z-20 cursor-default" onClick={() => setOpen(false)} />
+          <button aria-label={t("export.closePanel")} className="fixed inset-0 z-20 cursor-default" onClick={() => setOpen(false)} />
           <div className="absolute right-0 z-30 mt-1.5 w-[300px] rounded-xl border border-line bg-surface p-3 shadow-soft">
-            <div className="pb-2 text-[11px] uppercase tracking-wide text-faint">Export for Blurb</div>
+            <div className="pb-2 text-[11px] uppercase tracking-wide text-faint">{t("export.heading")}</div>
 
             <div className="flex items-center justify-between py-1 text-[12.5px]">
-              <span className="text-muted">Book size</span>
-              <span className="text-ink">{size.name}</span>
+              <span className="text-muted">{t("export.bookSize")}</span>
+              <span className="text-ink">{t(`size.${size.id}`)}</span>
             </div>
             <div className="flex items-center justify-between py-1 text-[12.5px]">
-              <span className="text-muted">Interior pages</span>
+              <span className="text-muted">{t("export.interiorPages")}</span>
               <span className="font-mono text-ink">{interiorCount}</span>
             </div>
 
             <label className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
-              <span className="text-muted">Paper</span>
+              <span className="text-muted">{t("export.paper")}</span>
               <select
                 value={paper}
                 onChange={(e) => setPaper(e.target.value as PaperId)}
@@ -177,14 +179,14 @@ export function ExportPanel() {
               >
                 {PAPERS.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {t(`paper.${p.id}`)}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
-              <span className="text-muted">Spine (mm)</span>
+              <span className="text-muted">{t("export.spineMm")}</span>
               <input
                 inputMode="decimal"
                 value={spineOverride}
@@ -193,16 +195,14 @@ export function ExportPanel() {
                 className="w-24 rounded-md border border-line bg-surface-2 px-2 py-1 text-right font-mono text-[12.5px] text-ink focus:border-accent focus:outline-none"
               />
             </label>
-            <p className="pb-1 pt-0.5 text-[10.5px] leading-snug text-faint">
-              Estimated from the page count, paper and cover. Paste Blurb's exact spine width from its spec tool to override.
-            </p>
+            <p className="pb-1 pt-0.5 text-[10.5px] leading-snug text-faint">{t("export.spineHint")}</p>
 
             <div className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
-              <span className="text-muted">On the spine</span>
+              <span className="text-muted">{t("export.onSpine")}</span>
               <div className="flex gap-0.5 rounded-lg border border-line bg-surface-2 p-[3px]">
                 {([
-                  { id: "title", label: "Title" },
-                  { id: "titleSubtitle", label: "Title + subtitle" },
+                  { id: "title", key: "export.spineTitle" },
+                  { id: "titleSubtitle", key: "export.spineTitleSubtitle" },
                 ] as const).map((o) => (
                   <button
                     key={o.id}
@@ -212,7 +212,7 @@ export function ExportPanel() {
                       spineContent === o.id ? "bg-accent text-white shadow-soft" : "text-muted hover:text-ink"
                     }`}
                   >
-                    {o.label}
+                    {t(o.key)}
                   </button>
                 ))}
               </div>
@@ -224,19 +224,17 @@ export function ExportPanel() {
                 disabled={busy !== null || !validSpine}
                 className="flex-1 rounded-md border border-line-strong bg-surface-2 px-2 py-1.5 text-[12px] text-ink hover:bg-surface disabled:opacity-50"
               >
-                {busy === "cover" ? "Building..." : "Cover wrap"}
+                {busy === "cover" ? t("export.building") : t("export.coverWrap")}
               </button>
               <button
                 onClick={exportInterior}
                 disabled={busy !== null}
                 className="flex-1 rounded-md border border-accent bg-accent px-2 py-1.5 text-[12px] text-white hover:bg-accent-ink disabled:opacity-50"
               >
-                {busy === "interior" ? "Building..." : "Interior"}
+                {busy === "interior" ? t("export.building") : t("export.interior")}
               </button>
             </div>
-            <p className="mt-2 text-[10.5px] leading-snug text-faint">
-              300 DPI, sRGB, 0.32 cm bleed. Upload both files to Blurb PDF to Book (cover and pages).
-            </p>
+            <p className="mt-2 text-[10.5px] leading-snug text-faint">{t("export.footer")}</p>
           </div>
         </>
       )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CropRect, Photo } from "../types";
 import { DEFAULT_CROP, moveCropRect, resizeCropRect, type CropHandle } from "../lib/crop";
+import { useT } from "../useT";
 
 interface CropEditorProps {
   photo: Photo;
@@ -29,6 +30,7 @@ const isFull = (c: CropRect) => c.x < 1e-3 && c.y < 1e-3 && c.w > 1 - 1e-3 && c.
 // dimmed. Done keeps only the rectangle; Reset restores the whole image. No distortion: the
 // kept region is shown contain-fit wherever the photo appears.
 export function CropEditor({ photo, onApply, onClose }: CropEditorProps) {
+  const { t } = useT();
   const [crop, setCrop] = useState<CropRect>(photo.crop ?? DEFAULT_CROP);
 
   useEffect(() => {
@@ -69,25 +71,25 @@ export function CropEditor({ photo, onApply, onClose }: CropEditorProps) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[rgb(15,18,22)]">
       <div className="flex items-center gap-4 px-5 py-3 text-white/90">
-        <span className="font-display text-[14px]">Crop photo</span>
-        <span className="text-[12.5px] text-white/55">Drag the corners or edges; drag inside to move.</span>
+        <span className="font-display text-[14px]">{t("crop.title")}</span>
+        <span className="text-[12.5px] text-white/55">{t("crop.hint")}</span>
         <button
           onClick={() => setCrop(DEFAULT_CROP)}
           className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-[12.5px] text-white/85 hover:bg-white/10"
         >
-          Reset
+          {t("crop.reset")}
         </button>
         <button
           onClick={onClose}
           className="rounded-lg border border-white/15 px-3 py-1.5 text-[12.5px] text-white/85 hover:bg-white/10"
         >
-          Cancel
+          {t("crop.cancel")}
         </button>
         <button
           onClick={() => onApply(isFull(crop) ? null : crop)}
           className="rounded-lg border border-accent bg-accent px-3 py-1.5 text-[12.5px] text-white hover:bg-accent-ink"
         >
-          Done
+          {t("crop.done")}
         </button>
       </div>
 

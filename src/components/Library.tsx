@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAlbum } from "../store";
 import { useView, LIBRARY_COLS } from "../viewStore";
+import { useT } from "../useT";
 import { countUsage, usageCount } from "../lib/usage";
 import { PHOTO_DND_TYPE } from "./dnd";
 
@@ -27,6 +28,7 @@ export function Library() {
   const [unusedOnly, setUnusedOnly] = useState(false);
   const libraryCols = useView((s) => s.libraryCols);
   const setLibraryCols = useView((s) => s.setLibraryCols);
+  const { t, tp } = useT();
 
   const usage = useMemo(
     () => countUsage(pages, [frontCover.photoId, insideFrontCover.photoId, insideBackCover.photoId, backCover.photoId]),
@@ -38,21 +40,19 @@ export function Library() {
   return (
     <aside className="flex min-h-0 flex-col border-r border-line bg-surface">
       <div className="flex items-baseline justify-between px-4 pb-2.5 pt-3.5">
-        <h2 className="font-display text-[15px] font-medium">Library</h2>
+        <h2 className="font-display text-[15px] font-medium">{t("library.title")}</h2>
         <span className="font-mono text-[11.5px] text-faint">
-          {unusedCount} unused / {photos.length}
+          {t("library.unusedCount", { unused: unusedCount, total: photos.length })}
         </span>
       </div>
       <div className="flex items-center justify-between gap-2 px-4 pb-2.5">
-        <p className="text-[11.5px] leading-snug text-muted">
-          Chronological order (capture date). Drag a photo onto a page.
-        </p>
+        <p className="text-[11.5px] leading-snug text-muted">{t("library.chronoHint")}</p>
       </div>
       <div className="flex items-center justify-between gap-2 px-3.5 pb-2.5">
         <button
           onClick={() => setUnusedOnly((v) => !v)}
           aria-pressed={unusedOnly}
-          title="Show only photos not used anywhere yet"
+          title={t("library.unusedOnlyTitle")}
           className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-[5px] text-[11.5px] transition-colors ${
             unusedOnly
               ? "border-accent bg-accent text-white"
@@ -62,17 +62,17 @@ export function Library() {
           <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
             <path d="M3 5h18M6 12h12M10 19h4" />
           </svg>
-          Unused only
+          {t("library.unusedOnly")}
         </button>
 
         {/* Thumbnail density (spec 030): more columns = smaller thumbs to scan a big library. */}
-        <div className="flex items-center gap-0.5" role="group" aria-label="Thumbnail size">
+        <div className="flex items-center gap-0.5" role="group" aria-label={t("library.thumbnailSize")}>
           {LIBRARY_COLS.map((n) => (
             <button
               key={n}
               onClick={() => setLibraryCols(n)}
               aria-pressed={libraryCols === n}
-              title={`${n} columns`}
+              title={t("library.columns", { n })}
               className={`flex h-[26px] w-[26px] items-center justify-center rounded-md border transition-colors ${
                 libraryCols === n
                   ? "border-accent bg-accent-soft text-accent"
@@ -96,11 +96,11 @@ export function Library() {
       >
         {photos.length === 0 ? (
           <div className="col-span-full px-2 py-8 text-center text-xs leading-relaxed text-faint">
-            No photos imported.
+            {t("library.empty")}
           </div>
         ) : shown.length === 0 ? (
           <div className="col-span-full px-2 py-8 text-center text-xs leading-relaxed text-faint">
-            Every photo is used. Uncheck the filter to see them all.
+            {t("library.allUsed")}
           </div>
         ) : (
           shown.map((p) => {
@@ -118,7 +118,7 @@ export function Library() {
                 <img src={p.url} alt={p.name} className="max-h-full max-w-full" draggable={false} />
                 {count > 0 && (
                   <span
-                    title={`Used ${count} time${count > 1 ? "s" : ""}`}
+                    title={tp(count, { one: t("library.usedOne"), other: t("library.usedOther") })}
                     className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[10px] leading-none text-white shadow-soft"
                   >
                     {count}

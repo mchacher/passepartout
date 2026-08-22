@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import { WHITESPACE_LEVELS, type AlbumPage } from "../types";
 import { layoutsForCount } from "../lib/layouts";
 import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
@@ -21,6 +22,7 @@ const LEVELS = Array.from({ length: WHITESPACE_LEVELS }, (_, i) => i + 1);
 export function PageCard({ page, index }: PageCardProps) {
   const { setPageTitle, setPageSubtitle, setPageCount, setPageWhitespace, setPageLayout, setPageFullPage, removeFromPage, setPhotoCrop, setPhotoMask, setPhotoFrame, setPhotoFrameColor, setPhotoFrameText, setPhotoFrameWidth, setPhotoRotation, deletePage } =
     useAlbum();
+  const { t } = useT();
   const photos = useAlbum((s) => s.photos);
   const count = page.photoIds.length;
   const layouts = layoutsForCount(count);
@@ -59,9 +61,9 @@ export function PageCard({ page, index }: PageCardProps) {
   // Full-page choices for a single-photo page (spec 012). Off = normal page; Fit fills the
   // page without cropping; Fill fills the page by cropping to the page ratio.
   const fillOptions = [
-    { id: null, label: "Off", title: "Normal page" },
-    { id: "contain", label: "Fit", title: "Fill the page, never cropping" },
-    { id: "cover", label: "Fill", title: "Fill the page, cropping to fit" },
+    { id: null, key: "off" },
+    { id: "contain", key: "fit" },
+    { id: "cover", key: "fill" },
   ] as const;
 
   return (
@@ -75,21 +77,21 @@ export function PageCard({ page, index }: PageCardProps) {
           <input
             type="text"
             value={page.title}
-            placeholder="Page title (optional)"
+            placeholder={t("page.titlePlaceholder")}
             onChange={(e) => setPageTitle(page.id, e.target.value)}
             className="min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 font-display text-[15px] text-ink placeholder:italic placeholder:text-faint hover:border-line focus:border-accent focus:bg-surface focus:outline-none"
           />
           <input
             type="text"
             value={page.subtitle}
-            placeholder="Subtitle (optional)"
+            placeholder={t("page.subtitlePlaceholder")}
             onChange={(e) => setPageSubtitle(page.id, e.target.value)}
             className="min-w-0 rounded-md border border-transparent bg-transparent px-2 py-0.5 font-display text-[12.5px] text-muted placeholder:italic placeholder:text-faint hover:border-line focus:border-accent focus:bg-surface focus:outline-none"
           />
         </div>
 
         <div className="flex items-center gap-[3px]">
-          <span className="mr-1 text-[11px] text-muted">Photos</span>
+          <span className="mr-1 text-[11px] text-muted">{t("page.photos")}</span>
           {[1, 2, 3, 4, 5, 6].map((n) => (
             <button
               key={n}
@@ -108,7 +110,7 @@ export function PageCard({ page, index }: PageCardProps) {
 
         <button
           onClick={() => deletePage(page.id)}
-          title="Delete page"
+          title={t("page.delete")}
           className="ml-1 flex h-[27px] w-[27px] items-center justify-center rounded-md text-faint hover:bg-surface hover:text-ink"
         >
           <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth={1.6}>
@@ -122,7 +124,7 @@ export function PageCard({ page, index }: PageCardProps) {
           <button
             onClick={() => setEditing((v) => !v)}
             aria-pressed={editing}
-            title={editing ? "Finish arranging" : "Move and resize photos on the grid"}
+            title={editing ? t("page.arrangeDone") : t("page.arrangeStart")}
             className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-[5px] text-[11.5px] transition-colors ${
               editing
                 ? "border-accent bg-accent text-white"
@@ -132,7 +134,7 @@ export function PageCard({ page, index }: PageCardProps) {
             <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
               <path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" />
             </svg>
-            {editing ? "Done" : "Arrange"}
+            {editing ? t("page.done") : t("page.arrange")}
           </button>
         )}
 
@@ -141,19 +143,19 @@ export function PageCard({ page, index }: PageCardProps) {
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => setCropping(sel.photoId)}
-                title="Crop the photo"
+                title={t("page.cropTitle")}
                 className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
               >
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                   <path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14" />
                 </svg>
-                Crop
+                {t("page.crop")}
               </button>
               <div className="relative">
                 <button
                   onClick={() => setMaskOpen((v) => !v)}
                   aria-pressed={maskOpen}
-                  title="Give the photo a decorative shape"
+                  title={t("page.maskTitle")}
                   className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-[5px] text-[11.5px] transition-colors ${
                     selPhoto?.mask
                       ? "border-accent bg-accent text-white"
@@ -163,26 +165,26 @@ export function PageCard({ page, index }: PageCardProps) {
                   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                     <ellipse cx="12" cy="12" rx="9" ry="6.5" />
                   </svg>
-                  Mask
+                  {t("page.mask")}
                 </button>
                 {maskOpen && (
                   <>
-                    <button aria-label="Close mask picker" className="fixed inset-0 z-20 cursor-default" onClick={() => setMaskOpen(false)} />
+                    <button aria-label={t("page.maskClose")} className="fixed inset-0 z-20 cursor-default" onClick={() => setMaskOpen(false)} />
                     <div className="absolute left-0 top-full z-30 mt-1.5 flex gap-1.5 rounded-lg border border-line bg-surface p-2 shadow-soft">
                       <button
                         onClick={() => { setPhotoMask(sel.photoId, null); setMaskOpen(false); }}
-                        title="No mask (rectangle)"
+                        title={t("page.maskNoneTitle")}
                         className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
                           selPhoto?.mask ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
                         }`}
                       >
-                        None
+                        {t("page.none")}
                       </button>
                       {MASKS.map((m) => (
                         <button
                           key={m.id}
                           onClick={() => { setPhotoMask(sel.photoId, m.id); setMaskOpen(false); }}
-                          title={m.name}
+                          title={t(`mask.${m.id}`)}
                           aria-pressed={selPhoto?.mask === m.id}
                           className={`flex h-9 w-9 items-center justify-center rounded-md border p-1 ${
                             selPhoto?.mask === m.id ? "border-accent" : "border-line hover:border-faint"
@@ -202,7 +204,7 @@ export function PageCard({ page, index }: PageCardProps) {
                 <button
                   onClick={() => setFrameOpen((v) => !v)}
                   aria-pressed={frameOpen}
-                  title="Frame the photo (Polaroid, colored border)"
+                  title={t("page.frameTitle")}
                   className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-[5px] text-[11.5px] transition-colors ${
                     selPhoto?.frame
                       ? "border-accent bg-accent text-white"
@@ -213,31 +215,31 @@ export function PageCard({ page, index }: PageCardProps) {
                     <rect x="3" y="3" width="18" height="18" rx="1.5" />
                     <rect x="6" y="6" width="12" height="8" />
                   </svg>
-                  Frame
+                  {t("page.frame")}
                 </button>
                 {frameOpen && (
                     <div className="absolute left-0 top-full z-30 mt-1.5 w-[210px] rounded-lg border border-line bg-surface p-2 shadow-soft">
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           onClick={() => setPhotoFrame(sel.photoId, null)}
-                          title="No frame"
+                          title={t("page.frameNoneTitle")}
                           className={`flex h-9 w-9 items-center justify-center rounded-md border text-[9px] ${
                             selPhoto?.frame ? "border-line text-muted hover:border-faint hover:text-ink" : "border-accent text-accent"
                           }`}
                         >
-                          None
+                          {t("page.none")}
                         </button>
                         {FRAMES.map((f) => (
                           <button
                             key={f.id}
                             onClick={() => setPhotoFrame(sel.photoId, f.id)}
-                            title={f.name}
+                            title={t(`frame.${f.id}`)}
                             aria-pressed={selPhoto?.frame === f.id}
                             className={`flex h-9 items-center justify-center rounded-md border px-2 text-[10.5px] ${
                               selPhoto?.frame === f.id ? "border-accent text-ink" : "border-line text-muted hover:border-faint hover:text-ink"
                             }`}
                           >
-                            {f.name}
+                            {t(`frame.${f.id}`)}
                           </button>
                         ))}
                       </div>
@@ -250,7 +252,7 @@ export function PageCard({ page, index }: PageCardProps) {
                                 <button
                                   key={c.id}
                                   onClick={() => setPhotoFrameColor(sel.photoId, c.id)}
-                                  title={c.name}
+                                  title={t(`frameColor.${c.id}`)}
                                   aria-pressed={active}
                                   className={`h-6 w-6 rounded-full border ${active ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : "border-line"}`}
                                   style={{ background: c.value }}
@@ -262,11 +264,11 @@ export function PageCard({ page, index }: PageCardProps) {
                             <>
                               <input
                                 value={selPhoto.frameText ?? ""}
-                                placeholder="Handwritten note"
+                                placeholder={t("page.frameNote")}
                                 onChange={(e) => setPhotoFrameText(sel.photoId, e.target.value)}
                                 className="font-hand mt-2 w-full rounded-md border border-line bg-surface-2 px-2 py-1 text-[15px] text-ink placeholder:font-sans placeholder:text-[12px] placeholder:not-italic placeholder:text-faint focus:border-accent focus:outline-none"
                               />
-                              <p className="mt-1.5 text-[10.5px] leading-snug text-faint">Shift-drag the photo to reposition it in the frame.</p>
+                              <p className="mt-1.5 text-[10.5px] leading-snug text-faint">{t("page.frameShiftHint")}</p>
                             </>
                           ) : (
                             <div className="mt-2 flex gap-1">
@@ -279,7 +281,7 @@ export function PageCard({ page, index }: PageCardProps) {
                                     aria-pressed={active}
                                     className={`flex-1 rounded-md border px-2 py-1 text-[11px] ${active ? "border-accent text-ink" : "border-line text-muted hover:border-faint hover:text-ink"}`}
                                   >
-                                    {bw.label}
+                                    {t(`borderWidth.${bw.id}`)}
                                   </button>
                                 );
                               })}
@@ -294,7 +296,7 @@ export function PageCard({ page, index }: PageCardProps) {
                 <button
                   onClick={() => setTiltOpen((v) => !v)}
                   aria-pressed={tiltOpen}
-                  title="Tilt the photo (decorative)"
+                  title={t("page.tiltTitle")}
                   className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-[5px] text-[11.5px] transition-colors ${
                     selPhoto?.rotation
                       ? "border-accent bg-accent text-white"
@@ -304,17 +306,17 @@ export function PageCard({ page, index }: PageCardProps) {
                   <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                     <path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" />
                   </svg>
-                  Tilt
+                  {t("page.tilt")}
                 </button>
                 {tiltOpen && (
                   <>
-                    <button aria-label="Close tilt picker" className="fixed inset-0 z-20 cursor-default" onClick={() => setTiltOpen(false)} />
+                    <button aria-label={t("page.tiltClose")} className="fixed inset-0 z-20 cursor-default" onClick={() => setTiltOpen(false)} />
                     <div className="absolute left-0 top-full z-30 mt-1.5 flex items-center gap-1 rounded-lg border border-line bg-surface p-2 shadow-soft">
                       {[...ROTATION_STEPS].reverse().map((s) => (
                         <button
                           key={`m${s}`}
                           onClick={() => setPhotoRotation(sel.photoId, (selPhoto?.rotation ?? 0) - s)}
-                          title={`Tilt left ${s} degrees`}
+                          title={t("page.tiltLeft", { n: s })}
                           className="rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:border-faint hover:text-ink"
                         >
                           -{s}
@@ -328,7 +330,7 @@ export function PageCard({ page, index }: PageCardProps) {
                         <button
                           key={`p${s}`}
                           onClick={() => setPhotoRotation(sel.photoId, (selPhoto?.rotation ?? 0) + s)}
-                          title={`Tilt right ${s} degrees`}
+                          title={t("page.tiltRight", { n: s })}
                           className="rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:border-faint hover:text-ink"
                         >
                           +{s}
@@ -339,14 +341,14 @@ export function PageCard({ page, index }: PageCardProps) {
                       <button
                         onClick={() => setPhotoRotation(sel.photoId, 0)}
                         disabled={!selPhoto?.rotation}
-                        title="Straighten (reset to 0 degrees)"
+                        title={t("page.straightenTitle")}
                         className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:border-faint hover:text-ink disabled:cursor-default disabled:opacity-40 disabled:hover:border-line disabled:hover:text-muted"
                       >
                         <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                           <path d="M3 12h18" />
                           <circle cx="12" cy="12" r="2.5" />
                         </svg>
-                        Straighten
+                        {t("page.straighten")}
                       </button>
                     </div>
                   </>
@@ -356,46 +358,46 @@ export function PageCard({ page, index }: PageCardProps) {
                 <>
                   <button
                     onClick={() => paperRef.current?.restackSelected("front")}
-                    title="Bring to front"
+                    title={t("page.frontTitle")}
                     className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
                   >
                     <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                       <path d="M12 19V5M6 11l6-6 6 6" />
                     </svg>
-                    Front
+                    {t("page.front")}
                   </button>
                   <button
                     onClick={() => paperRef.current?.restackSelected("back")}
-                    title="Send to back"
+                    title={t("page.backTitle")}
                     className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
                   >
                     <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
                       <path d="M12 5v14M6 13l6 6 6-6" />
                     </svg>
-                    Back
+                    {t("page.back")}
                   </button>
                 </>
               )}
               <button
                 onClick={() => removeFromPage(sel.photoId, page.id)}
-                title="Remove from page"
+                title={t("page.removeTitle")}
                 className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-[5px] text-[11.5px] text-muted hover:border-faint hover:text-ink"
               >
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
                   <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7" />
                 </svg>
-                Remove
+                {t("page.remove")}
               </button>
-              <span className="ml-1 text-[11px] text-muted">Drag to move, corners to resize.</span>
+              <span className="ml-1 text-[11px] text-muted">{t("page.arrangeHint")}</span>
             </div>
           ) : (
-            <span className="text-[11px] text-muted">Click a photo to edit it.</span>
+            <span className="text-[11px] text-muted">{t("page.selectHint")}</span>
           )
         ) : (
         <>
         {layouts.length > 1 && (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted">Layout</span>
+            <span className="text-[11px] text-muted">{t("page.layout")}</span>
             <div className="flex flex-wrap items-center gap-1">
               {layouts.map((tpl) => {
                 const active = page.layoutId === tpl.id;
@@ -404,7 +406,7 @@ export function PageCard({ page, index }: PageCardProps) {
                     key={tpl.id}
                     onClick={() => setPageLayout(page.id, tpl.id)}
                     aria-pressed={active}
-                    title={tpl.label}
+                    title={t(`layout.${tpl.id}`)}
                     className={`flex h-[30px] w-[30px] items-center justify-center rounded-md border ${
                       active
                         ? "border-accent bg-accent text-white"
@@ -422,27 +424,27 @@ export function PageCard({ page, index }: PageCardProps) {
         {/* Full page: only offered for a single-photo page. Fit never crops; Fill crops. */}
         {count === 1 && (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted">Page fill</span>
+            <span className="text-[11px] text-muted">{t("page.pageFill")}</span>
             <div className="flex gap-0.5 rounded-lg border border-line bg-surface p-[3px]">
               {fillOptions.map((o) => {
                 const active = (page.fullPage ?? null) === o.id;
                 return (
                   <button
-                    key={o.label}
+                    key={o.key}
                     onClick={() => setPageFullPage(page.id, o.id)}
                     aria-pressed={active}
-                    title={o.title}
+                    title={t(`page.fill.${o.key}Title`)}
                     className={`rounded-md px-2 py-[3px] text-[11.5px] transition-colors ${
                       active ? "bg-accent text-white shadow-soft" : "text-muted hover:text-ink"
                     }`}
                   >
-                    {o.label}
+                    {t(`page.fill.${o.key}`)}
                   </button>
                 );
               })}
             </div>
             {page.fullPage === "cover" && (
-              <span className="text-[10.5px] text-faint">drag the photo to reposition the crop</span>
+              <span className="text-[10.5px] text-faint">{t("page.fillCoverHint")}</span>
             )}
           </div>
         )}
@@ -453,9 +455,9 @@ export function PageCard({ page, index }: PageCardProps) {
         {!isFullPage && (
         <label
           className="ml-auto flex items-center gap-2 text-[11px] text-muted"
-          title={`Whitespace level ${page.whitespace} of ${WHITESPACE_LEVELS}`}
+          title={t("page.whitespaceTitle", { n: page.whitespace, total: WHITESPACE_LEVELS })}
         >
-          <span>Whitespace</span>
+          <span>{t("page.whitespace")}</span>
           <input
             type="range"
             min={1}

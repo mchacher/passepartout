@@ -47,6 +47,9 @@ designs live under `specs/`.
   degrees, decorative range) applied as a visual transform on top of the layout; it never
   crops or distorts and composes with the crop / mask / frame (the whole unit tilts, note
   included), on screen and in the exported PDF (rotated about the box center). Engine untouched
+- Internationalization (spec 032): the whole UI chrome is translated, English and French, with
+  a language toggle in the top bar and on the sign-in screens (default from the browser locale).
+  Album content is never translated. Dependency-free `t()` catalog; the layout engine is untouched
 
 ## Requested (this round)
 

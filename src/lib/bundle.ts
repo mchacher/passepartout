@@ -40,11 +40,22 @@ export interface ParsedBundle {
   exportedAt: number;
 }
 
+/** Stable identifiers for each bundle failure, so the UI can translate the message (spec 032). */
+export type BundleErrorCode =
+  | "not-zip"
+  | "missing-manifest"
+  | "corrupt-manifest"
+  | "not-bundle"
+  | "newer-version"
+  | "no-project";
+
 /** A bundle that is not a valid Passepartout album (bad zip, wrong format, etc.). */
 export class BundleError extends Error {
-  constructor(message: string) {
+  readonly code: BundleErrorCode;
+  constructor(code: BundleErrorCode, message: string) {
     super(message);
     this.name = "BundleError";
+    this.code = code;
   }
 }
 
@@ -80,32 +91,32 @@ export function parseBundle(bytes: Uint8Array): ParsedBundle {
   try {
     files = unzipSync(bytes);
   } catch {
-    throw new BundleError("This file is not a valid zip archive.");
+    throw new BundleError("not-zip", "This file is not a valid zip archive.");
   }
 
   const manifestBytes = files[MANIFEST_NAME];
   if (!manifestBytes) {
-    throw new BundleError("This is not a Passepartout album bundle (missing album.json).");
+    throw new BundleError("missing-manifest", "This is not a Passepartout album bundle (missing album.json).");
   }
 
   let manifest: Partial<BundleManifest>;
   try {
     manifest = JSON.parse(strFromU8(manifestBytes)) as Partial<BundleManifest>;
   } catch {
-    throw new BundleError("The album bundle manifest is corrupt.");
+    throw new BundleError("corrupt-manifest", "The album bundle manifest is corrupt.");
   }
 
   if (!manifest || manifest.format !== BUNDLE_FORMAT) {
-    throw new BundleError("This is not a Passepartout album bundle.");
+    throw new BundleError("not-bundle", "This is not a Passepartout album bundle.");
   }
   if (typeof manifest.version !== "number") {
-    throw new BundleError("The album bundle manifest is corrupt.");
+    throw new BundleError("corrupt-manifest", "The album bundle manifest is corrupt.");
   }
   if (manifest.version > BUNDLE_VERSION) {
-    throw new BundleError("This bundle was created by a newer version of Passepartout.");
+    throw new BundleError("newer-version", "This bundle was created by a newer version of Passepartout.");
   }
   if (!manifest.doc || typeof manifest.doc !== "object") {
-    throw new BundleError("This album bundle has no project.");
+    throw new BundleError("no-project", "This album bundle has no project.");
   }
 
   const images = new Map<string, BundleImage>();

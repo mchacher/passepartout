@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
 import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
 import { resolveCells, GRID_COLS, GRID_ROWS } from "../lib/layouts";
@@ -348,6 +349,7 @@ interface CellProps {
 }
 
 function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
+  const { t } = useT();
   const capRef = useRef<HTMLDivElement>(null);
 
   // Uncontrolled contentEditable: seed once, commit on blur. Keeps the caret
@@ -360,7 +362,7 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
     <div className="group relative">
       <button
         onClick={onRemove}
-        title="Remove from page"
+        title={t("page.removeTitle")}
         className="absolute -right-2 -top-2 z-20 hidden h-5 w-5 items-center justify-center rounded-full border-0 bg-ink text-[12px] leading-none text-paper shadow-soft group-hover:flex"
       >
         ×
@@ -499,6 +501,7 @@ interface FullPagePhotoProps {
 // the photo (object-fit keeps the ratio); only Fill clips.
 function FullPagePhoto({ page, photo, mode, onRemove }: FullPagePhotoProps) {
   const { setPageFullPageFocus } = useAlbum();
+  const { t } = useT();
   const focus = page.fullPageFocus ?? DEFAULT_CROP_FOCUS;
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -548,7 +551,7 @@ function FullPagePhoto({ page, photo, mode, onRemove }: FullPagePhotoProps) {
       />
       <button
         onClick={onRemove}
-        title="Remove from page"
+        title={t("page.removeTitle")}
         className="absolute right-2 top-2 z-20 hidden h-6 w-6 items-center justify-center rounded-full border-0 bg-ink text-[13px] leading-none text-paper shadow-soft group-hover:flex"
       >
         ×

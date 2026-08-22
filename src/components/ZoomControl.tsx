@@ -1,4 +1,5 @@
 import { useView } from "../viewStore";
+import { useT } from "../useT";
 import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from "../lib/zoom";
 
 // A floating zoom slider anchored to the bottom-right of the editing area (spec 016). Zoom
@@ -9,6 +10,7 @@ import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from "../lib/zoom";
 export function ZoomControl() {
   const zoom = useView((s) => s.zoom);
   const setZoom = useView((s) => s.setZoom);
+  const { t } = useT();
   const pct = Math.round(zoom * 100);
   const atFit = zoom >= ZOOM_MAX;
 
@@ -25,22 +27,22 @@ export function ZoomControl() {
         step={ZOOM_STEP}
         value={zoom}
         onChange={(e) => setZoom(Number(e.target.value))}
-        aria-label="Zoom the pages"
-        title="Zoom the pages"
+        aria-label={t("zoom.label")}
+        title={t("zoom.label")}
         className="w-28 accent-[color:var(--accent)]"
       />
       <span className="w-9 text-right font-mono text-[11px] tabular-nums text-muted">{pct}%</span>
       <button
         onClick={() => setZoom(ZOOM_MAX)}
         disabled={atFit}
-        title="Fit the pages to the available width"
+        title={t("zoom.fitTitle")}
         className={`rounded-md border px-2 py-[3px] text-[11px] ${
           atFit
             ? "border-line bg-surface text-faint"
             : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
         }`}
       >
-        Fit
+        {t("zoom.fit")}
       </button>
     </div>
   );

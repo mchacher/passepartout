@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import type { Cover, CoverFace } from "../types";
-import { bookLeaves, toSpreads, spreadIndexOfLeaf, spreadLabel, fitSpread, type Leaf } from "../lib/preview";
+import { bookLeaves, toSpreads, spreadIndexOfLeaf, fitSpread, type Leaf } from "../lib/preview";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { estimateSpineMm } from "../lib/print";
 import { effectiveSpineTitle } from "../lib/project";
@@ -35,6 +36,13 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     spine,
     activeName,
   } = useAlbum();
+  const { t } = useT();
+
+  // Translate a leaf's label from its structure (spec 032), instead of the English label baked
+  // into the pure preview helper: a cover face reuses its full cover label, a page uses its index.
+  const leafLabel = (leaf: Leaf) =>
+    leaf.kind === "page" ? t("rail.page", { n: leaf.index + 1 }) : t(`cover.${leaf.face}.label`);
+  const spreadText = (sp: Leaf[]) => sp.map(leafLabel).join(" / ");
 
   const covers: Record<CoverFace, Cover> = useMemo(
     () => ({ front: frontCover, insideFront: insideFrontCover, insideBack: insideBackCover, back: backCover }),
@@ -235,14 +243,14 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
     <div className="fixed inset-0 z-50 flex flex-col bg-[rgb(15,18,22)]">
       {/* Header: label, counter, close */}
       <div className="flex items-center gap-4 px-5 py-3 text-white/90">
-        <span className="font-display text-[14px]">Book preview</span>
-        <span className="text-[12.5px] text-white/55">{spread ? spreadLabel(spread) : "Cover"}</span>
+        <span className="font-display text-[14px]">{t("preview.title")}</span>
+        <span className="text-[12.5px] text-white/55">{spread ? spreadText(spread) : t("preview.cover")}</span>
         <span className="ml-auto font-mono text-[12px] tabular-nums text-white/55">
           {clampedIndex + 1} / {spreadCount}
         </span>
         <button
           onClick={onClose}
-          title="Close preview (Esc)"
+          title={t("preview.close")}
           className="ml-2 flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 text-white/80 hover:bg-white/10"
         >
           <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
@@ -255,7 +263,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
         {/* Stage: the current spread, maximized. Clicking the backdrop closes. */}
         <div className="relative min-h-0">
           <button
-            aria-label="Close preview"
+            aria-label={t("preview.closeBackdrop")}
             className="absolute inset-0 cursor-default"
             onClick={onClose}
           />
@@ -263,7 +271,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           <button
             onClick={() => go(-1)}
             disabled={clampedIndex === 0}
-            aria-label="Previous spread"
+            aria-label={t("preview.prev")}
             className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/30 text-white/85 hover:bg-black/50 disabled:opacity-25"
           >
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -273,7 +281,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           <button
             onClick={() => go(1)}
             disabled={clampedIndex === spreadCount - 1}
-            aria-label="Next spread"
+            aria-label={t("preview.next")}
             className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/30 text-white/85 hover:bg-black/50 disabled:opacity-25"
           >
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
@@ -318,9 +326,9 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
             <button
               onClick={() => setIndex(0)}
               className="flex flex-col gap-1 text-left outline-none"
-              title="Go to the cover wrap"
+              title={t("preview.goCoverWrap")}
             >
-              <span className={`px-0.5 text-[10.5px] ${isWrap ? "font-medium text-white" : "text-white/45"}`}>Cover</span>
+              <span className={`px-0.5 text-[10.5px] ${isWrap ? "font-medium text-white" : "text-white/45"}`}>{t("preview.cover")}</span>
               <div className={`overflow-hidden rounded-[3px] ${isWrap ? "ring-2 ring-accent" : "ring-1 ring-white/10"}`}>
                 <div className="flex items-stretch">
                   <div className="flex-1">
@@ -353,10 +361,10 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
                   key={leaf.kind === "page" ? leaf.pageId : leaf.face}
                   onClick={() => setIndex(targetIdx)}
                   className="flex flex-col gap-1 text-left outline-none"
-                  title={`Go to ${leaf.label}`}
+                  title={t("preview.goTo", { label: leafLabel(leaf) })}
                 >
                   <span className={`px-0.5 text-[10.5px] ${active ? "font-medium text-white" : "text-white/45"}`}>
-                    {leaf.label}
+                    {leafLabel(leaf)}
                   </span>
                   <div className={`rounded-[3px] ${active ? "ring-2 ring-accent" : "ring-1 ring-white/10"}`}>{thumb}</div>
                 </button>

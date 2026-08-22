@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
 import { useAlbum } from "../store";
+import { useT } from "../useT";
 import type { Cover } from "../types";
 import { Thumb, type ThumbPhoto } from "./Thumb";
 import { PAGE_DND_TYPE } from "./dnd";
@@ -19,6 +20,7 @@ export function PageRail() {
     backCover,
     movePage,
   } = useAlbum();
+  const { t } = useT();
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [overSlot, setOverSlot] = useState<number | null>(null);
@@ -65,12 +67,12 @@ export function PageRail() {
 
   return (
     <aside className="hidden min-h-0 flex-col border-l border-line bg-surface xl:flex">
-      <div className="px-3 pb-2 pt-3.5 text-[11px] uppercase tracking-wide text-faint">Pages</div>
+      <div className="px-3 pb-2 pt-3.5 text-[11px] uppercase tracking-wide text-faint">{t("rail.pages")}</div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-6" onDrop={onDrop}>
-        <RailEntry label="Front" onClick={() => scrollTo("cover-front")}>
+        <RailEntry label={t("rail.front")} onClick={() => scrollTo("cover-front")}>
           <Thumb photos={coverPhotos(frontCover)} layoutId="single" whitespace={frontCover.whitespace} bookSize={bookSize} />
         </RailEntry>
-        <RailEntry label="Inside front" onClick={() => scrollTo("cover-insideFront")}>
+        <RailEntry label={t("rail.insideFront")} onClick={() => scrollTo("cover-insideFront")}>
           <Thumb photos={coverPhotos(insideFrontCover)} layoutId="single" whitespace={insideFrontCover.whitespace} bookSize={bookSize} />
         </RailEntry>
 
@@ -78,7 +80,7 @@ export function PageRail() {
           <Fragment key={pg.id}>
             {line(i)}
             <RailEntry
-              label={`Page ${i + 1}`}
+              label={t("rail.page", { n: i + 1 })}
               draggable
               dragging={dragId === pg.id}
               onClick={() => scrollTo(`page-${pg.id}`)}
@@ -96,10 +98,10 @@ export function PageRail() {
         ))}
         {line(pages.length)}
 
-        <RailEntry label="Inside back" onClick={() => scrollTo("cover-insideBack")}>
+        <RailEntry label={t("rail.insideBack")} onClick={() => scrollTo("cover-insideBack")}>
           <Thumb photos={coverPhotos(insideBackCover)} layoutId="single" whitespace={insideBackCover.whitespace} bookSize={bookSize} />
         </RailEntry>
-        <RailEntry label="Back" onClick={() => scrollTo("cover-back")}>
+        <RailEntry label={t("rail.back")} onClick={() => scrollTo("cover-back")}>
           <Thumb photos={coverPhotos(backCover)} layoutId="single" whitespace={backCover.whitespace} bookSize={bookSize} />
         </RailEntry>
       </div>
@@ -123,6 +125,7 @@ interface RailEntryProps {
 // Draggable rows (content pages) show a grab cursor and a small handle glyph; locked
 // rows (covers) are plain and labelled in muted text.
 function RailEntry({ label, onClick, children, draggable, dragging, onDragStart, onDragEnd, onDragOver }: RailEntryProps) {
+  const { t } = useT();
   return (
     <div
       draggable={draggable}
@@ -152,7 +155,7 @@ function RailEntry({ label, onClick, children, draggable, dragging, onDragStart,
       </span>
       <button
         onClick={onClick}
-        title="Scroll to this page"
+        title={t("rail.scrollTo")}
         className="rounded-[3px] outline-none ring-accent focus-visible:ring-2"
       >
         {children}

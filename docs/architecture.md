@@ -44,9 +44,11 @@ src/
 │   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
 │   ├── grid-edit.ts    # PURE move/resize/restack helpers for free placement (spec 013 Phase B)
 │   ├── crop.ts         # PURE photo-crop geometry: effectiveRatio, crop-rect edit, cropImgBox (spec 015)
+│   ├── i18n.ts         # PURE UI translation catalog (en + fr) + translate/plural/detectLang (spec 032)
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
-├── viewStore.ts        # Ephemeral view prefs (showGrid, editor zoom), localStorage-persisted, not album data
+├── useT.ts             # Hook: bound t()/plural from viewStore.lang; useApplyLang writes <html lang> (spec 032)
+├── viewStore.ts        # Ephemeral view prefs (showGrid, editor zoom, UI language), localStorage-persisted, not album data
 └── components/
     ├── TopBar.tsx      # Global controls: project switcher, style (theme), format, import
     ├── ProjectMenu.tsx # Project switcher: new / open / rename / duplicate / delete
@@ -264,6 +266,13 @@ Dragging whitespace never re-groups photos.
 - **A new text role or size level**: extend `TEXT_ROLES` / `TEXT_SIZE_LEVELS` in
   `src/lib/text-sizes.ts` and add the matching `--<role>-scale` var to the text site.
   `ThemeMenu` renders the new row/level automatically.
+- **Internationalization** (shipped, spec 032): UI chrome is translated, not album content. Every
+  user-facing string goes through `t("key")` from the `useT()` hook, keyed into the pure `en`/`fr`
+  catalog in `src/lib/i18n.ts` (a parity test enforces both languages carry every key; catalog
+  display names are keyed by id and checked against the lib labels). The active language is a view
+  preference (`viewStore.lang`, `pp.lang`, defaulted from the browser locale), switched by
+  `LanguageMenu`. **A new string**: add the key to both maps and render it via `t()`. **A new
+  language**: add it to `LANGS` and provide its map. The layout engine is never involved.
 - **A new persisted field**: add it to `ProjectDoc` (via `AlbumPage`/`Photo` or the doc
   itself) in `src/lib/project.ts`; `serializeProject`/`hydratePhotos` carry it and the
   IndexedDB adapter stores it with no change. Bump the DB version in `persistence.ts`
