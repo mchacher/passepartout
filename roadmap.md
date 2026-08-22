@@ -50,6 +50,10 @@ designs live under `specs/`.
 - Internationalization (spec 032): the whole UI chrome is translated, English and French, with
   a language toggle in the top bar and on the sign-in screens (default from the browser locale).
   Album content is never translated. Dependency-free `t()` catalog; the layout engine is untouched
+- Mask shapes (issues #40 / #41): a true circle mask (stays round on any photo, via a CSS clip)
+  alongside the ellipse, and three rounded-corner sizes instead of one too-strong radius
+- Mask-shaped borders (spec 033): when a photo has a Border frame and a mask, the border follows
+  the mask shape (a circle mask gives a circular border ring). Screen-only, engine untouched
 
 ## Requested (this round)
 

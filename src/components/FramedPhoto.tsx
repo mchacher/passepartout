@@ -1,5 +1,6 @@
 import { CroppedImg } from "./CroppedImg";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "../lib/frames";
+import { maskClipValue } from "../lib/masks";
 import { DEFAULT_CROP_FOCUS, type CropFocus, type CropRect } from "../types";
 
 const FALLBACK_FRAME = "rounded-[1px] shadow-[0_1px_3px_rgba(0,0,0,.14)]";
@@ -36,6 +37,12 @@ export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, 
   const c = frameColorOf(color, style.defaultColor);
   const inner = frameInner(style, w, h, borderWidthOf(width));
 
+  // When a Border-framed photo carries a mask, clip the mat (the coloured outer box) to the same
+  // shape so the border becomes a shaped ring around the shaped photo (spec 033). The inner photo
+  // is already masked below, and the Border sizes its inner area concentric to the outer box, so
+  // the two same-shape clips leave an even ring. Polaroid (square) never takes a mat clip.
+  const matClip = style.square ? undefined : maskClipValue(mask);
+
   let photo: React.ReactNode;
   if (style.square) {
     // Polaroid: the square window shows a pixel-square region of the source at the focus.
@@ -61,7 +68,20 @@ export function FramedPhoto({ url, name, crop, mask, ratio, sourceRatio, frame, 
   const showNote = style.hasText && !!text && text.trim().length > 0;
 
   return (
-    <div className="relative" style={{ width: `${w}px`, height: `${h}px`, background: c.value, boxShadow: "0 2px 12px rgba(0,0,0,0.18)", transform: rotation ? `rotate(${rotation}deg)` : undefined }}>
+    <div
+      className="relative"
+      style={{
+        width: `${w}px`,
+        height: `${h}px`,
+        background: c.value,
+        clipPath: matClip,
+        // A clip-path would clip a box-shadow away, so a shaped mat lifts off the page with a
+        // drop-shadow filter (which follows the clipped silhouette) instead.
+        boxShadow: matClip ? undefined : "0 2px 12px rgba(0,0,0,0.18)",
+        filter: matClip ? "drop-shadow(0 2px 8px rgba(0,0,0,0.18))" : undefined,
+        transform: rotation ? `rotate(${rotation}deg)` : undefined,
+      }}
+    >
       {photo}
       {showNote && (
         <div
