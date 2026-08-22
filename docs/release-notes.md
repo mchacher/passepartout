@@ -3,6 +3,17 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.5.0 - 2026-08-22
+
+- **English or French interface**: the whole UI is now available in French as well as English,
+  switched from an EN / FR toggle in the top bar (and on the sign-in screens), and defaulting to
+  your browser's language. Your album content stays exactly as you typed it; only the interface
+  is translated.
+- **True circle mask**: alongside the oval, there is now a real circle mask that stays perfectly
+  round whatever the photo's shape.
+- **Rounded-corner sizes**: the rounded mask now comes in three strengths (subtle, normal,
+  strong) instead of one that was too heavy.
+
 ## v0.4.1 - 2026-08-21
 
 - Maintenance release, no functional change. Used to exercise the non-interruptible update flow
