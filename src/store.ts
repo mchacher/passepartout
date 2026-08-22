@@ -486,7 +486,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
         return;
       }
 
-      let projects: ProjectMeta[] = [];
+      let projects: ProjectMeta[];
       try {
         projects = await backend.listProjects();
       } catch {

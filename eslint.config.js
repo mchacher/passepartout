@@ -10,7 +10,11 @@ export default tseslint.config(
     files: ["**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      // Keep the classic two hook rules (identical to react-hooks v5 recommended).
+      // react-hooks 7's recommended additionally enables the opinionated React
+      // Compiler lints; adopting those is a policy change, not this dependency bump.
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
   },
