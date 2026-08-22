@@ -4,7 +4,7 @@ import { useAlbum } from "./store";
 import { clearAll, loadProjectDoc, saveProjectDoc } from "./persistence";
 import { newCover, newProjectDoc } from "./lib/project";
 import type { ProjectDoc } from "./lib/project";
-import type { AlbumPage, Photo } from "./types";
+import type { AlbumPage, CellRect, Photo } from "./types";
 
 // A page's SLOT COUNT is its layout capacity (spec 035), independent of how many photos
 // are placed: photoIds fills the first slots and the rest are empty. Photos only enter a
@@ -486,6 +486,60 @@ describe("store insert page (spec 053)", () => {
     const s = useAlbum.getState();
     expect(new Set(s.pages.map((p) => p.id)).size).toBe(s.pages.length);
     expect(s.pages.find((p) => p.id === "p1")).toBe(before); // reference unchanged
+  });
+});
+
+describe("store swap photos on a page (spec 056)", () => {
+  const idsOf = (pageId: string) => useAlbum.getState().pages.find((p) => p.id === pageId)!.photoIds;
+
+  const seed = () =>
+    useAlbum.setState({
+      photos: [photo("a"), photo("b"), photo("c")],
+      pages: [page("pg", ["a", "b", "c"], "three-row")],
+    });
+
+  it("swaps two photos by slot index", () => {
+    seed();
+    useAlbum.getState().swapPhotosOnPage("pg", 0, 2);
+    expect(idsOf("pg")).toEqual(["c", "b", "a"]);
+    useAlbum.getState().swapPhotosOnPage("pg", 0, 1);
+    expect(idsOf("pg")).toEqual(["b", "c", "a"]);
+  });
+
+  it("is a no-op for equal, out-of-range, or unknown targets", () => {
+    seed();
+    useAlbum.getState().swapPhotosOnPage("pg", 1, 1); // same slot
+    expect(idsOf("pg")).toEqual(["a", "b", "c"]);
+    useAlbum.getState().swapPhotosOnPage("pg", 0, 9); // out of range
+    expect(idsOf("pg")).toEqual(["a", "b", "c"]);
+    useAlbum.getState().swapPhotosOnPage("pg", -1, 2); // negative
+    expect(idsOf("pg")).toEqual(["a", "b", "c"]);
+    useAlbum.getState().swapPhotosOnPage("nope", 0, 1); // unknown page
+    expect(idsOf("pg")).toEqual(["a", "b", "c"]);
+  });
+
+  it("keeps the layout capacity and a custom placement (slot geometry) unchanged", () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [page("pg", ["a", "b"], "two-col")],
+    });
+    const placement: CellRect[] = [
+      { col: 0, row: 0, colSpan: 6, rowSpan: 12 },
+      { col: 6, row: 0, colSpan: 6, rowSpan: 12 },
+    ];
+    useAlbum.getState().setPagePlacement("pg", placement);
+    useAlbum.getState().swapPhotosOnPage("pg", 0, 1);
+    const pg = useAlbum.getState().pages.find((p) => p.id === "pg")!;
+    expect(pg.photoIds).toEqual(["b", "a"]); // occupants exchanged
+    expect(pg.layoutId).toBe("two-col"); // capacity untouched
+    expect(pg.placement).toEqual(placement); // per-slot geometry untouched
+  });
+
+  it("does not touch the photo library", () => {
+    seed();
+    const photosBefore = useAlbum.getState().photos;
+    useAlbum.getState().swapPhotosOnPage("pg", 0, 2);
+    expect(useAlbum.getState().photos).toBe(photosBefore); // reference unchanged
   });
 });
 

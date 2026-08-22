@@ -11,7 +11,7 @@ import { useView } from "../viewStore";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
-import { PHOTO_DND_TYPE } from "./dnd";
+import { PHOTO_DND_TYPE, PHOTO_SLOT_DND_TYPE } from "./dnd";
 
 // The selected photo's context, reported up so the page controls can show its toolbar.
 export interface PaperSelection {
@@ -39,9 +39,12 @@ const rectsOverlap = (a: CellRect, b: CellRect) =>
 // each photo is contain-fit in its region. In edit mode the cells become draggable /
 // resizable on the grid (writing the page's custom placement).
 export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, editing = false, onSelection }, ref) {
-  const { photos, bookSize, placeOnPage, removeFromPage, setCaption, setPagePlacement, setPhotoFrameFocus } = useAlbum();
+  const { photos, bookSize, placeOnPage, removeFromPage, swapPhotosOnPage, setCaption, setPagePlacement, setPhotoFrameFocus } = useAlbum();
   const { t } = useT();
   const showGrid = useView((s) => s.showGrid);
+  // The filled slot a placed photo is currently dragged over (display mode), highlighted as
+  // the swap target (spec 056). Null when no same-app photo drag is hovering a slot.
+  const [swapOver, setSwapOver] = useState<number | null>(null);
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const density = whitespaceToDensity(page.whitespace);
   const layoutId = page.layoutId;
@@ -325,8 +328,47 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
                   return (
                     <div
                       key={cell.item.id}
-                      className="absolute"
+                      className={`absolute ${!canEdit && swapOver === idx ? "rounded-[2px] ring-2 ring-accent" : ""}`}
                       style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
+                      // Display mode: this filled slot is a drop target so a placed photo
+                      // dragged onto it swaps the two, and a library photo dropped here still
+                      // lands on the page (spec 056). Edit mode uses pointer drags instead.
+                      onDragOver={
+                        canEdit
+                          ? undefined
+                          : (e) => {
+                              const types = e.dataTransfer.types;
+                              if (!types.includes(PHOTO_SLOT_DND_TYPE) && !types.includes(PHOTO_DND_TYPE)) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              e.dataTransfer.dropEffect = "move";
+                              if (types.includes(PHOTO_SLOT_DND_TYPE)) setSwapOver(idx);
+                            }
+                      }
+                      onDragLeave={canEdit ? undefined : () => setSwapOver((o) => (o === idx ? null : o))}
+                      onDrop={
+                        canEdit
+                          ? undefined
+                          : (e) => {
+                              const slot = e.dataTransfer.getData(PHOTO_SLOT_DND_TYPE);
+                              const libId = e.dataTransfer.getData(PHOTO_DND_TYPE);
+                              if (!slot && !libId) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSwapOver(null);
+                              setHot(false);
+                              if (slot) {
+                                const sep = slot.lastIndexOf(":");
+                                const srcPage = slot.slice(0, sep);
+                                const srcIdx = Number(slot.slice(sep + 1));
+                                if (srcPage === page.id && Number.isInteger(srcIdx)) {
+                                  swapPhotosOnPage(page.id, srcIdx, idx);
+                                  return;
+                                }
+                              }
+                              if (libId) placeOnPage(libId, page.id);
+                            }
+                      }
                     >
                       {canEdit ? (
                         <EditCell
@@ -346,6 +388,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
                             photo={items[idx] ?? cell.item}
                             w={cell.w}
                             h={cell.h}
+                            slot={{ pageId: page.id, index: idx }}
                             onRemove={() => removeFromPage(cell.item.id, page.id)}
                             onCaption={(text) => setCaption(cell.item.id, text)}
                           />
@@ -367,11 +410,14 @@ interface CellProps {
   photo: Photo;
   w: number;
   h: number;
+  // Where this photo sits, so dragging it onto another slot of the same page can swap them
+  // (spec 056). The slot index is the photo's position in the page's photoIds.
+  slot?: { pageId: string; index: number };
   onRemove: () => void;
   onCaption: (text: string) => void;
 }
 
-function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
+function Cell({ photo, w, h, slot, onRemove, onCaption }: CellProps) {
   const { t } = useT();
   const capRef = useRef<HTMLDivElement>(null);
 
@@ -400,6 +446,7 @@ function Cell({ photo, w, h, onRemove, onCaption }: CellProps) {
           draggable
           onDragStart={(e) => {
             e.dataTransfer.setData(PHOTO_DND_TYPE, photo.id);
+            if (slot) e.dataTransfer.setData(PHOTO_SLOT_DND_TYPE, `${slot.pageId}:${slot.index}`);
             e.dataTransfer.effectAllowed = "move";
           }}
         >

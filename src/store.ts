@@ -193,6 +193,7 @@ interface AlbumState {
   placeOnPage: (photoId: string, pageId: string) => void;
   removeFromPage: (photoId: string, pageId: string) => void;
   unplaceFromAllPages: (photoId: string) => void;
+  swapPhotosOnPage: (pageId: string, i: number, j: number) => void;
   setPageCount: (pageId: string, n: number) => void;
 
   addPage: () => void;
@@ -833,6 +834,27 @@ export const useAlbum = create<AlbumState>((set, get) => {
         // A custom placement keeps all its cells (one per slot); the freed cell just empties.
         pg.photoIds = pg.photoIds.filter((id) => id !== photoId);
         pages.forEach(syncLayout);
+        return { pages };
+      });
+      scheduleSave();
+    },
+
+    // Swap two photos within one page by slot index (spec 056). Only the photoIds order
+    // changes: the layout capacity and any custom placement (keyed by slot, not photo) are
+    // untouched, so the two photos simply exchange positions. Out-of-range / equal indices
+    // are a no-op.
+    swapPhotosOnPage: (pageId, i, j) => {
+      set((s) => {
+        const target = s.pages.find((pg) => pg.id === pageId);
+        if (!target) return {};
+        const n = target.photoIds.length;
+        if (i === j || i < 0 || j < 0 || i >= n || j >= n) return {};
+        const pages = s.pages.map((pg) => {
+          if (pg.id !== pageId) return pg;
+          const photoIds = [...pg.photoIds];
+          [photoIds[i], photoIds[j]] = [photoIds[j], photoIds[i]];
+          return { ...pg, photoIds };
+        });
         return { pages };
       });
       scheduleSave();
