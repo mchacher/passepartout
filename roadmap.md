@@ -95,6 +95,18 @@ designs live under `specs/`.
    scanning, branch protection, secret scanning and Dependabot (the CI already runs a gitleaks
    secret scan as the interim guard, spec 028). Do a secret-history pass before flipping.
 
+5. **NFS-hosted photos (server mode).** Let the operator keep the photo blobs on a NAS via NFS,
+   so a home server with a small system disk can back a large library off a network share. Today
+   the `api` service already stores photos as **files on disk** (blobs under the data directory,
+   only their mime lives in SQLite), so this is largely a deployment concern: mount an NFS export
+   as the blob directory. Scope to settle when it becomes a spec: split the blob path from the
+   SQLite path (env like `BLOB_DIR` separate from the DB `DATA_DIR`) so photos can live on NFS
+   while the database stays on **local disk** (SQLite over NFS has unreliable file locking and can
+   corrupt, so it must not sit on the share); document the NFS volume in `docs/self-hosting.md`
+   (compose `driver: local` with `type: nfs`, or an already-mounted host path); and handle the
+   slower, higher-latency IO gracefully on read/write. Never changes the photo bytes; storage
+   location only.
+
 ## Later (from earlier planning, see CLAUDE.md)
 
 - Embed the real album fonts in the PDF (today print maps each to Times / Helvetica /
