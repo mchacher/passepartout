@@ -3,6 +3,21 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.6.0 - 2026-08-22
+
+- **Borders follow the mask shape**: a framed photo that also has a mask now shows the border as a
+  shaped ring around the shaped photo. A circle-masked photo gets a circular mat ring instead of a
+  rectangular mat around a round photo; an oval mask gives an oval ring, an arch mask an arch, and
+  so on.
+- **Simpler rounded mask**: the three separate rounded-corner masks are replaced by a single
+  "Rounded" mask with a size sub-control (subtle, normal, strong), like a frame's border width. The
+  corner radius is now constant and perfectly circular, so it no longer stretches on a wide or tall
+  photo.
+- **Under the hood**: the app and the server now run on Node 22, with a refreshed toolchain (Vite 8,
+  Vitest 4, ESLint 10, Zustand 5) and updated server libraries. Your albums are unchanged; this
+  keeps Passepartout on current, supported dependencies. Self-hosters get the new images on the next
+  `docker compose pull`.
+
 ## v0.5.0 - 2026-08-22
 
 - **English or French interface**: the whole UI is now available in French as well as English,
