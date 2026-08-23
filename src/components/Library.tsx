@@ -119,8 +119,12 @@ export function Library() {
         </div>
       </div>
 
+      {/* `auto-rows-max` is load bearing (issue 83): with auto rows, this definite-height
+          scroll container equalises the row tracks to fill its height, so every row came out
+          shorter than its square tile and each row overlapped the previous one, the more
+          photos the worse. Sizing rows to their content pins them to the tile height. */}
       <div
-        className="grid min-h-0 flex-1 content-start gap-2.5 overflow-y-auto px-3.5 pb-4"
+        className="grid min-h-0 flex-1 auto-rows-max content-start gap-2.5 overflow-y-auto px-3.5 pb-4"
         style={{ gridTemplateColumns: `repeat(${libraryCols}, minmax(0, 1fr))` }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -147,9 +151,17 @@ export function Library() {
                   e.dataTransfer.setData(PHOTO_DND_TYPE, p.id);
                   e.dataTransfer.effectAllowed = "move";
                 }}
-                className="group relative flex aspect-square cursor-grab items-center justify-center overflow-hidden rounded-[5px] border border-line bg-surface-2 active:cursor-grabbing"
+                className="group relative aspect-square cursor-grab overflow-hidden rounded-[5px] border border-line bg-surface-2 active:cursor-grabbing"
               >
-                <img src={p.url} alt={p.name} className="max-h-full max-w-full" draggable={false} />
+                {/* Contain-fit out of the flow, like every other thumbnail in the app
+                    (`Thumb`, `PreviewPaper`): the tile's height is its own, never the image's.
+                    `object-contain` keeps the ratio, so nothing is cropped. */}
+                <img
+                  src={p.url}
+                  alt={p.name}
+                  className="absolute inset-0 h-full w-full object-contain"
+                  draggable={false}
+                />
                 {/* Delete (issue 66). Top-LEFT so it never sits on the usage badge; faint until
                     the thumbnail is hovered, and always reachable by keyboard. */}
                 <button
