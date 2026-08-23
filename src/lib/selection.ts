@@ -39,3 +39,15 @@ export function clampSelection(sel: Selection, count: number): Selection {
         : null;
   return { indices, primary };
 }
+
+// The outline a cell wears in "Edit layout" (issue 85). Every selected cell, primary or not,
+// gets the exact same ring: three shades of one accent read as three states and made a
+// multi-selection unreadable. An unselected cell gets a neutral ring that cannot be mistaken
+// for a selected one, thickening on hover to stay obviously clickable. The primary is told
+// apart by its resize handles, which are what actually belongs to it.
+export const SELECTED_OUTLINE = "ring-2 ring-accent";
+export const UNSELECTED_OUTLINE = "ring-1 ring-line-strong hover:ring-2";
+
+export function outlineFor(primary: boolean, inSelection: boolean): string {
+  return primary || inSelection ? SELECTED_OUTLINE : UNSELECTED_OUTLINE;
+}
