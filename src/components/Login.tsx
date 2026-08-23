@@ -33,7 +33,7 @@ export function Login() {
         <div className="mb-2 flex justify-end">
           <LanguageMenu />
         </div>
-        <div className="font-display text-[16px] font-semibold text-ink">Passe·partout</div>
+        <div className="font-display text-[16px] font-semibold text-ink">Passe-partout</div>
         <p className="mb-4 mt-1 text-[12.5px] leading-snug text-muted">{t("auth.login.subtitle")}</p>
         <input
           autoFocus
