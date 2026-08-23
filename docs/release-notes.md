@@ -3,6 +3,21 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.8.1 - unreleased
+
+- **Library thumbnails stop overlapping**: with a large library the rows of the photo tray were
+  shorter than the square thumbnails they held, so every row overlapped the one above, and the
+  more photos you imported the worse it looked. Rows now take the height of their thumbnails at
+  all three densities.
+- **A multi-selection you can actually see**: in Edit layout, selected photos wore three
+  different outlines and even an unselected photo carried a faint version of the same colour.
+  Every selected photo now wears the very same outline, an unselected one a neutral outline, and
+  the photo that carries the resize handles is the one the single-photo controls act on.
+- **Honest wording about cropping**: the welcome screen claimed there was no crop tool. There is
+  one, and there is also full-page Fill and masks. The app now says what it actually does: it
+  keeps your photos' original framing and never crops on its own, cropping is your call, photo
+  by photo.
+
 ## v0.8.0 - 2026-08-23
 
 Library and page work, a faithful PDF, and a server that stays responsive.
