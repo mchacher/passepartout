@@ -25,6 +25,9 @@ function DensityIcon({ cols }: { cols: number }) {
 // Dropping a photo back here removes it from every page.
 export function Library() {
   const { photos, pages, frontCover, insideFrontCover, insideBackCover, backCover, unplaceFromAllPages } = useAlbum();
+  const deletePhoto = useAlbum((s) => s.deletePhoto);
+  const skippedDuplicates = useAlbum((s) => s.skippedDuplicates);
+  const dismissSkippedDuplicates = useAlbum((s) => s.dismissSkippedDuplicates);
   const [unusedOnly, setUnusedOnly] = useState(false);
   const libraryCols = useView((s) => s.libraryCols);
   const setLibraryCols = useView((s) => s.setLibraryCols);
@@ -37,6 +40,18 @@ export function Library() {
   const unusedCount = photos.reduce((n, p) => n + (usageCount(usage, p.id) === 0 ? 1 : 0), 0);
   const shown = unusedOnly ? photos.filter((p) => usageCount(usage, p.id) === 0) : photos;
 
+  // Deleting a photo drops it from the library, every page and every cover face (issue 66).
+  // An unused photo goes without a prompt; a used one warns how many places it disappears
+  // from first, like the project and user deletions.
+  const askDelete = (id: string, name: string) => {
+    const count = usageCount(usage, id);
+    const message =
+      count === 0
+        ? t("library.confirmDelete", { name })
+        : tp(count, { one: t("library.confirmDeleteUsedOne"), other: t("library.confirmDeleteUsedOther") }, { name });
+    if (count === 0 || confirm(message)) deletePhoto(id);
+  };
+
   return (
     <aside className="flex min-h-0 flex-col border-r border-line bg-surface">
       <div className="flex items-baseline justify-between px-4 pb-2.5 pt-3.5">
@@ -48,6 +63,25 @@ export function Library() {
       <div className="flex items-center justify-between gap-2 px-4 pb-2.5">
         <p className="text-[11.5px] leading-snug text-muted">{t("library.chronoHint")}</p>
       </div>
+      {/* What the last import skipped as already present (issue 65), so a partly redundant
+          selection is never silently trimmed. */}
+      {skippedDuplicates > 0 && (
+        <div className="mx-3.5 mb-2.5 flex items-start gap-2 rounded-md border border-line bg-surface-2 px-2.5 py-2 text-[11.5px] leading-snug text-muted">
+          <span className="flex-1">
+            {tp(skippedDuplicates, { one: t("library.duplicatesOne"), other: t("library.duplicatesOther") })}
+          </span>
+          <button
+            onClick={dismissSkippedDuplicates}
+            className="shrink-0 rounded px-1 text-faint hover:text-ink"
+            aria-label={t("library.duplicatesDismiss")}
+            title={t("library.duplicatesDismiss")}
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2 px-3.5 pb-2.5">
         <button
           onClick={() => setUnusedOnly((v) => !v)}
@@ -113,9 +147,21 @@ export function Library() {
                   e.dataTransfer.setData(PHOTO_DND_TYPE, p.id);
                   e.dataTransfer.effectAllowed = "move";
                 }}
-                className="relative flex aspect-square cursor-grab items-center justify-center overflow-hidden rounded-[5px] border border-line bg-surface-2 active:cursor-grabbing"
+                className="group relative flex aspect-square cursor-grab items-center justify-center overflow-hidden rounded-[5px] border border-line bg-surface-2 active:cursor-grabbing"
               >
                 <img src={p.url} alt={p.name} className="max-h-full max-w-full" draggable={false} />
+                {/* Delete (issue 66). Top-LEFT so it never sits on the usage badge; faint until
+                    the thumbnail is hovered, and always reachable by keyboard. */}
+                <button
+                  onClick={() => askDelete(p.id, p.name)}
+                  title={t("library.delete")}
+                  aria-label={t("library.delete")}
+                  className="absolute left-1 top-1 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-ink text-paper opacity-0 shadow-soft transition-opacity hover:bg-accent focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6}>
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
                 {count > 0 && (
                   <span
                     title={tp(count, { one: t("library.usedOne"), other: t("library.usedOther") })}

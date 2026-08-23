@@ -209,6 +209,13 @@ const en: Record<string, string> = {
   "library.allUsed": "Every photo is used. Uncheck the filter to see them all.",
   "library.usedOne": "Used {n} time",
   "library.usedOther": "Used {n} times",
+  "library.delete": "Delete this photo",
+  "library.confirmDelete": "Delete {name}?",
+  "library.confirmDeleteUsedOne": "Delete {name}? It is used in {n} place and will be removed from it.",
+  "library.confirmDeleteUsedOther": "Delete {name}? It is used in {n} places and will be removed from them.",
+  "library.duplicatesOne": "{n} photo was already in the library and was not imported.",
+  "library.duplicatesOther": "{n} photos were already in the library and were not imported.",
+  "library.duplicatesDismiss": "Dismiss",
 
   // Theme (album style) menu
   "theme.albumStyle": "Album style",
@@ -563,6 +570,13 @@ const fr: Record<string, string> = {
   "library.allUsed": "Toutes les photos sont utilisées. Décochez le filtre pour toutes les voir.",
   "library.usedOne": "Utilisée {n} fois",
   "library.usedOther": "Utilisée {n} fois",
+  "library.delete": "Supprimer cette photo",
+  "library.confirmDelete": "Supprimer {name} ?",
+  "library.confirmDeleteUsedOne": "Supprimer {name} ? Elle est utilisée à {n} endroit et en sera retirée.",
+  "library.confirmDeleteUsedOther": "Supprimer {name} ? Elle est utilisée à {n} endroits et en sera retirée.",
+  "library.duplicatesOne": "{n} photo était déjà dans la photothèque et n'a pas été importée.",
+  "library.duplicatesOther": "{n} photos étaient déjà dans la photothèque et n'ont pas été importées.",
+  "library.duplicatesDismiss": "Masquer",
 
   // Theme (album style) menu
   "theme.albumStyle": "Style de l'album",

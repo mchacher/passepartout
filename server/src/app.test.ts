@@ -164,6 +164,40 @@ describe("server projects / images / version / update", () => {
     await app.close();
   });
 
+  it("deletes an image, and stays ok on an id that is already gone", async () => {
+    const app = makeApp();
+    const cookie = await setupAndCookie(app);
+    const id = "33333333-3333-4333-8333-333333333333";
+    const bytes = Buffer.from([9, 8, 7]);
+    await app.inject({ method: "PUT", url: `/images/${id}`, headers: { cookie, "content-type": "image/png" }, payload: bytes });
+    const del = await app.inject({ method: "DELETE", url: `/images/${id}`, headers: { cookie } });
+    expect(del.statusCode).toBe(200);
+    const got = await app.inject({ method: "GET", url: `/images/${id}`, headers: { cookie } });
+    expect(got.statusCode).toBe(404);
+    const again = await app.inject({ method: "DELETE", url: `/images/${id}`, headers: { cookie } });
+    expect(again.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("rejects a delete with an unsafe image id", async () => {
+    const app = makeApp();
+    const cookie = await setupAndCookie(app);
+    const bad = await app.inject({ method: "DELETE", url: "/images/..%2Fescape", headers: { cookie } });
+    expect(bad.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("refuses to build a blob path from an unsafe id, whoever calls", () => {
+    // Defense in depth for the js/path-injection class: the routes reject unsafe ids, but the
+    // guard lives next to the join, so a future caller cannot escape the blob directory either.
+    const store = new Store(":memory:", mkdtempSync(join(tmpdir(), "pp-blob-")));
+    expect(() => store.putImage("../escape", Buffer.from([1]), "image/png")).toThrow(/unsafe image id/);
+    expect(() => store.getImage("../escape")).toThrow(/unsafe image id/);
+    // deleteImage swallows it: deleting a project walks its stored photo ids and must not
+    // throw on a corrupt one, it just leaves the bytes behind.
+    expect(() => store.deleteImage("../escape")).not.toThrow();
+  });
+
   it("reports version info, gated", async () => {
     clearVersionCache();
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: "v99.0.0" }) })));

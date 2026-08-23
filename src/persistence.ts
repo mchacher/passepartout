@@ -93,6 +93,11 @@ export async function getImage(id: string): Promise<Blob | undefined> {
   return request<Blob | undefined>(IMAGES, "readonly", (s) => s.get(id));
 }
 
+/** Delete one image blob. A missing key is not an error (IndexedDB delete is idempotent). */
+export async function deleteImage(id: string): Promise<void> {
+  await request(IMAGES, "readwrite", (s) => s.delete(id));
+}
+
 /** Delete a project's doc and all of its image blobs in one transaction. */
 export async function deleteProject(id: string): Promise<void> {
   const doc = await loadProjectDoc(id);
@@ -185,6 +190,8 @@ export interface PersistenceBackend {
   saveProjectDoc(doc: ProjectDoc): Promise<void>;
   putImage(id: string, blob: Blob): Promise<void>;
   getImage(id: string): Promise<Blob | undefined>;
+  /** Drop one image blob (a photo deleted from the library). */
+  deleteImage(id: string): Promise<void>;
   deleteProject(id: string): Promise<void>;
   copyImage(fromId: string, toId: string): Promise<void>;
   /** Display URLs for photo ids: object URLs (local) or /api/images URLs (remote). */
@@ -217,6 +224,7 @@ function makeLocalBackend(persistent: boolean): PersistenceBackend {
     saveProjectDoc,
     putImage,
     getImage,
+    deleteImage,
     deleteProject,
     copyImage,
     async imageUrls(ids) {
@@ -330,6 +338,9 @@ const remoteBackend: PersistenceBackend = {
     const r = await api(`/images/${id}`);
     if (!r.ok) return undefined;
     return r.blob();
+  },
+  async deleteImage(id) {
+    await api(`/images/${id}`, { method: "DELETE" });
   },
   async deleteProject(id) {
     await api(`/projects/${id}`, { method: "DELETE" });

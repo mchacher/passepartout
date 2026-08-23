@@ -20,6 +20,7 @@ import { clampRotation } from "./lib/rotation";
 import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
 import { defaultLayoutId, slotCount } from "./lib/layouts";
+import { splitDuplicates } from "./lib/dedupe";
 import {
   DEFAULT_COLOR_THEME,
   DEFAULT_FONT_THEME,
@@ -189,6 +190,13 @@ interface AlbumState {
   importBundle: (file: File) => Promise<{ ok: true } | { ok: false; error: string; code: string }>;
 
   importFiles: (files: FileList | File[]) => Promise<void>;
+  // How many files the last import skipped as duplicates (issue 65). The Library shows the
+  // notice; the next import replaces it and `dismissSkippedDuplicates` clears it.
+  skippedDuplicates: number;
+  dismissSkippedDuplicates: () => void;
+  // Remove a photo from the album entirely (issue 66): the library, every page, every cover
+  // face, and the stored blob.
+  deletePhoto: (photoId: string) => void;
 
   placeOnPage: (photoId: string, pageId: string) => void;
   removeFromPage: (photoId: string, pageId: string) => void;
@@ -780,6 +788,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
       }
     },
 
+    skippedDuplicates: 0,
+
+    dismissSkippedDuplicates: () => set({ skippedDuplicates: 0 }),
+
     importFiles: async (files) => {
       const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
       if (list.length === 0) return;
@@ -787,12 +799,20 @@ export const useAlbum = create<AlbumState>((set, get) => {
       const loaded = (await Promise.all(list.map(loadPhoto))).filter(
         (x): x is { photo: Photo; file: File } => x !== null,
       );
+      // Never import the same photo twice (issue 65). Identity is name + pixel dimensions +
+      // capture time, so the filter also catches a file selected twice in one batch. Split
+      // BEFORE persisting: a skipped file must leave no blob and no dangling object URL.
+      const { kept, skipped } = splitDuplicates(
+        get().photos,
+        loaded.map((l) => ({ ...l.photo, file: l.file })),
+      );
+      for (const dup of skipped) URL.revokeObjectURL(dup.url);
+      set({ skippedDuplicates: skipped.length });
+      if (kept.length === 0) return;
       if (get().persistent) {
-        await Promise.all(
-          loaded.map(({ photo, file }) => backend.putImage(photo.id, file).catch(() => {})),
-        );
+        await Promise.all(kept.map(({ id, file }) => backend.putImage(id, file).catch(() => {})));
       }
-      const added = loaded.map((l) => l.photo);
+      const added: Photo[] = kept.map(({ file: _file, ...photo }) => photo);
       set((s) => {
         const photos = [...s.photos, ...added].sort((a, b) => a.time - b.time);
         // Import never places photos on a page (spec 035): they stay in the library and the
@@ -857,6 +877,37 @@ export const useAlbum = create<AlbumState>((set, get) => {
         });
         return { pages };
       });
+      scheduleSave();
+    },
+
+    // Delete a photo from the album for good (issue 66): out of the library, off every page,
+    // off every cover face using it, and the stored blob dropped. A page keeps its slot count
+    // and its custom placement (one cell per SLOT, not per photo): the freed cell simply
+    // empties, like removeFromPage. Unknown ids are a no-op.
+    deletePhoto: (photoId) => {
+      const target = get().photos.find((p) => p.id === photoId);
+      if (!target) return;
+      set((s) => {
+        const pages = s.pages.map((pg) =>
+          pg.photoIds.includes(photoId)
+            ? { ...pg, photoIds: pg.photoIds.filter((id) => id !== photoId) }
+            : pg,
+        );
+        pages.forEach(syncLayout);
+        const clearCover = (c: Cover): Cover => (c.photoId === photoId ? { ...c, photoId: null } : c);
+        return {
+          photos: s.photos.filter((p) => p.id !== photoId),
+          pages,
+          frontCover: clearCover(s.frontCover),
+          insideFrontCover: clearCover(s.insideFrontCover),
+          insideBackCover: clearCover(s.insideBackCover),
+          backCover: clearCover(s.backCover),
+        };
+      });
+      // The runtime object URL dies with the photo; the blob is best-effort (a failed delete
+      // only leaves bytes behind, the album is already correct).
+      if (target.url.startsWith("blob:")) URL.revokeObjectURL(target.url);
+      if (backend && get().persistent) void backend.deleteImage(photoId).catch(() => {});
       scheduleSave();
     },
 

@@ -4,7 +4,7 @@
 
 import Database from "better-sqlite3";
 import { mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 
 export interface ProjectMeta {
   id: string;
@@ -109,7 +109,14 @@ export class Store {
   }
 
   private blobPath(id: string): string {
-    return join(this.blobDir, id);
+    // The routes reject unsafe ids before calling in, but the path is BUILT here, so the guard
+    // belongs here too: a filename-token check, then a containment check on the resolved path.
+    // The second one is what actually proves the result cannot leave the blob directory.
+    if (!isSafeId(id)) throw new Error(`unsafe image id: ${id}`);
+    const root = resolve(this.blobDir);
+    const p = resolve(root, id);
+    if (p !== join(root, id) || !p.startsWith(root + sep)) throw new Error(`unsafe image id: ${id}`);
+    return p;
   }
 
   putImage(id: string, bytes: Buffer, mime: string): void {
