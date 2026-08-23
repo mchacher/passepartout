@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.8.0",
   "type": "module",
-  "description": "Local-first photo album layout tool that never crops your photos.",
+  "description": "Local-first photo album layout tool that keeps your photos' original framing.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

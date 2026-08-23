@@ -1,7 +1,7 @@
 ---
 name: passepartout-feature
 description: |
-  Creates features for Passepartout — a local-first photo album layout tool that never crops photos. Use when:
+  Creates features for Passepartout — a local-first photo album layout tool that keeps photos' original framing. Use when:
   - User asks to "create a feature", "implement X", "add X" for Passepartout
   - User says "créer une feature", "ajouter une fonctionnalité", "implémenter"
   Specific to Passepartout: the layout engine, per-page controls, whitespace, captions/titles, formats, export.
@@ -19,7 +19,7 @@ All conventions (stack, structure, the one rule) live in `CLAUDE.md` — read it
 
 ## The one rule (applies to every phase)
 
-**A photo's aspect ratio is never changed and a photo is never clipped.** The layout engine may only choose a photo's size and the whitespace around it. Any feature that would crop, clip, or non-proportionally resize a photo is wrong by definition — flag it and stop. This is not a style preference; it is the product.
+**The engine never crops.** It only ever chooses a photo's size and the whitespace around it, and it never changes an aspect ratio. Clipping happens only where the user explicitly asks for it: the per-photo crop tool (spec 015), full-page Fill (spec 012) and decorative masks (spec 018), each off by default. Anything that would crop, clip, or non-proportionally resize a photo as a side effect of layout is wrong by definition — flag it and stop. A crop the user explicitly asks for is a feature, not a violation. This is not a style preference; it is the product.
 
 ---
 
@@ -56,7 +56,7 @@ If the feature touches a specific area, also read the relevant component in `src
 | **UI**           | New/changed components? Which controls, where (per-page vs global)?      |
 | **Edge cases**   | Empty page, no photos, panorama, 1 vs 4 photos, portrait format, huge import? |
 
-**The no-crop check is a requirement, not an afterthought.** If the request implies filling a fixed slot, clarify how framing is preserved (size + whitespace, never crop).
+**The framing check is a requirement, not an afterthought.** If the request implies filling a fixed slot, clarify how framing is preserved (size + whitespace, no crop the user did not ask for).
 
 ### 1.3 Check existing patterns
 
