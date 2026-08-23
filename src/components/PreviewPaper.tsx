@@ -4,6 +4,18 @@ import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
 import { photoLayoutRatio } from "../lib/frames";
+import {
+  F_PAGE_SUBTITLE,
+  F_PAGE_TITLE,
+  HEADER_TOP,
+  LINE,
+  PAGE_MARGIN,
+  headerFontCss,
+  headerFontSize,
+  headerGeometry,
+} from "../lib/page-header";
+import { SIZE_SCALE } from "../lib/text-sizes";
+import { useAlbum } from "../store";
 import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
@@ -11,7 +23,9 @@ import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type 
 // A read-only, faithful render of one book leaf (a page or a cover face) at an exact
 // pixel width, for the in-app book preview (spec 011). It reuses the pure layout engine
 // with the SAME margins, header offsets and text-scale formulas as Paper/CoverCard, so a
-// preview leaf matches what the editor and the PDF produce. Every photo is contain-fit:
+// preview leaf matches what the editor and the PDF produce. The leaf content arrives as
+// props; the album-wide text sizes are read from the store, like every other consumer of
+// the header geometry (spec 036). Every photo is contain-fit:
 // nothing is cropped or distorted. There is no editing here (no DnD, no controls).
 
 export interface PreviewPhoto {
@@ -30,10 +44,9 @@ export interface PreviewPhoto {
   rotation?: number;
 }
 
-// Page margins mirror Paper.tsx / print.ts (percentages of the page width).
-const MARGIN = 0.05;
-const TOP_TITLE = 0.1;
-const TOP_SUBTITLE = 0.125;
+// Page margins and the header band come from src/lib/page-header.ts, the one rule Paper and
+// print.ts render from too (spec 036).
+const MARGIN = PAGE_MARGIN;
 
 interface PagePreviewProps {
   kind: "page";
@@ -78,6 +91,7 @@ export function PreviewPaper(props: PreviewPaperProps) {
 // A content page: title/subtitle header, photos placed by the engine, per-photo
 // captions. Blank when the page has no photos (a faithful blank printed page).
 function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, focus, placement, w, h }: PagePreviewProps & { w: number; h: number }) {
+  const textSizes = useAlbum((s) => s.textSizes);
   // Full-page mode (spec 012): the single photo fills the page edge to edge, contained
   // (Fit) or covered (Fill, cropped at the focus). No header/captions. Never distorted.
   if (fullPage && photos.length === 1) {
@@ -97,9 +111,15 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
   const hasSubtitle = subtitle.trim().length > 0;
   const hasHeader = hasTitle || hasSubtitle;
 
-  // Content box in px, identical to Paper's padding model (percentages of width).
+  // Content box in px, from the same header geometry as the editor and the PDF: the sizes are
+  // the pure fraction of the page width the CSS below uses too (spec 036).
+  const titlePx = hasTitle ? headerFontSize(F_PAGE_TITLE, w, SIZE_SCALE[textSizes.pageTitle]) : 0;
+  const subtitlePx = hasSubtitle
+    ? headerFontSize(F_PAGE_SUBTITLE, w, SIZE_SCALE[textSizes.pageSubtitle])
+    : 0;
+  const header = headerGeometry({ titleSize: titlePx, subtitleSize: subtitlePx, pageW: w, pageH: h });
   const padX = MARGIN * w;
-  const padTop = (hasSubtitle ? TOP_SUBTITLE : hasTitle ? TOP_TITLE : MARGIN) * w;
+  const padTop = header.band; // already the plain margin when the leaf has no text
   const padBottom = MARGIN * w;
   const contentW = w - 2 * padX;
   const contentH = h - padTop - padBottom;
@@ -117,19 +137,29 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
   return (
     <>
       {hasHeader && (
-        <div className="pointer-events-none absolute inset-x-[7%] top-[5.4%] z-10 text-center">
+        <div
+          className="pointer-events-none absolute inset-x-[7%] z-10 text-center"
+          style={{ top: `${HEADER_TOP * 100}%`, lineHeight: LINE }}
+        >
           {hasTitle && (
             <div
               className="font-album tracking-wide"
-              style={{ fontSize: "calc(clamp(13px, 3.1cqw, 19px) * var(--page-title-scale))", color: "var(--album-ink)" }}
+              style={{
+                fontSize: headerFontCss(F_PAGE_TITLE, "--page-title-scale"),
+                color: "var(--album-ink)",
+              }}
             >
               {title.trim()}
             </div>
           )}
           {hasSubtitle && (
             <div
-              className="mt-[1%] font-album"
-              style={{ fontSize: "calc(clamp(10px, 2.2cqw, 14px) * var(--page-subtitle-scale))", color: "var(--album-ink-soft)" }}
+              className="font-album"
+              style={{
+                marginTop: header.gap,
+                fontSize: headerFontCss(F_PAGE_SUBTITLE, "--page-subtitle-scale"),
+                color: "var(--album-ink-soft)",
+              }}
             >
               {subtitle.trim()}
             </div>

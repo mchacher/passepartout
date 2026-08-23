@@ -9,6 +9,7 @@
 // (1 pt = 1/72 inch).
 
 import { BLEED_MM, type BookSize } from "./book-sizes";
+import { F_PAGE_SUBTITLE, F_PAGE_TITLE, PAGE_MARGIN, headerGeometry } from "./page-header";
 import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
 import { resolveCells } from "./layouts";
 import type { FontThemeId } from "./themes";
@@ -61,11 +62,10 @@ export interface PageGeometry {
   captions: TextPlace[];
 }
 
-// The page margin and header offsets mirror the on-screen Paper (percentages of the
-// page width, matching CSS padding %). Keeping them identical makes preview == print.
-const MARGIN = 0.05;
-const TOP_TITLE = 0.1;
-const TOP_SUBTITLE = 0.125;
+// The interior page margin and the header band come from src/lib/page-header.ts, the one
+// rule the editor and the book preview render from too (spec 036). Nothing to keep in sync
+// by hand any more: preview == print by construction.
+const MARGIN = PAGE_MARGIN;
 
 // Cover face geometry, all fractions of the trim width and mirrored by the CSS % on
 // CoverCard / PreviewPaper. Like the interior pages, the header lives in a FIXED top
@@ -80,9 +80,8 @@ const COVER_TOP_SUBTITLE = 0.2; // reserved top band for a title + subtitle
 
 // Text sizes as a fraction of the trim width, mirroring the on-screen cqw-based clamps
 // (e.g. a page title is clamp(.., 3.1cqw, ..) = 3.1% of the page width). Multiplied by
-// the project's text-size scale.
-const F_PAGE_TITLE = 0.031;
-const F_PAGE_SUBTITLE = 0.022;
+// the project's text-size scale. The two page fractions live in page-header.ts, which also
+// derives the band they sit in.
 const F_CAPTION = 0.018;
 const F_COVER_TITLE = 0.05;
 const F_COVER_SUBTITLE = 0.026;
@@ -145,8 +144,13 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
 
   const hasTitle = input.title.trim().length > 0;
   const hasSubtitle = input.subtitle.trim().length > 0;
+  // Print draws the header at its pure fraction of the trim (no readability clamp: the page
+  // is the page). The band comes from the same rule the editor renders from (spec 036).
+  const titlePt = hasTitle ? F_PAGE_TITLE * trimW * input.scales.pageTitle : 0;
+  const subtitlePt = hasSubtitle ? F_PAGE_SUBTITLE * trimW * input.scales.pageSubtitle : 0;
+  const header = headerGeometry({ titleSize: titlePt, subtitleSize: subtitlePt, pageW: trimW, pageH: trimH });
   const margin = MARGIN * trimW;
-  const topMargin = (hasSubtitle ? TOP_SUBTITLE : hasTitle ? TOP_TITLE : MARGIN) * trimW;
+  const topMargin = header.band;
 
   const contentBox: PtRect = {
     x: trimBox.x + margin,
@@ -190,17 +194,15 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     }
   }
 
+  // TextPlace.y is the GLYPH top, which is what headerGeometry reports: it adds the
+  // half-leading a browser applies from line-height, so the PDF and the on-screen page sit
+  // on the same baselines (spec 036).
   const centerX = trimBox.x + trimW / 2;
   const title = hasTitle
-    ? { text: input.title.trim(), cx: centerX, y: trimBox.y + 0.054 * trimH, sizePt: F_PAGE_TITLE * trimW * input.scales.pageTitle }
+    ? { text: input.title.trim(), cx: centerX, y: trimBox.y + header.titleGlyphTop, sizePt: titlePt }
     : null;
   const subtitle = hasSubtitle
-    ? {
-        text: input.subtitle.trim(),
-        cx: centerX,
-        y: trimBox.y + 0.054 * trimH + (title ? title.sizePt * 1.2 : 0),
-        sizePt: F_PAGE_SUBTITLE * trimW * input.scales.pageSubtitle,
-      }
+    ? { text: input.subtitle.trim(), cx: centerX, y: trimBox.y + header.subtitleGlyphTop, sizePt: subtitlePt }
     : null;
 
   return { mediaBox, trimBox, contentBox, photos, title, subtitle, captions };

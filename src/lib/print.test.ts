@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { bookSizeOrDefault, BLEED_MM } from "./book-sizes";
+import { CLEARANCE, F_PAGE_SUBTITLE, F_PAGE_TITLE, LINE, PAGE_MARGIN, halfLeading, headerGeometry } from "./page-header";
 import {
   coverWrapGeometry,
   estimateSpineMm,
@@ -44,6 +45,93 @@ describe("interiorPageGeometry", () => {
     expect(g.contentBox.y).toBeGreaterThan(g.trimBox.y);
     expect(g.contentBox.x + g.contentBox.w).toBeLessThanOrEqual(g.trimBox.x + g.trimBox.w + 1e-6);
     expect(g.contentBox.y + g.contentBox.h).toBeLessThanOrEqual(g.trimBox.y + g.trimBox.h + 1e-6);
+  });
+
+  // The header band (spec 036): the same pure rule the editor and the book preview render
+  // from, so a page cannot drift between the screen and the PDF.
+  describe("header band (spec 036)", () => {
+    const withText = (t: string, sub: string, sc = scales) =>
+      interiorPageGeometry(pageInput([], "single", { title: t, subtitle: sub, scales: sc }));
+
+    it("starts the content box at the shared band", () => {
+      const g = withText("Title", "Subtitle");
+      const band = headerGeometry({
+        titleSize: F_PAGE_TITLE * trimW,
+        subtitleSize: F_PAGE_SUBTITLE * trimW,
+        pageW: trimW,
+        pageH: trimH,
+      }).band;
+      expect(g.contentBox.y - g.trimBox.y).toBeCloseTo(band, 6);
+    });
+
+    it("leaves a page with no text exactly where it was: the plain margin", () => {
+      const g = withText("", "");
+      expect(g.contentBox.y - g.trimBox.y).toBeCloseTo(PAGE_MARGIN * trimW, 6);
+      expect(g.title).toBeNull();
+      expect(g.subtitle).toBeNull();
+    });
+
+    it("pushes the content box down as the text grows, and keeps it inside the trim", () => {
+      const small = withText("T", "S", { pageTitle: 0.85, pageSubtitle: 0.85, caption: 1 });
+      const large = withText("T", "S", { pageTitle: 1.45, pageSubtitle: 1.45, caption: 1 });
+      expect(large.contentBox.y).toBeGreaterThan(small.contentBox.y);
+      for (const g of [small, large]) {
+        // contentBox.h is trimH - band - margin by construction, so the interesting assertion
+        // is that the band left a usable page, not that the box ends inside the trim.
+        expect(g.contentBox.h).toBeGreaterThan(0.5 * g.trimBox.h);
+        expect(g.contentBox.y + g.contentBox.h).toBeLessThanOrEqual(g.trimBox.y + g.trimBox.h + 1e-6);
+      }
+    });
+
+    it("keeps the same clearance under the subtitle at every size level", () => {
+      for (const s of [0.85, 1, 1.2, 1.45]) {
+        const g = withText("T", "S", { pageTitle: s, pageSubtitle: s, caption: 1 });
+        // The glyph top plus the rest of the line box is the bottom of the last line.
+        const lineBottom = g.subtitle!.y - halfLeading(g.subtitle!.sizePt) + LINE * g.subtitle!.sizePt;
+        expect(g.contentBox.y - lineBottom).toBeCloseTo(CLEARANCE * trimW, 6);
+      }
+    });
+
+    it("offsets the subtitle by the shared rule, not the old 1.2 line factor", () => {
+      const g = withText("Title", "Subtitle");
+      const m = headerGeometry({
+        titleSize: F_PAGE_TITLE * trimW,
+        subtitleSize: F_PAGE_SUBTITLE * trimW,
+        pageW: trimW,
+        pageH: trimH,
+      });
+      const fromTitleTop = g.subtitle!.y - g.title!.y;
+      expect(fromTitleTop).toBeCloseTo(m.subtitleGlyphTop - m.titleGlyphTop, 6);
+      // The two old spacings disagreed: the editor put ~0.0529 of the page width between the
+      // glyph tops (a 1.5 line box plus mt-[1%]), print put 1.2 * titleSize = 0.0372. The
+      // shared rule lands at ~0.0416: tighter than the editor, which is the one issue 67 is
+      // about, and it is now the same number on both sides.
+      expect(fromTitleTop).toBeLessThan(0.0529 * trimW);
+      expect(fromTitleTop).toBeCloseTo(0.041575 * trimW, 4);
+    });
+
+    it("keeps every photo's ratio and inside the content box at every size level", () => {
+      const items = [
+        { photoId: "a", ratio: 1.5, caption: "" },
+        { photoId: "b", ratio: 2 / 3, caption: "" },
+      ];
+      for (const s of [0.85, 1, 1.2, 1.45]) {
+        const g = interiorPageGeometry(
+          pageInput(items, "two-row", {
+            title: "A long enough title",
+            subtitle: "and its subtitle",
+            scales: { pageTitle: s, pageSubtitle: s, caption: 1 },
+          }),
+        );
+        g.photos.forEach((p, i) => {
+          expect(p.w / p.h, `ratio at ${s}`).toBeCloseTo(items[i].ratio, 6);
+          expect(p.x).toBeGreaterThanOrEqual(g.contentBox.x - 1e-6);
+          expect(p.x + p.w).toBeLessThanOrEqual(g.contentBox.x + g.contentBox.w + 1e-6);
+          expect(p.y).toBeGreaterThanOrEqual(g.contentBox.y - 1e-6);
+          expect(p.y + p.h).toBeLessThanOrEqual(g.contentBox.y + g.contentBox.h + 1e-6);
+        });
+      }
+    });
   });
 
   it("preserves every photo's ratio (never crops or stretches)", () => {
