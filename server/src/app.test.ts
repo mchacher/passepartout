@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app";
 import { Store } from "./db";
+import bcrypt from "bcryptjs";
 import { clearVersionCache } from "./version";
 
 // No Docker socket in tests: force the "unavailable" path so /update 409s deterministically.
@@ -14,9 +15,15 @@ const USER = "alice";
 const PASSWORD = "correct horse battery";
 
 async function makeApp(): Promise<FastifyInstance> {
+  return (await makeAppWithStore()).app;
+}
+
+// Same app, plus the store, for the tests that need to look at or seed what is persisted.
+async function makeAppWithStore(): Promise<{ app: FastifyInstance; store: Store }> {
   const dir = mkdtempSync(join(tmpdir(), "pp-srv-"));
   const store = new Store(":memory:", dir);
-  return buildApp({ store, sessionSecret: "test-secret-not-for-production", cookieSecure: false });
+  const app = await buildApp({ store, sessionSecret: "test-secret-not-for-production", cookieSecure: false });
+  return { app, store };
 }
 
 const cookieOf = (res: { cookies: { name: string; value: string }[] }): string => {
@@ -138,6 +145,52 @@ describe("server auth & users (spec 026)", () => {
 // Issue 78: /auth/login is the only endpoint reachable without a session, and it verifies a
 // bcrypt hash synchronously, so an unlimited one freezes the event loop long before it leaks
 // the password. The budget is per client and per window, never a permanent lockout.
+// Issue 80: accounts made before the move to scrypt keep their bcrypt hash and must keep
+// working, then quietly move over on their next successful sign-in.
+describe("password hash migration (issue 80)", () => {
+  const PW = "correct horse battery";
+
+  it("signs in an account stored with a bcrypt hash, then rewrites it to scrypt", async () => {
+    const { app, store } = await makeAppWithStore();
+    // Seed the account the way the old code would have: a bcrypt hash straight in the store.
+    const id = "55555555-5555-4555-8555-555555555555";
+    store.createUser(id, "marc", bcrypt.hashSync(PW, 10), Date.now());
+    expect(store.getUserHash(id)!.startsWith("$2")).toBe(true);
+
+    const res = await app.inject({ method: "POST", url: "/auth/login", payload: { username: "marc", password: PW } });
+    expect(res.statusCode).toBe(200);
+
+    const after = store.getUserHash(id)!;
+    expect(after.startsWith("scrypt$")).toBe(true); // migrated in place, no longer bcrypt
+
+    // And the same password still works against the new hash.
+    const again = await app.inject({ method: "POST", url: "/auth/login", payload: { username: "marc", password: PW } });
+    expect(again.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("does not rewrite a hash that is already current", async () => {
+    const { app, store } = await makeAppWithStore();
+    await app.inject({ method: "POST", url: "/auth/setup", payload: { username: USER, password: PASSWORD } });
+    const user = store.findUserByName(USER)!;
+    const before = store.getUserHash(user.id);
+    await app.inject({ method: "POST", url: "/auth/login", payload: { username: USER, password: PASSWORD } });
+    expect(store.getUserHash(user.id)).toBe(before);
+    await app.close();
+  });
+
+  it("rejects a wrong password against a legacy hash, and leaves it alone", async () => {
+    const { app, store } = await makeAppWithStore();
+    const id = "66666666-6666-4666-8666-666666666666";
+    const legacy = bcrypt.hashSync(PW, 10);
+    store.createUser(id, "marc", legacy, Date.now());
+    const res = await app.inject({ method: "POST", url: "/auth/login", payload: { username: "marc", password: "nope" } });
+    expect(res.statusCode).toBe(401);
+    expect(store.getUserHash(id)).toBe(legacy);
+    await app.close();
+  });
+});
+
 describe("server rate limiting (issue 78)", () => {
   const login = (app: FastifyInstance, password: string) =>
     app.inject({ method: "POST", url: "/auth/login", payload: { username: USER, password } });

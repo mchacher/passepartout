@@ -9,7 +9,7 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import { Store, isSafeId } from "./db";
-import { hashPassword, verifyPassword } from "./auth";
+import { hashPassword, needsRehash, verifyPassword } from "./auth";
 import { readCurrentVersion, fetchLatest, isNewer } from "./version";
 import { isDockerAvailable, isUpdating, startUpdate, MANUAL_COMMAND } from "./updater";
 
@@ -126,7 +126,7 @@ export async function buildApp(cfg: AppConfig): Promise<FastifyInstance> {
     if (badUsername(username)) return reply.code(400).send({ error: "username is required" });
     if (badPassword(password)) return reply.code(400).send({ error: `password must be at least ${MIN_PASSWORD} characters` });
     const id = randomUUID();
-    cfg.store.createUser(id, username!.trim(), hashPassword(password!), Date.now());
+    cfg.store.createUser(id, username!.trim(), await hashPassword(password!), Date.now());
     setSession(reply, id);
     return reply.code(201).send({ id, username: username!.trim() });
   });
@@ -135,8 +135,19 @@ export async function buildApp(cfg: AppConfig): Promise<FastifyInstance> {
     const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
     if (!username || !password) return reply.code(401).send({ error: "invalid credentials" });
     const user = cfg.store.findUserByName(username.trim());
-    if (!user || !verifyPassword(password, user.passwordHash)) {
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
       return reply.code(401).send({ error: "invalid credentials" });
+    }
+    // Transparent migration (issue 80): an account created before the move to scrypt still has
+    // its bcrypt hash. The password is only in hand here, at a successful sign-in, so this is
+    // the one place it can be rewritten. Best effort: a failed rewrite must not fail the login,
+    // the next sign-in will try again.
+    if (needsRehash(user.passwordHash)) {
+      try {
+        cfg.store.updateUserPassword(user.id, await hashPassword(password));
+      } catch {
+        /* keep the old hash, the user is still signed in */
+      }
     }
     setSession(reply, user.id);
     return { id: user.id, username: user.username };
@@ -164,7 +175,7 @@ export async function buildApp(cfg: AppConfig): Promise<FastifyInstance> {
     if (badPassword(password)) return reply.code(400).send({ error: `password must be at least ${MIN_PASSWORD} characters` });
     try {
       const id = randomUUID();
-      cfg.store.createUser(id, username!.trim(), hashPassword(password!), Date.now());
+      cfg.store.createUser(id, username!.trim(), await hashPassword(password!), Date.now());
       return reply.code(201).send({ id, username: username!.trim() });
     } catch {
       return reply.code(409).send({ error: "username already taken" });
@@ -182,11 +193,11 @@ export async function buildApp(cfg: AppConfig): Promise<FastifyInstance> {
     const id = currentUserId(req)!; // gated: always present
     const { currentPassword, newPassword } = (req.body ?? {}) as { currentPassword?: string; newPassword?: string };
     const hash = cfg.store.getUserHash(id);
-    if (!hash || !currentPassword || !verifyPassword(currentPassword, hash)) {
+    if (!hash || !currentPassword || !(await verifyPassword(currentPassword, hash))) {
       return reply.code(401).send({ error: "current password is incorrect" });
     }
     if (badPassword(newPassword)) return reply.code(400).send({ error: `password must be at least ${MIN_PASSWORD} characters` });
-    cfg.store.updateUserPassword(id, hashPassword(newPassword!));
+    cfg.store.updateUserPassword(id, await hashPassword(newPassword!));
     return { ok: true };
   });
 
