@@ -33,6 +33,10 @@ services:
       # Optional: a GitHub token (read access) so the app can see the latest release of the
       # private repo and show "update available" (spec 025). Detection is skipped without it.
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      # The password endpoints are rate limited per client (issue 78). The client address comes
+      # from the X-Forwarded-For the `web` service sets, one hop. Set TRUST_PROXY=off only if
+      # you expose this api service directly, with no proxy in front.
+      - TRUST_PROXY=${TRUST_PROXY:-}
     volumes:
       - passepartout-data:/data # SQLite doc store + image blobs
       # Enables the in-app one-click update (spec 025). The container gets effective control

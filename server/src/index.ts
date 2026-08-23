@@ -5,6 +5,7 @@
 //   SESSION_SECRET  secret that signs the session cookie (set it to keep sessions across restarts)
 //   DATA_DIR        where app.db and blobs/ live (default /data)
 //   PORT            listen port (default 3000)
+//   TRUST_PROXY     'off' when no reverse proxy sits in front (default: trust one hop)
 //   COOKIE_SECURE   "true" to mark the cookie Secure (behind HTTPS)
 //   GITHUB_TOKEN    optional; read the latest release for the update check (spec 025)
 //
@@ -26,7 +27,10 @@ if (!sessionSecret) {
 }
 
 const store = new Store(`${DATA_DIR}/app.db`, DATA_DIR);
-const app = buildApp({ store, sessionSecret, cookieSecure, githubToken: process.env.GITHUB_TOKEN });
+// TRUST_PROXY=off when the API is exposed with no reverse proxy in front: the rate limit then
+// keys on the socket address, which a client cannot forge (issue 78).
+const trustProxy = process.env.TRUST_PROXY !== "off";
+const app = await buildApp({ store, sessionSecret, cookieSecure, trustProxy, githubToken: process.env.GITHUB_TOKEN });
 
 app
   .listen({ host: "0.0.0.0", port: PORT })

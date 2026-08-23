@@ -7,6 +7,7 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
+import rateLimit from "@fastify/rate-limit";
 import { Store, isSafeId } from "./db";
 import { hashPassword, verifyPassword } from "./auth";
 import { readCurrentVersion, fetchLatest, isNewer } from "./version";
@@ -18,17 +19,60 @@ const SESSION_COOKIE = "pp_session";
 const BODY_LIMIT = 64 * 1024 * 1024;
 const MIN_PASSWORD = 8;
 
+// Rate limiting (issue 78). Passwords are verified with bcrypt in SYNCHRONOUS mode, so every
+// attempt blocks the event loop for 60 to 100 ms. /auth/login is the only endpoint reachable
+// without a session, which makes an unlimited one a way to freeze the whole instance long
+// before it is a way to guess a password. Hence a tight budget on the routes that verify a
+// password, and a loose one everywhere else.
+const AUTH_MAX = 10; // password attempts per window, per client
+const AUTH_WINDOW = "1 minute";
+const GLOBAL_MAX = 600; // everything else, per window, per client
+const GLOBAL_WINDOW = "1 minute";
+// Serving an album is bursty by nature: opening a book with a hundred photos fires a hundred
+// image requests at once. They are cheap and authenticated, so they are never throttled.
+const isImageRequest = (url: string): boolean => url.startsWith("/images/");
+
+/** The per-route budget for an endpoint that verifies a password. */
+const authLimit = { config: { rateLimit: { max: AUTH_MAX, timeWindow: AUTH_WINDOW } } };
+
 export interface AppConfig {
   store: Store;
   sessionSecret: string;
   cookieSecure: boolean;
+  /**
+   * Whether to read the client address from X-Forwarded-For (issue 78). Defaults to trusting
+   * exactly ONE hop, the shipped nginx, so the rate limit is keyed on the real client instead
+   * of on the proxy. Pass false when the API is exposed directly with no proxy in front:
+   * trusting a hop there would let a client forge the header and rotate past the limit.
+   */
+  trustProxy?: boolean;
   /** Optional GitHub token to read the latest release of a private repo (spec 025). */
   githubToken?: string;
 }
 
-export function buildApp(cfg: AppConfig): FastifyInstance {
-  const app = Fastify({ logger: false, bodyLimit: BODY_LIMIT });
-  app.register(cookie, { secret: cfg.sessionSecret });
+/**
+ * Build the API. Async because the rate limiter has to be LOADED before the routes are
+ * declared: Fastify applies a plugin's hooks only to routes registered after it, and
+ * `register` alone is deferred to `ready()`, which would leave every route unthrottled.
+ */
+export async function buildApp(cfg: AppConfig): Promise<FastifyInstance> {
+  // Behind the shipped nginx the socket address is the proxy's, so without this every client
+  // would share one rate-limit bucket and an attacker would throttle everyone else. One hop is
+  // trusted, not the whole X-Forwarded-For chain, so a client cannot spoof its way past the
+  // limit by prepending addresses.
+  // Trust exactly one hop: the immediate peer (nginx) is a proxy, whatever it forwards beyond
+  // that is not. A bare `true` would trust the whole chain and take the leftmost entry, which
+  // any client can write.
+  const oneHop = (_address: string, hop: number) => hop === 0;
+  const trustProxy = cfg.trustProxy === false ? false : oneHop;
+  const app = Fastify({ logger: false, bodyLimit: BODY_LIMIT, trustProxy });
+  await app.register(cookie, { secret: cfg.sessionSecret });
+  await app.register(rateLimit, {
+    global: true,
+    max: GLOBAL_MAX,
+    timeWindow: GLOBAL_WINDOW,
+    allowList: (req) => isImageRequest(req.url),
+  });
 
   // Accept raw image bytes on image uploads (Fastify only parses JSON/text by default).
   const asBuffer = (_req: FastifyRequest, body: Buffer, done: (e: Error | null, b?: Buffer) => void) => done(null, body);
@@ -76,7 +120,7 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
     authed: currentUserId(req) !== null,
   }));
 
-  app.post("/auth/setup", async (req, reply) => {
+  app.post("/auth/setup", authLimit, async (req, reply) => {
     if (cfg.store.countUsers() > 0) return reply.code(409).send({ error: "setup already completed" });
     const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
     if (badUsername(username)) return reply.code(400).send({ error: "username is required" });
@@ -87,7 +131,7 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
     return reply.code(201).send({ id, username: username!.trim() });
   });
 
-  app.post("/auth/login", async (req, reply) => {
+  app.post("/auth/login", authLimit, async (req, reply) => {
     const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
     if (!username || !password) return reply.code(401).send({ error: "invalid credentials" });
     const user = cfg.store.findUserByName(username.trim());
@@ -134,7 +178,7 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
     return { ok: true };
   });
 
-  app.post("/account/password", async (req, reply) => {
+  app.post("/account/password", authLimit, async (req, reply) => {
     const id = currentUserId(req)!; // gated: always present
     const { currentPassword, newPassword } = (req.body ?? {}) as { currentPassword?: string; newPassword?: string };
     const hash = cfg.store.getUserHash(id);

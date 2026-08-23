@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
+    "@fastify/rate-limit": "^11.2.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^13.0.3",
     "dockerode": "^5.0.1",
