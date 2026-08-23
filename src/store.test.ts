@@ -179,6 +179,41 @@ describe("store photo reuse (spec 017)", () => {
     expect(idsOf("p2")).toEqual([]);
   });
 
+  // Issue 70: dragging a photo back to the Library used to filter the page's custom placement
+  // by the photo's index, leaving it one cell short of the slot count, and syncLayout then
+  // dropped the whole arrangement. A placement is one rectangle per SLOT, not per photo.
+  it("unplaceFromAllPages keeps a custom placement whole; the freed cell just empties", () => {
+    const cells: CellRect[] = [
+      { col: 0, row: 0, colSpan: 3, rowSpan: 4 },
+      { col: 3, row: 2, colSpan: 3, rowSpan: 2 },
+    ];
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: cells }],
+    });
+    useAlbum.getState().unplaceFromAllPages("a");
+    const pg = useAlbum.getState().pages[0];
+    expect(pg.photoIds).toEqual(["b"]);
+    expect(pg.placement).toEqual(cells); // both cells survive, in order
+    expect(pg.layoutId).toBe("two-row"); // and the page keeps its capacity
+  });
+
+  it("unplaceFromAllPages keeps the placement of a page the photo is not on", () => {
+    const cells: CellRect[] = [
+      { col: 0, row: 0, colSpan: 3, rowSpan: 4 },
+      { col: 3, row: 0, colSpan: 3, rowSpan: 4 },
+    ];
+    useAlbum.setState({
+      photos: [photo("a"), photo("b"), photo("c")],
+      pages: [
+        page("p1", ["a"], "single"),
+        { ...page("p2", ["b", "c"], "two-row"), placement: cells },
+      ],
+    });
+    useAlbum.getState().unplaceFromAllPages("a");
+    expect(useAlbum.getState().pages[1].placement).toEqual(cells);
+  });
+
   it("deletePage keeps its photos in the library (they may be reused elsewhere)", () => {
     useAlbum.setState({
       photos: [photo("a"), photo("b")],
