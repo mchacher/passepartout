@@ -290,6 +290,10 @@ export async function buildApp(cfg: AppConfig): Promise<FastifyInstance> {
     return { ok: true };
   });
 
+  // The ids of every stored image, so the client can reclaim what deleted photos left behind
+  // (spec 037). Ids only, no bytes.
+  app.get("/images", async () => ({ ids: cfg.store.listImageIds() }));
+
   // Drop one image: a photo deleted from the library (issue 66). Idempotent, like the
   // project delete: removing an id that is already gone still answers ok.
   app.delete("/images/:id", async (req, reply) => {

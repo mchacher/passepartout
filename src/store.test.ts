@@ -601,7 +601,7 @@ describe("store delete photo (issue 66)", () => {
 
 });
 
-describe("store delete photo, stored blob (issue 66)", () => {
+describe("store undo across projects (spec 037)", () => {
   beforeAll(() => {
     globalThis.URL.createObjectURL ??= () => "blob:test";
     globalThis.URL.revokeObjectURL ??= () => {};
@@ -613,7 +613,59 @@ describe("store delete photo, stored blob (issue 66)", () => {
     await useAlbum.getState().initProjects();
   });
 
-  it("deletes the stored blob of the deleted photo, and only that one", async () => {
+  it("clears both stacks when another project becomes active", async () => {
+    await useAlbum.getState().createProject("A");
+    useAlbum.getState().insertPage(0); // a fresh project has no page to title yet
+    useAlbum.getState().setPageTitle(useAlbum.getState().pages[0].id, "in A");
+    useAlbum.getState().undo();
+    expect(useAlbum.getState().undoStack.length + useAlbum.getState().redoStack.length).toBeGreaterThan(0);
+
+    await useAlbum.getState().createProject("B"); // switching album, not editing one
+    expect(useAlbum.getState().undoStack).toEqual([]);
+    expect(useAlbum.getState().redoStack).toEqual([]);
+  });
+
+  it("does not record the load of a project as an edit", async () => {
+    await useAlbum.getState().createProject("A");
+    const id = useAlbum.getState().activeId!;
+    await useAlbum.getState().createProject("B");
+    await useAlbum.getState().openProject(id);
+    expect(useAlbum.getState().undoStack).toEqual([]);
+  });
+
+  it("persists what an undo restored", async () => {
+    await useAlbum.getState().createProject("A");
+    const id = useAlbum.getState().activeId!;
+    useAlbum.getState().insertPage(0);
+    useAlbum.getState().setPageTitle(useAlbum.getState().pages[0].id, "typed then regretted");
+    await vi.waitFor(async () => {
+      const doc = await loadProjectDoc(id);
+      expect(doc?.pages[0]?.title).toBe("typed then regretted");
+    });
+    useAlbum.getState().undo();
+    await vi.waitFor(async () => {
+      const doc = await loadProjectDoc(id);
+      expect(doc?.pages[0]?.title).toBe(""); // the save followed the undo
+    });
+  });
+});
+
+describe("store delete photo, stored blob (issue 66, revised by spec 037)", () => {
+  beforeAll(() => {
+    globalThis.URL.createObjectURL ??= () => "blob:test";
+    globalThis.URL.revokeObjectURL ??= () => {};
+  });
+
+  beforeEach(async () => {
+    await clearAll();
+    useAlbum.setState({ photos: [], pages: [], projects: [], activeId: null, persistent: false });
+    await useAlbum.getState().initProjects();
+  });
+
+  // Spec 037 changed this on purpose: deleting a photo used to drop its bytes at once, which
+  // would have made an undone deletion give back a photo that cannot display. The bytes now
+  // outlive the deletion and are reclaimed by the startup sweep instead.
+  it("keeps the stored blob, so an undone deletion still has an image to show", async () => {
     const id = crypto.randomUUID();
     const other = crypto.randomUUID();
     await putImage(id, new Blob([new Uint8Array([1, 2, 3])]));
@@ -628,9 +680,199 @@ describe("store delete photo, stored blob (issue 66)", () => {
     });
     expect(useAlbum.getState().persistent).toBe(true);
     useAlbum.getState().deletePhoto(id);
-    await vi.waitFor(async () => expect(await getImage(id)).toBeUndefined());
+    expect(useAlbum.getState().photos.map((p) => p.id)).toEqual([other]); // gone from the album
+    expect(await getImage(id)).toBeDefined(); // but its bytes are still there
     expect(await getImage(other)).toBeDefined();
+
+    // And undo really does bring back a photo whose image can still be loaded.
+    useAlbum.getState().undo();
+    expect(useAlbum.getState().photos.map((p) => p.id)).toEqual([id, other]);
+    expect(await getImage(id)).toBeDefined();
   });
+
+  it("sweeps the bytes of a photo no project references any more, at the next start", async () => {
+    const orphan = crypto.randomUUID();
+    const kept = crypto.randomUUID();
+    await putImage(orphan, new Blob([new Uint8Array([1])]));
+    await putImage(kept, new Blob([new Uint8Array([2])]));
+    // A project that references only `kept`, saved the way the app saves it.
+    await useAlbum.getState().createProject("Swept");
+    useAlbum.setState({ photos: [photo(kept)] });
+    useAlbum.getState().insertPage(0); // an edit, so the project is written to storage
+    await vi.waitFor(async () => {
+      const doc = await loadProjectDoc(useAlbum.getState().activeId!);
+      expect(doc?.photos.map((p) => p.id)).toEqual([kept]);
+    });
+
+    await useAlbum.getState().initProjects(); // a fresh start runs the sweep
+    await vi.waitFor(async () => expect(await getImage(orphan)).toBeUndefined());
+    expect(await getImage(kept)).toBeDefined();
+  });
+});
+
+// Spec 037. The stacks hold whole album snapshots and are fed by a wrapper around `set`, so
+// these tests are as much about WHAT gets recorded as about undo itself.
+describe("store undo / redo (spec 037)", () => {
+  const seed = () =>
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [page("p1", ["a"], "single"), page("p2", [], "single")],
+      frontCover: newCover(),
+      insideFrontCover: newCover(),
+      insideBackCover: newCover(),
+      backCover: newCover(),
+      undoStack: [],
+      redoStack: [],
+      activeId: "project-1",
+    });
+  const titleOf = (id: string) => useAlbum.getState().pages.find((p) => p.id === id)!.title;
+
+  it("takes back a page title and puts it back", () => {
+    seed();
+    useAlbum.getState().setPageTitle("p1", "Ete 2026");
+    expect(titleOf("p1")).toBe("Ete 2026");
+    useAlbum.getState().undo();
+    expect(titleOf("p1")).toBe("");
+    useAlbum.getState().redo();
+    expect(titleOf("p1")).toBe("Ete 2026");
+  });
+
+  it("treats a burst of typing as ONE step", () => {
+    seed();
+    for (const t of ["E", "Et", "Ete", "Ete "]) useAlbum.getState().setPageTitle("p1", t);
+    expect(useAlbum.getState().undoStack).toHaveLength(1);
+    useAlbum.getState().undo();
+    expect(titleOf("p1")).toBe(""); // the whole edit, not one letter
+  });
+
+  it("starts a new step for another field", () => {
+    seed();
+    useAlbum.getState().setPageTitle("p1", "one");
+    useAlbum.getState().setPageTitle("p2", "two");
+    useAlbum.getState().undo();
+    expect([titleOf("p1"), titleOf("p2")]).toEqual(["one", ""]);
+    useAlbum.getState().undo();
+    expect([titleOf("p1"), titleOf("p2")]).toEqual(["", ""]);
+  });
+
+  it("drops the redo branch as soon as a new edit lands", () => {
+    seed();
+    useAlbum.getState().setPageTitle("p1", "one");
+    useAlbum.getState().undo();
+    expect(useAlbum.getState().redoStack).toHaveLength(1);
+    useAlbum.getState().setPageTitle("p2", "elsewhere");
+    expect(useAlbum.getState().redoStack).toEqual([]);
+  });
+
+  it("records nothing for state that is not the album", () => {
+    seed();
+    // Real actions only: useAlbum.setState is the raw zustand setter and would bypass the
+    // wrapper these tests are about.
+    useAlbum.getState().dismissSkippedDuplicates();
+    void useAlbum.getState().refreshVersion();
+    expect(useAlbum.getState().undoStack).toEqual([]);
+  });
+
+  it("records nothing when an edit changes nothing", () => {
+    seed();
+    const page1 = useAlbum.getState().pages[0];
+    useAlbum.getState().setPageLayout("p1", page1.layoutId); // the layout it already has
+    useAlbum.getState().setPageCount("p1", 1); // the count it already has
+    useAlbum.getState().setTextSize("pageTitle", useAlbum.getState().textSizes.pageTitle);
+    useAlbum.getState().setPhotoMask("a", null);
+    expect(useAlbum.getState().undoStack).toEqual([]);
+  });
+
+  it("treats one continuous drag as one step", () => {
+    seed();
+    // What a pointermove loop does: many writes to the same target in quick succession.
+    for (let i = 0; i < 40; i++) useAlbum.getState().setPhotoFrameFocus("a", { x: i / 40, y: 0.5 });
+    expect(useAlbum.getState().undoStack).toHaveLength(1);
+    for (let i = 0; i < 40; i++) useAlbum.getState().setPageFullPageFocus("p1", { x: 0.5, y: i / 40 });
+    expect(useAlbum.getState().undoStack).toHaveLength(2);
+  });
+
+  it("is a no-op with an empty stack, on both sides", () => {
+    seed();
+    const before = useAlbum.getState();
+    useAlbum.getState().undo();
+    useAlbum.getState().redo();
+    expect(useAlbum.getState().pages).toBe(before.pages); // same reference: nothing happened
+    expect(useAlbum.getState().photos).toBe(before.photos);
+  });
+
+  it("covers the album edits, not just text", () => {
+    seed();
+    const cases: [string, () => void][] = [
+      ["placeOnPage", () => useAlbum.getState().placeOnPage("b", "p2")],
+      ["removeFromPage", () => useAlbum.getState().removeFromPage("a", "p1")],
+      ["setPageCount", () => useAlbum.getState().setPageCount("p1", 3)],
+      ["setPageLayout", () => useAlbum.getState().setPageLayout("p1", "two-row")],
+      ["setPageWhitespace", () => useAlbum.getState().setPageWhitespace("p1", 7)],
+      ["insertPage", () => useAlbum.getState().insertPage(0)],
+      ["deletePage", () => useAlbum.getState().deletePage("p2")],
+      ["movePage", () => useAlbum.getState().movePage("p1", 2)],
+      ["updateCover", () => useAlbum.getState().updateCover("front", { title: "Cover" })],
+      ["setSpineTitle", () => useAlbum.getState().setSpineTitle("Spine")],
+      ["setBookSize", () => useAlbum.getState().setBookSize("blurb-square-12")],
+      ["setFontTheme", () => useAlbum.getState().setFontTheme("sans")],
+      ["setTextSize", () => useAlbum.getState().setTextSize("pageTitle", "xl")],
+      ["setCaption", () => useAlbum.getState().setCaption("a", "a caption")],
+      ["setPhotoRotation", () => useAlbum.getState().setPhotoRotation("a", 2)],
+      ["deletePhoto", () => useAlbum.getState().deletePhoto("b")],
+    ];
+    // The WHOLE document, not just pages and photos: a cover, spine, book size or theme edit
+    // leaves those two untouched, so comparing them would assert nothing for those cases.
+    const documentJson = () => {
+      const s = useAlbum.getState();
+      return JSON.stringify([
+        s.photos, s.pages, s.bookSize, s.spine, s.fontTheme, s.colorTheme, s.textSizes,
+        s.frontCover, s.insideFrontCover, s.insideBackCover, s.backCover,
+      ]);
+    };
+    for (const [name, edit] of cases) {
+      seed();
+      const before = documentJson();
+      edit();
+      expect(useAlbum.getState().undoStack.length, `${name} records a step`).toBe(1);
+      expect(documentJson(), `${name} changes the document`).not.toBe(before);
+      useAlbum.getState().undo();
+      expect(documentJson(), `${name} is undone`).toBe(before);
+    }
+  });
+
+  it("brings a deleted photo back onto its pages and covers", () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [page("p1", ["a", "b"], "two-row")],
+      frontCover: { ...newCover(), photoId: "a" },
+      insideFrontCover: newCover(),
+      insideBackCover: newCover(),
+      backCover: newCover(),
+      undoStack: [],
+      redoStack: [],
+      activeId: "project-1",
+    });
+    useAlbum.getState().deletePhoto("a");
+    expect(useAlbum.getState().pages[0].photoIds).toEqual(["b"]);
+    expect(useAlbum.getState().frontCover.photoId).toBeNull();
+    useAlbum.getState().undo();
+    const s = useAlbum.getState();
+    expect(s.photos.map((p) => p.id)).toEqual(["a", "b"]);
+    expect(s.pages[0].photoIds).toEqual(["a", "b"]);
+    expect(s.frontCover.photoId).toBe("a");
+  });
+
+  it("keeps at most the configured number of steps", () => {
+    seed();
+    for (let i = 0; i < 60; i++) useAlbum.getState().setPageTitle(i % 2 === 0 ? "p1" : "p2", `t${i}`);
+    expect(useAlbum.getState().undoStack).toHaveLength(50);
+    for (let i = 0; i < 50; i++) useAlbum.getState().undo();
+    expect(useAlbum.getState().undoStack).toEqual([]);
+    useAlbum.getState().undo(); // one too many: nothing breaks
+    expect(useAlbum.getState().undoStack).toEqual([]);
+  });
+
 });
 
 describe("store skipped duplicates notice (issue 65)", () => {

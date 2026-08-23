@@ -4,7 +4,9 @@ import {
   clearAll,
   copyImage,
   deleteProject,
+  deleteImage,
   getImage,
+  listImageIds,
   listProjects,
   loadProjectDoc,
   putImage,
@@ -22,6 +24,26 @@ const docWithPhoto = (id: string, name: string, at: number, photoId: string): Pr
 
 beforeEach(async () => {
   await clearAll();
+});
+
+describe("image ids (spec 037)", () => {
+  it("lists exactly the stored keys, and follows writes and deletes", async () => {
+    expect(await listImageIds()).toEqual([]);
+    await putImage("img-a", new Blob([new Uint8Array([1])]));
+    await putImage("img-b", new Blob([new Uint8Array([2])]));
+    expect((await listImageIds()).sort()).toEqual(["img-a", "img-b"]);
+
+    // The sweep deletes through this same pair, so the listing has to reflect a delete.
+    await deleteImage("img-a");
+    expect(await listImageIds()).toEqual(["img-b"]);
+    expect(await getImage("img-a")).toBeUndefined();
+    expect(await getImage("img-b")).toBeDefined();
+  });
+
+  it("does not confuse an image with a project", async () => {
+    await saveProjectDoc(docWithPhoto("p1", "Trip", 1000, "img-1"));
+    expect(await listImageIds()).toEqual([]); // a doc mentioning a photo stores no bytes
+  });
 });
 
 describe("persistence adapter", () => {

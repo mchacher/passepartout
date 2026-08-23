@@ -65,6 +65,11 @@ const en: Record<string, string> = {
   "app.empty.import": "Import photos",
   "app.addPage": "Add page",
 
+  // Undo / redo (spec 037)
+  "undo.group": "Undo and redo",
+  "undo.undo": "Undo",
+  "undo.redo": "Redo",
+
   // Top bar
   "topbar.tagline": "layout without cropping",
   "topbar.import": "Import",
@@ -425,6 +430,11 @@ const fr: Record<string, string> = {
     "Choisissez, page par page, combien de photos placer et lesquelles. Le moteur les dispose dans des blancs, en préservant leur cadrage d'origine. Il n'y a pas d'outil de recadrage : c'est tout l'intérêt.",
   "app.empty.import": "Importer des photos",
   "app.addPage": "Ajouter une page",
+
+  // Annuler / rétablir (spec 037)
+  "undo.group": "Annuler et rétablir",
+  "undo.undo": "Annuler",
+  "undo.redo": "Rétablir",
 
   // Top bar
   "topbar.tagline": "mise en page sans recadrage",

@@ -273,6 +273,24 @@ describe("server projects / images / version / update", () => {
     await app.close();
   });
 
+  it("lists the stored image ids, so the client can sweep orphans (spec 037)", async () => {
+    const app = await makeApp();
+    const cookie = await setupAndCookie(app);
+    const ids = ["77777777-7777-4777-8777-777777777777", "88888888-8888-4888-8888-888888888888"];
+    for (const id of ids) {
+      await app.inject({ method: "PUT", url: `/images/${id}`, headers: { cookie, "content-type": "image/png" }, payload: Buffer.from([1]) });
+    }
+    const res = await app.inject({ method: "GET", url: "/images", headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { ids: string[] }).ids.sort()).toEqual([...ids].sort());
+
+    // And it follows a delete, which is what makes the sweep converge.
+    await app.inject({ method: "DELETE", url: `/images/${ids[0]}`, headers: { cookie } });
+    const after = await app.inject({ method: "GET", url: "/images", headers: { cookie } });
+    expect((after.json() as { ids: string[] }).ids).toEqual([ids[1]]);
+    await app.close();
+  });
+
   it("deletes an image, and stays ok on an id that is already gone", async () => {
     const app = await makeApp();
     const cookie = await setupAndCookie(app);

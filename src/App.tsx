@@ -16,6 +16,7 @@ import { Login } from "./components/Login";
 import { Setup } from "./components/Setup";
 import { UpdatingOverlay } from "./components/UpdatingOverlay";
 import { useT, useApplyLang } from "./useT";
+import { useUndoShortcuts } from "./useUndoShortcuts";
 
 export function App() {
   const { photos, pages, importFiles, initProjects, ready, persistent, remote, authed, needsSetup } =
@@ -23,6 +24,7 @@ export function App() {
   const updating = useAlbum((s) => s.updating);
   const { t } = useT();
   useApplyLang();
+  useUndoShortcuts();
   const zoom = useView((s) => s.zoom);
   const fileRef = useRef<HTMLInputElement>(null);
   const hasPhotos = photos.length > 0;
