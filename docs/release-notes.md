@@ -3,6 +3,50 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.8.0 - 2026-08-23
+
+Library and page work, a faithful PDF, and a server that stays responsive.
+
+- **Add a page anywhere**: the "Add page" button now sits in every gap of the album, before the
+  first page, between each pair and after the last one. It replaces the hover-only "Insert a
+  page here" bar from v0.7.0, which was hard to find and looked nothing like the button at the
+  end of the list.
+- **No duplicate imports**: importing a folder you already imported adds nothing. A photo is
+  recognised by its file name, its dimensions and its capture date, and the Library tells you
+  how many files it skipped. Selecting the same file twice in one import adds it once.
+- **Delete a photo from the Library**: hover a thumbnail for a small cross. An unused photo goes
+  straight away; one that is in use asks first and tells you how many places it will leave. The
+  stored image is deleted too.
+- **Your page arrangement survives**: dragging a photo from a page back to the Library used to
+  throw away the whole custom grid you had arranged by hand. Now only that photo leaves and the
+  freed cell becomes an empty drop target.
+- **Page titles sit better**: the space a title and subtitle occupy is now worked out from the
+  text itself, so the gap above your photos is the same at every text size, and the subtitle
+  sits closer to its title. Pages with no text are unchanged.
+- **What you see is what prints**: page and cover text used to be capped on screen at a
+  readable pixel size, so titles looked smaller, relative to the page, than they came out in the
+  PDF, and zooming quietly changed the composition. Text now renders at its true printed size
+  everywhere. **Your titles will look bigger in the editor than before; the PDF is unchanged.**
+- **Inside covers print as covers**: the second and third cover faces were exported as ordinary
+  interior pages, with page text sizes rather than cover ones. They now print the way the editor
+  and the book preview have always shown them.
+- **The PDF keeps your typography**: characters the font can print were being stripped, so
+  `coeur` written with its ligature came out as `cur`. The French ligature, curly quotes, en and
+  em dashes, the ellipsis and the euro sign now survive into the exported book.
+
+### Self-hosted server
+
+- **Sign-in no longer freezes the instance**: verifying a password ran on the same thread that
+  serves every request, so the server answered nothing for about 70 ms per sign-in. Hashing
+  moved to scrypt, which runs off that thread. A request arriving during a sign-in is answered
+  in about 1 ms instead of 40. Sign-in itself takes the same time as before.
+  **Existing accounts keep their password**: their stored hash is upgraded quietly on their next
+  sign-in, which costs that one sign-in about 70 ms extra.
+- **The password endpoints are rate limited**: ten attempts per minute per client on sign-in,
+  first-run setup and password change, with a much higher budget for the rest of the API.
+  Serving photos is never throttled. If you run the api service with no reverse proxy in front,
+  set `TRUST_PROXY=off` so the limit counts per connection instead of per forwarded header.
+
 ## v0.7.0 - 2026-08-22
 
 - **Manual photo placement**: photos no longer fill pages automatically. Each page has a slot count
@@ -10,7 +54,8 @@ be published (the release workflow refuses to publish without it - spec 028).
   drop targets. New albums now start from your own photos (the built-in sample album was removed).
 - **Insert a page anywhere**: you can add a fresh blank page before or after any existing page, not
   only at the end. Hover the gap above a page to reveal an "Insert a page here" button; the "Add
-  page" button still appends at the end.
+  page" button still appends at the end. (Superseded in v0.8.0: the hover bar was replaced by an
+  "Add page" button in every gap.)
 - **Swap two photos by dragging**: on a page that holds several photos, drag one photo onto another
   to swap their positions. Dropping a photo from the Library still fills the next empty slot.
 - **Style several photos at once**: while arranging a page, Ctrl-click (or Cmd-click) to select
