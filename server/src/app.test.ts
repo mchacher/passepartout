@@ -187,6 +187,17 @@ describe("server projects / images / version / update", () => {
     await app.close();
   });
 
+  it("refuses to build a blob path from an unsafe id, whoever calls", () => {
+    // Defense in depth for the js/path-injection class: the routes reject unsafe ids, but the
+    // guard lives next to the join, so a future caller cannot escape the blob directory either.
+    const store = new Store(":memory:", mkdtempSync(join(tmpdir(), "pp-blob-")));
+    expect(() => store.putImage("../escape", Buffer.from([1]), "image/png")).toThrow(/unsafe image id/);
+    expect(() => store.getImage("../escape")).toThrow(/unsafe image id/);
+    // deleteImage swallows it: deleting a project walks its stored photo ids and must not
+    // throw on a corrupt one, it just leaves the bytes behind.
+    expect(() => store.deleteImage("../escape")).not.toThrow();
+  });
+
   it("reports version info, gated", async () => {
     clearVersionCache();
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: "v99.0.0" }) })));

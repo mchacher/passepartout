@@ -109,6 +109,9 @@ export class Store {
   }
 
   private blobPath(id: string): string {
+    // The routes reject unsafe ids before calling in, but the path is BUILT here: keeping the
+    // guard next to the join is what actually makes traversal impossible, whoever calls.
+    if (!isSafeId(id)) throw new Error(`unsafe image id: ${id}`);
     return join(this.blobDir, id);
   }
 
