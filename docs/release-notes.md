@@ -13,6 +13,8 @@ be published (the release workflow refuses to publish without it - spec 028).
   different outlines and even an unselected photo carried a faint version of the same colour.
   Every selected photo now wears the very same outline, an unselected one a neutral outline, and
   the photo that carries the resize handles is the one the single-photo controls act on.
+- **The wordmark reads Passe-partout**: it showed a middle dot instead of the hyphen the word
+  is spelled with.
 - **Honest wording about cropping**: the welcome screen claimed there was no crop tool. There is
   one, and there is also full-page Fill and masks. The app now says what it actually does: it
   keeps your photos' original framing and never crops on its own, cropping is your call, photo
