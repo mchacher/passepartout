@@ -3,6 +3,17 @@ import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
 import { computeLayout, drawOrder, gridRegions, whitespaceToDensity } from "../lib/layout";
+import {
+  F_PAGE_SUBTITLE,
+  F_PAGE_TITLE,
+  HEADER_TOP,
+  LINE,
+  PAGE_MARGIN,
+  headerFontCss,
+  headerFontSize,
+  headerGeometry,
+} from "../lib/page-header";
+import { SIZE_SCALE } from "../lib/text-sizes";
 import { resolveCells, slotCount, GRID_COLS, GRID_ROWS } from "../lib/layouts";
 import { moveCell, resizeCell, restack, panAnchor, snapAnchor, type Corner } from "../lib/grid-edit";
 import { effectiveRatio } from "../lib/crop";
@@ -44,6 +55,7 @@ const rectsOverlap = (a: CellRect, b: CellRect) =>
 // resizable on the grid (writing the page's custom placement).
 export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, editing = false, onSelection }, ref) {
   const { photos, bookSize, placeOnPage, removeFromPage, swapPhotosOnPage, setCaption, setPagePlacement, setPhotoFrameFocus } = useAlbum();
+  const textSizes = useAlbum((s) => s.textSizes);
   const { t } = useT();
   const showGrid = useView((s) => s.showGrid);
   // The filled slot a placed photo is currently dragged over (display mode), highlighted as
@@ -53,12 +65,27 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
   const density = whitespaceToDensity(page.whitespace);
   const layoutId = page.layoutId;
   const innerRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [pageBox, setPageBox] = useState({ w: 0, h: 0 });
   const [hot, setHot] = useState(false);
 
   const hasTitle = page.title.trim().length > 0;
   const hasSubtitle = (page.subtitle ?? "").trim().length > 0;
   const hasHeader = hasTitle || hasSubtitle;
+
+  // Header geometry (spec 036): the band the photo area starts below is derived from the text
+  // actually drawn, so the clearance under the header is the same at every size level. The
+  // sizes are the same pure fraction of the page the CSS below and the PDF use, so the editor,
+  // the preview and the print agree at any zoom.
+  const titlePx = hasTitle
+    ? headerFontSize(F_PAGE_TITLE, pageBox.w, SIZE_SCALE[textSizes.pageTitle])
+    : 0;
+  const subtitlePx = hasSubtitle
+    ? headerFontSize(F_PAGE_SUBTITLE, pageBox.w, SIZE_SCALE[textSizes.pageSubtitle])
+    : 0;
+  const header = headerGeometry({ titleSize: titlePx, subtitleSize: subtitlePx, pageW: pageBox.w, pageH: pageBox.h });
+  const padSide = PAGE_MARGIN * pageBox.w;
+  const padTop = header.band; // already the plain margin when the page has no text
+  const box = { w: Math.max(0, pageBox.w - 2 * padSide), h: Math.max(0, pageBox.h - padTop - padSide) };
   const items = page.photoIds
     .map((id) => photos.find((p) => p.id === id))
     .filter((p): p is Photo => p !== undefined);
@@ -123,15 +150,19 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gridKey, selected]);
 
+  // Measure the PAGE box (clientWidth / clientHeight, which the padding does not affect) and
+  // derive everything from it: the header band, the padding, and the content box the engine
+  // gets. Reading the padding back from the computed style would go stale, since the padding
+  // is now derived from this very measurement (spec 036).
+  // `fullPage` is a dependency even though it is unused here: the measured div only exists on
+  // the non-full-page branch, so toggling the mode mounts a NEW node that the observer below
+  // has to be re-attached to. Without it a page leaving full-page mode is never measured.
   const measure = useCallback(() => {
     const el = innerRef.current;
     if (!el) return;
-    const cs = getComputedStyle(el);
-    const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-    const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    setBox({ w: el.clientWidth - padX, h: el.clientHeight - padY });
+    setPageBox({ w: el.clientWidth, h: el.clientHeight });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasTitle, hasSubtitle, fullPage]);
+  }, [fullPage]);
 
   useLayoutEffect(() => {
     measure();
@@ -306,19 +337,31 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
         ) : (
           <>
             {hasHeader && (
-              <div className="pointer-events-none absolute inset-x-[7%] top-[5.4%] z-10 text-center">
+              // The band this header occupies is what the content box below starts after
+              // (spec 036): same line-height and same gap as the geometry reserves for it.
+              <div
+                className="pointer-events-none absolute inset-x-[7%] z-10 text-center"
+                style={{ top: `${HEADER_TOP * 100}%`, lineHeight: LINE }}
+              >
                 {hasTitle && (
                   <div
                     className="font-album tracking-wide"
-                    style={{ fontSize: "calc(clamp(13px, 3.1cqw, 19px) * var(--page-title-scale))", color: "var(--album-ink)" }}
+                    style={{
+                      fontSize: headerFontCss(F_PAGE_TITLE, "--page-title-scale"),
+                      color: "var(--album-ink)",
+                    }}
                   >
                     {page.title.trim()}
                   </div>
                 )}
                 {hasSubtitle && (
                   <div
-                    className="mt-[1%] font-album"
-                    style={{ fontSize: "calc(clamp(10px, 2.2cqw, 14px) * var(--page-subtitle-scale))", color: "var(--album-ink-soft)" }}
+                    className="font-album"
+                    style={{
+                      marginTop: header.gap,
+                      fontSize: headerFontCss(F_PAGE_SUBTITLE, "--page-subtitle-scale"),
+                      color: "var(--album-ink-soft)",
+                    }}
                   >
                     {page.subtitle.trim()}
                   </div>
@@ -329,7 +372,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
             <div
               ref={innerRef}
               className="absolute inset-0"
-              style={{ padding: "5%", paddingTop: hasSubtitle ? "12.5%" : hasTitle ? "10%" : "5%" }}
+              style={{ paddingLeft: padSide, paddingRight: padSide, paddingBottom: padSide, paddingTop: padTop }}
             >
               <div className="relative h-full w-full">
                 {gridVisible && <GridOverlay />}

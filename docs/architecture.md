@@ -39,6 +39,7 @@ src/
 │   ├── themes.ts       # PURE album-theme catalog (fonts + color palettes) + coercion
 │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
 │   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
+│   ├── page-header.ts  # PURE content-page header band: text sizes -> band, gap, clearance
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   ├── preview.ts      # PURE book-preview helpers: booklet leaf order, spread pairing, fit-to-stage sizing
 │   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
@@ -156,8 +157,18 @@ Three hard boundaries:
   `--cover-subtitle-scale` / `--page-title-scale` / `--page-subtitle-scale` /
   `--caption-scale`; the album text sites multiply their base `fontSize` by the role var
   (`calc(... * var(--page-title-scale))`). `textSizesOrDefault` coerces a missing object
-  or an unknown per-role value to `md`. `useApplyTheme` writes these vars too. No engine
-  involvement: only text size changes, photo geometry is the engine's alone.
+  or an unknown per-role value to `md`. `useApplyTheme` writes these vars too. Text size does
+  not enter the engine, but on a content page it does move the content box: see the header
+  band below.
+- **Page header band** (`src/lib/page-header.ts`, spec 036): the band a content page's title
+  and subtitle occupy, and therefore where the photo area starts, is DERIVED from the text
+  rather than fixed. `headerGeometry({ titleSize, subtitleSize, pageW, pageH })` works in one
+  absolute unit and returns the band, the title-to-subtitle gap, the two glyph tops and a
+  clearance that is constant at every size level. `Paper`, `PreviewPaper` and `print.ts` all
+  call it, with the same pure fraction of the page width for the font size
+  (`headerFontSize` / `headerFontCss`, no readability clamp), so the editor, the book preview
+  and the PDF place the header identically at any zoom. Cover faces keep their own fixed
+  bands (`COVER_TOP_*` in `print.ts`).
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store
 root.** Match the right altitude when adding a field.
@@ -273,7 +284,9 @@ Dragging whitespace never re-groups photos.
   unchanged in spirit (still contain-fit, no crop; it now also returns the anchored offset).
 - **A new text role or size level**: extend `TEXT_ROLES` / `TEXT_SIZE_LEVELS` in
   `src/lib/text-sizes.ts` and add the matching `--<role>-scale` var to the text site.
-  `ThemeMenu` renders the new row/level automatically.
+  `ThemeMenu` renders the new row/level automatically. If the role is drawn in a content
+  page's header, feed its size to `headerGeometry` too, or the band will not reserve room
+  for it.
 - **Internationalization** (shipped, spec 032): UI chrome is translated, not album content. Every
   user-facing string goes through `t("key")` from the `useT()` hook, keyed into the pure `en`/`fr`
   catalog in `src/lib/i18n.ts` (a parity test enforces both languages carry every key; catalog
