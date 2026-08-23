@@ -133,6 +133,12 @@ export class Store {
     return { bytes: readFileSync(p), mime: row?.mime ?? "application/octet-stream" };
   }
 
+  /** Every stored image id, for the client's orphan sweep (spec 037). */
+  listImageIds(): string[] {
+    const rows = this.db.prepare("SELECT id FROM images").all() as { id: string }[];
+    return rows.map((r) => r.id);
+  }
+
   deleteImage(id: string): void {
     try {
       rmSync(this.blobPath(id), { force: true });

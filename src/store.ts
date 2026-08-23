@@ -21,6 +21,7 @@ import { DEFAULT_BOOK_SIZE, type BookSizeId } from "./lib/book-sizes";
 import { readCaptureTime } from "./lib/exif";
 import { defaultLayoutId, slotCount } from "./lib/layouts";
 import { splitDuplicates } from "./lib/dedupe";
+import { popHistory, pushHistory, type HistoryEntry } from "./lib/history";
 import {
   DEFAULT_COLOR_THEME,
   DEFAULT_FONT_THEME,
@@ -64,6 +65,9 @@ import {
 } from "./lib/update-lock";
 
 const SAVE_DEBOUNCE_MS = 400;
+// Undo depth (spec 037). Snapshots are metadata only, so fifty of them cost little, and it is
+// far more than the handful of steps anyone walks back in practice.
+const HISTORY_LIMIT = 50;
 
 // Map a cover face to its state / document field.
 const COVER_KEY: Record<
@@ -189,6 +193,13 @@ interface AlbumState {
   // English fallback text.
   importBundle: (file: File) => Promise<{ ok: true } | { ok: false; error: string; code: string }>;
 
+  // Undo / redo (spec 037). The stacks hold whole album snapshots; they live in the session
+  // and are cleared whenever another project becomes the active one.
+  undoStack: HistoryEntry<AlbumDocument>[];
+  redoStack: HistoryEntry<AlbumDocument>[];
+  undo: () => void;
+  redo: () => void;
+
   importFiles: (files: FileList | File[]) => Promise<void>;
   // How many files the last import skipped as duplicates (issue 65). The Library shows the
   // notice; the next import replaces it and `dismissSkippedDuplicates` clears it.
@@ -267,8 +278,96 @@ async function loadPhoto(file: File): Promise<{ photo: Photo; file: File } | nul
   });
 }
 
-export const useAlbum = create<AlbumState>((set, get) => {
+// The slice undo restores: exactly what serializeProject persists (spec 037). Compared by
+// REFERENCE, so any action that produces a new array or object for one of these is recorded,
+// and one that only touches session state (projects, version, the update lock) is not.
+type AlbumDocument = Pick<
+  AlbumState,
+  | "photos"
+  | "pages"
+  | "bookSize"
+  | "spine"
+  | "fontTheme"
+  | "colorTheme"
+  | "textSizes"
+  | "frontCover"
+  | "insideFrontCover"
+  | "insideBackCover"
+  | "backCover"
+>;
+
+const DOCUMENT_KEYS = [
+  "photos",
+  "pages",
+  "bookSize",
+  "spine",
+  "fontTheme",
+  "colorTheme",
+  "textSizes",
+  "frontCover",
+  "insideFrontCover",
+  "insideBackCover",
+  "backCover",
+] as const satisfies readonly (keyof AlbumDocument)[];
+
+const documentOf = (state: AlbumState): AlbumDocument => ({
+  ...(Object.fromEntries(DOCUMENT_KEYS.map((k) => [k, state[k]])) as AlbumDocument),
+  // Copy the page objects: syncLayout repairs a page IN PLACE, and a page left untouched by an
+  // edit keeps its identity, so a snapshot holding the live object could be rewritten after the
+  // fact and undo would restore an arrangement that never existed.
+  pages: state.pages.map((pg) => ({ ...pg })),
+});
+
+const sameDocument = (a: AlbumState, b: AlbumState): boolean =>
+  DOCUMENT_KEYS.every((k) => a[k] === b[k]);
+
+export const useAlbum = create<AlbumState>((rawSet, get) => {
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  // Undo bookkeeping (spec 037). `recording` is off while an undo is being applied and while a
+  // project loads: neither is an edit the user made.
+  let recording = true;
+  let pendingCoalesceKey: string | undefined;
+
+  /**
+   * `set` for the whole store, wrapped once so every album edit is recorded without each of
+   * the thirty-odd actions having to remember to. The previous document is pushed only when
+   * the document actually changed, which also means a future action gets undo for free.
+   */
+  const set: typeof rawSet = ((partial: unknown, replace?: never) => {
+    const before = get();
+    (rawSet as (p: unknown, r?: never) => void)(partial, replace);
+    const key = pendingCoalesceKey;
+    pendingCoalesceKey = undefined;
+    if (!recording) return;
+    const after = get();
+    // A document that changes together with the active project is another album being loaded,
+    // never an edit: history must not carry state from one project into the next. Handling it
+    // here rather than at each load path means a new one cannot forget.
+    if (before.activeId !== after.activeId) {
+      rawSet({ undoStack: [], redoStack: [] });
+      return;
+    }
+    if (sameDocument(before, after)) return;
+    rawSet((st) => ({
+      undoStack: pushHistory(st.undoStack, documentOf(before), { limit: HISTORY_LIMIT, coalesceKey: key, now: Date.now() }),
+      redoStack: [], // a new edit abandons the branch that redo would have replayed
+    }));
+  }) as typeof rawSet;
+
+  /** Mark the NEXT recorded step as mergeable with the previous one carrying the same key. */
+  const coalesceAs = (key: string) => {
+    pendingCoalesceKey = key;
+  };
+
+  /** Run a state change without recording it: loading a project, applying an undo. */
+  const withoutRecording = (fn: () => void) => {
+    recording = false;
+    try {
+      fn();
+    } finally {
+      recording = true;
+    }
+  };
   // The active persistence backend (local IndexedDB or the remote API), chosen by
   // initProjects via initBackend(). Every db call below goes through it (spec 024).
   let backend: PersistenceBackend;
@@ -303,6 +402,35 @@ export const useAlbum = create<AlbumState>((set, get) => {
       set((st) => ({ projects: upsertMeta(st.projects, metaOf(doc)) }));
     } catch {
       /* keep working in memory; a transient write error must not break editing */
+    }
+  };
+
+  /**
+   * Delete image blobs no project references any more (spec 037). Deleting a photo leaves its
+   * bytes in place so undo can give it back; this is where they are actually reclaimed, one
+   * start later, when the history that held them is long gone. Best effort throughout: a
+   * failure here only means the bytes are swept next time.
+   */
+  const sweepOrphanImages = async (projects: ProjectMeta[]) => {
+    try {
+      const stored = await backend.listImageIds();
+      if (stored.length === 0) return; // nothing stored, or a backend that cannot enumerate
+      const referenced = new Set<string>();
+      for (const meta of projects) {
+        const doc = await backend.loadProjectDoc(meta.id);
+        // A project whose document cannot be read tells us nothing about what it references.
+        // Deleting on a partial picture could wipe a whole album's photos, so give up instead:
+        // the bytes cost storage, losing them costs the user their album.
+        if (!doc) return;
+        for (const photo of doc.photos) referenced.add(photo.id);
+      }
+      // Anything the live album holds is off limits too: an import writes its blob before the
+      // debounced save has put it in any document, and a second tab must not sweep it away.
+      for (const photo of get().photos) referenced.add(photo.id);
+      const orphans = stored.filter((id) => !referenced.has(id));
+      await Promise.all(orphans.map((id) => backend.deleteImage(id).catch(() => {})));
+    } catch {
+      /* leave the bytes; the next start tries again */
     }
   };
 
@@ -386,6 +514,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
     backCover: newCover(),
 
     updateCover: (which, patch) => {
+      // Typing in a cover field coalesces per face AND per field, so the title and the
+      // subtitle of the same cover stay two separate steps.
+      coalesceAs(`cover:${which}:${Object.keys(patch).join(",")}`);
       const key = COVER_KEY[which];
       set((s) => ({ [key]: { ...s[key], ...patch } }));
       scheduleSave();
@@ -492,6 +623,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
         await get().openProject(target.id);
       }
       set({ projects, ready: true });
+      void sweepOrphanImages(projects); // reclaim what deleted photos left behind (spec 037)
       if (backend.mode === "remote") void get().refreshVersion(); // check for updates (spec 025)
     },
 
@@ -788,6 +920,31 @@ export const useAlbum = create<AlbumState>((set, get) => {
       }
     },
 
+    undoStack: [],
+    redoStack: [],
+
+    /** Take back the last album edit. A no-op with nothing recorded. */
+    undo: () => {
+      const popped = popHistory(get().undoStack);
+      if (!popped) return;
+      const current = documentOf(get());
+      withoutRecording(() => {
+        set({ ...popped.entry.snapshot, undoStack: popped.rest, redoStack: [...get().redoStack, { snapshot: current }] });
+      });
+      scheduleSave();
+    },
+
+    /** Put back the edit the last undo took away. A no-op with nothing to replay. */
+    redo: () => {
+      const popped = popHistory(get().redoStack);
+      if (!popped) return;
+      const current = documentOf(get());
+      withoutRecording(() => {
+        set({ ...popped.entry.snapshot, redoStack: popped.rest, undoStack: [...get().undoStack, { snapshot: current }] });
+      });
+      scheduleSave();
+    },
+
     skippedDuplicates: 0,
 
     dismissSkippedDuplicates: () => set({ skippedDuplicates: 0 }),
@@ -821,7 +978,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
         const pages = s.pages.length === 0 ? [newPage()] : s.pages;
         return { photos, pages };
       });
-      scheduleSave();
+      // Save NOW rather than in 400 ms: the blobs are already written, and a document that
+      // does not mention them yet is what makes another tab's orphan sweep dangerous.
+      cancelSave();
+      await flushSave();
     },
 
     placeOnPage: (photoId, pageId) => {
@@ -904,10 +1064,9 @@ export const useAlbum = create<AlbumState>((set, get) => {
           backCover: clearCover(s.backCover),
         };
       });
-      // The runtime object URL dies with the photo; the blob is best-effort (a failed delete
-      // only leaves bytes behind, the album is already correct).
-      if (target.url.startsWith("blob:")) URL.revokeObjectURL(target.url);
-      if (backend && get().persistent) void backend.deleteImage(photoId).catch(() => {});
+      // Neither the object URL nor the stored blob is dropped here (spec 037): undo has to be
+      // able to give this photo back, still displaying. The bytes are swept at the next start,
+      // once no project references them (sweepOrphanImages).
       scheduleSave();
     },
 
@@ -931,6 +1090,10 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPageCount: (pageId, n) => {
+      // Re-clicking the active number is a no-op the user makes often on a segmented control;
+      // recording it would spend an undo step on nothing (spec 037).
+      const current = get().pages.find((pg) => pg.id === pageId);
+      if (current && slotCount(current.layoutId, current.photoIds.length, current.placement) === n) return;
       set((s) => {
         const pages = s.pages.map((pg) => ({ ...pg, photoIds: [...pg.photoIds] }));
         const target = pages.find((pg) => pg.id === pageId);
@@ -1004,6 +1167,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPageTitle: (pageId, title) => {
+      coalesceAs(`pageTitle:${pageId}`);
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, title } : pg)),
       }));
@@ -1011,6 +1175,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPageSubtitle: (pageId, subtitle) => {
+      coalesceAs(`pageSubtitle:${pageId}`);
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, subtitle } : pg)),
       }));
@@ -1018,6 +1183,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPageWhitespace: (pageId, whitespace) => {
+      coalesceAs(`whitespace:${pageId}`);
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, whitespace } : pg)),
       }));
@@ -1025,6 +1191,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPageLayout: (pageId, layoutId) => {
+      if (get().pages.find((pg) => pg.id === pageId)?.layoutId === layoutId) return; // already there
       // Re-selecting a template re-attaches the page: any custom placement is cleared.
       set((s) => ({
         pages: s.pages.map((pg) => (pg.id === pageId ? { ...pg, layoutId, placement: undefined } : pg)),
@@ -1049,6 +1216,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPageFullPageFocus: (pageId, focus) => {
+      // Fired on every pointermove while the photo is panned: one drag is one step.
+      coalesceAs(`fullPageFocus:${pageId}`);
       const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
       const f = { x: clamp01(focus.x), y: clamp01(focus.y) };
       set((s) => ({
@@ -1058,6 +1227,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setCaption: (photoId, caption) => {
+      coalesceAs(`caption:${photoId}`);
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, caption } : p)),
       }));
@@ -1073,6 +1243,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPhotoMask: (photoId, maskId) => {
+      if ((get().photos.find((p) => p.id === photoId)?.mask ?? null) === maskId) return; // already there
       // Only a known catalog id is kept; null or an unknown id clears the mask (spec 018).
       const next = maskId && isMask(maskId) ? maskId : undefined;
       set((s) => ({
@@ -1082,6 +1253,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPhotoMaskRadius: (photoId, value) => {
+      if (get().photos.find((p) => p.id === photoId)?.maskRadius === value) return; // already there
       // The rounded mask's corner size (spec 034), coerced to a valid fraction of the shorter side.
       const next = roundedRadiusOf(value);
       set((s) => ({
@@ -1106,6 +1278,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPhotoFrameColor: (photoId, colorId) => {
+      if ((get().photos.find((p) => p.id === photoId)?.frameColor ?? null) === colorId) return; // already there
       const next = colorId && frameColorOf(colorId, colorId).id === colorId ? colorId : undefined;
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameColor: next } : p)),
@@ -1114,6 +1287,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPhotoFrameText: (photoId, text) => {
+      coalesceAs(`frameText:${photoId}`);
       const next = text.trim().length > 0 ? text : undefined;
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameText: next } : p)),
@@ -1122,6 +1296,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPhotoFrameWidth: (photoId, width) => {
+      if (get().photos.find((p) => p.id === photoId)?.frameWidth === width) return; // already there
       const next = borderWidthOf(width);
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameWidth: next } : p)),
@@ -1130,6 +1305,8 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setPhotoFrameFocus: (photoId, focus) => {
+      // Fired on every pointermove while the photo is panned: one drag is one step.
+      coalesceAs(`frameFocus:${photoId}`);
       const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
       const f = { x: clamp01(focus.x), y: clamp01(focus.y) };
       set((s) => ({
@@ -1153,6 +1330,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setSpineTitle: (title) => {
+      coalesceAs("spineTitle");
       set({ spine: { title } });
       scheduleSave();
     },
@@ -1168,6 +1346,7 @@ export const useAlbum = create<AlbumState>((set, get) => {
     },
 
     setTextSize: (role, level) => {
+      if (get().textSizes[role] === level) return; // already there
       set((s) => ({ textSizes: { ...s.textSizes, [role]: level } }));
       scheduleSave();
     },

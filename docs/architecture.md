@@ -40,6 +40,8 @@ src/
 │   ├── theme-vars.ts   # PURE map: resolved theme + OS mode -> CSS custom properties
 │   ├── text-sizes.ts   # PURE per-role text-size catalog (title/subtitle/caption) + scale vars
 │   ├── page-header.ts  # PURE content-page header band: text sizes -> band, gap, clearance
+│   ├── history.ts      # PURE bounded undo stack + coalescing
+│   ├── shortcuts.ts    # PURE keystroke -> undo / redo
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   ├── preview.ts      # PURE book-preview helpers: booklet leaf order, spread pairing, fit-to-stage sizing
 │   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
@@ -174,6 +176,17 @@ Three hard boundaries:
   (`insideCoverPageGeometry`), matching `CoverCard` and the book preview's cover leaf; routing
   it through `interiorPageGeometry` is what used to make it print with page fractions and page
   size levels.
+
+- **Undo / redo** (`src/lib/history.ts`, spec 037): the store's `set` is wrapped ONCE inside
+  the creator. It compares the eleven document keys (what `serializeProject` persists) before
+  and after, and pushes the previous document onto `undoStack` when any of them changed, so a
+  new action is undoable without doing anything. A change that also moves `activeId` is a
+  project load, not an edit: both stacks are cleared instead. `coalesceAs(key)` marks the next
+  step as mergeable, which is how a burst of keystrokes or one pointer drag stays one step;
+  the run breaks after `COALESCE_WINDOW_MS` of quiet. Stacks are session-only.
+- Because undo can bring a deleted photo back, **image bytes outlive the photo**: `deletePhoto`
+  leaves the blob, and `sweepOrphanImages` reclaims at startup whatever no stored project
+  references. The sweep gives up rather than guess if a document cannot be read.
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store
 root.** Match the right altitude when adding a field.

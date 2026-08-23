@@ -5,6 +5,7 @@ import { useT } from "../useT";
 import { ProjectMenu } from "./ProjectMenu";
 import { ThemeMenu } from "./ThemeMenu";
 import { SizeMenu } from "./SizeMenu";
+import { UndoButtons } from "./UndoButtons";
 import { ExportPanel } from "./ExportPanel";
 import { BookPreview } from "./BookPreview";
 import { UpdatesSheet } from "./UpdatesSheet";
@@ -32,8 +33,9 @@ export function TopBar() {
         </span>
       </div>
 
-      <div className="mr-auto self-center">
+      <div className="mr-auto flex items-center gap-2.5 self-center">
         <ProjectMenu />
+        <UndoButtons />
       </div>
 
       <ThemeMenu />

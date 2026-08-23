@@ -93,6 +93,12 @@ export async function getImage(id: string): Promise<Blob | undefined> {
   return request<Blob | undefined>(IMAGES, "readonly", (s) => s.get(id));
 }
 
+/** Every stored image id, so orphans can be found (spec 037). */
+export async function listImageIds(): Promise<string[]> {
+  const keys = await request<IDBValidKey[]>(IMAGES, "readonly", (s) => s.getAllKeys());
+  return keys.filter((k): k is string => typeof k === "string");
+}
+
 /** Delete one image blob. A missing key is not an error (IndexedDB delete is idempotent). */
 export async function deleteImage(id: string): Promise<void> {
   await request(IMAGES, "readwrite", (s) => s.delete(id));
@@ -192,6 +198,11 @@ export interface PersistenceBackend {
   getImage(id: string): Promise<Blob | undefined>;
   /** Drop one image blob (a photo deleted from the library). */
   deleteImage(id: string): Promise<void>;
+  /**
+   * Every stored image id, for the startup sweep (spec 037). An empty list means "cannot
+   * enumerate", and the caller skips the sweep rather than guessing what to delete.
+   */
+  listImageIds(): Promise<string[]>;
   deleteProject(id: string): Promise<void>;
   copyImage(fromId: string, toId: string): Promise<void>;
   /** Display URLs for photo ids: object URLs (local) or /api/images URLs (remote). */
@@ -225,6 +236,7 @@ function makeLocalBackend(persistent: boolean): PersistenceBackend {
     putImage,
     getImage,
     deleteImage,
+    listImageIds,
     deleteProject,
     copyImage,
     async imageUrls(ids) {
@@ -341,6 +353,18 @@ const remoteBackend: PersistenceBackend = {
   },
   async deleteImage(id) {
     await api(`/images/${id}`, { method: "DELETE" });
+  },
+  async listImageIds() {
+    // An empty list means "cannot enumerate" to the caller, which then skips the sweep. That
+    // is the right answer for an older server without this endpoint, or an unreachable one.
+    try {
+      const r = await api("/images");
+      if (!r.ok) return [];
+      const body = (await r.json()) as { ids?: unknown };
+      return Array.isArray(body.ids) ? body.ids.filter((id): id is string => typeof id === "string") : [];
+    } catch {
+      return [];
+    }
   },
   async deleteProject(id) {
     await api(`/projects/${id}`, { method: "DELETE" });
