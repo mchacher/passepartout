@@ -11,6 +11,8 @@ import {
   HEADER_TOP,
   F_PAGE_TITLE,
   F_PAGE_SUBTITLE,
+  F_COVER_TITLE,
+  F_COVER_SUBTITLE,
 } from "./page-header";
 
 const SCALES = { sm: 0.85, md: 1, lg: 1.2, xl: 1.45 } as const;
@@ -149,6 +151,14 @@ describe("headerFontSize / headerFontCss: one size rule for screen and print", (
   it("builds the CSS from the same fractions", () => {
     expect(headerFontCss(F_PAGE_TITLE, "--page-title-scale")).toBe("calc(3.1cqw * var(--page-title-scale))");
     expect(headerFontCss(F_PAGE_SUBTITLE, "--page-subtitle-scale")).toBe("calc(2.2cqw * var(--page-subtitle-scale))");
+  });
+
+  it("covers the cover roles too, at their own larger fractions (issue 71)", () => {
+    expect(F_COVER_TITLE).toBeGreaterThan(F_PAGE_TITLE); // a cover title is not a page title
+    expect(headerFontCss(F_COVER_TITLE, "--cover-title-scale")).toBe("calc(5cqw * var(--cover-title-scale))");
+    expect(headerFontCss(F_COVER_SUBTITLE, "--cover-subtitle-scale")).toBe("calc(2.6cqw * var(--cover-subtitle-scale))");
+    // No clamp anywhere: the printed cover is the same fraction of the face as the drawn one.
+    expect(headerFontSize(F_COVER_TITLE, 1079, 1)).toBeCloseTo(0.05 * 1079, 8);
   });
 });
 

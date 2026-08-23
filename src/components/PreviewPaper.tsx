@@ -5,6 +5,8 @@ import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
 import { photoLayoutRatio } from "../lib/frames";
 import {
+  F_COVER_SUBTITLE,
+  F_COVER_TITLE,
   F_PAGE_SUBTITLE,
   F_PAGE_TITLE,
   HEADER_TOP,
@@ -259,7 +261,7 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
         {hasTitle && (
           <div
             className="font-album tracking-wide"
-            style={{ fontSize: "calc(clamp(16px, 5cqw, 34px) * var(--cover-title-scale))", color: "var(--album-ink)" }}
+            style={{ fontSize: headerFontCss(F_COVER_TITLE, "--cover-title-scale"), color: "var(--album-ink)" }}
           >
             {title.trim()}
           </div>
@@ -267,7 +269,7 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
         {hasSubtitle && (
           <div
             className="mt-[2%] font-album"
-            style={{ fontSize: "calc(clamp(11px, 2.6cqw, 16px) * var(--cover-subtitle-scale))", color: "var(--album-ink-soft)" }}
+            style={{ fontSize: headerFontCss(F_COVER_SUBTITLE, "--cover-subtitle-scale"), color: "var(--album-ink-soft)" }}
           >
             {subtitle.trim()}
           </div>

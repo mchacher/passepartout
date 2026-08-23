@@ -27,6 +27,13 @@ export const F_PAGE_TITLE = 0.031;
 /** Page subtitle font size, as a fraction of the page WIDTH (on screen: 2.2cqw). */
 export const F_PAGE_SUBTITLE = 0.022;
 
+// Cover face text, same idea: one fraction of the face width, used by CoverCard, the book
+// preview's cover leaf and print.ts. A cover title is bigger than a page title on purpose.
+// These carried a readability clamp on screen too (16..34px / 11..16px), which made an
+// on-screen cover disagree with the printed one; issue 71 removed it.
+export const F_COVER_TITLE = 0.05;
+export const F_COVER_SUBTITLE = 0.026;
+
 /** Page margin (sides, bottom, and the whole inset of a page with no text), fraction of width. */
 export const PAGE_MARGIN = 0.05;
 

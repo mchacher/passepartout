@@ -168,7 +168,12 @@ Three hard boundaries:
   call it, with the same pure fraction of the page width for the font size
   (`headerFontSize` / `headerFontCss`, no readability clamp), so the editor, the book preview
   and the PDF place the header identically at any zoom. Cover faces keep their own fixed
-  bands (`COVER_TOP_*` in `print.ts`).
+  bands (`COVER_TOP_*` in `print.ts`) but share the same declared fractions
+  (`F_COVER_TITLE` / `F_COVER_SUBTITLE`) and, since issue 71, the same absence of a clamp.
+  An inside cover face travels in the interior PDF yet is drawn as a COVER
+  (`insideCoverPageGeometry`), matching `CoverCard` and the book preview's cover leaf; routing
+  it through `interiorPageGeometry` is what used to make it print with page fractions and page
+  size levels.
 
 Altitude rule: **per-page state lives on `AlbumPage`; global state lives at the store
 root.** Match the right altitude when adding a field.
