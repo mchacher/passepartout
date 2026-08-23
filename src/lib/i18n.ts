@@ -275,8 +275,8 @@ const en: Record<string, string> = {
   "err.bundle.no-project": "This album bundle has no project.",
   "err.generic": "Something went wrong.",
 
-  // Auth: setup + login (the "Passe·partout" brand is not translated)
-  "auth.setup.title": "Welcome to Passe·partout",
+  // Auth: setup + login (the "Passe-partout" brand is not translated)
+  "auth.setup.title": "Welcome to Passe-partout",
   "auth.setup.subtitle": "Create the first account. You can add more later.",
   "auth.username": "Username",
   "auth.password": "Password",
@@ -641,8 +641,8 @@ const fr: Record<string, string> = {
   "err.bundle.no-project": "Ce paquet d'album ne contient aucun projet.",
   "err.generic": "Une erreur est survenue.",
 
-  // Auth: setup + login (the "Passe·partout" brand is not translated)
-  "auth.setup.title": "Bienvenue sur Passe·partout",
+  // Auth: setup + login (the "Passe-partout" brand is not translated)
+  "auth.setup.title": "Bienvenue sur Passe-partout",
   "auth.setup.subtitle": "Créez le premier compte. Vous pourrez en ajouter d'autres plus tard.",
   "auth.username": "Nom d'utilisateur",
   "auth.password": "Mot de passe",

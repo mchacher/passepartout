@@ -26,7 +26,7 @@ export function TopBar() {
     <header className="flex flex-wrap items-center gap-6 border-b border-line bg-surface px-5 py-3">
       <div className="flex items-baseline gap-2.5">
         <span className="font-display text-[21px] tracking-tight">
-          Passe<span className="text-accent">·</span>partout
+          Passe<span className="text-accent">-</span>partout
         </span>
         <span className="border-l border-line-strong pl-2.5 text-[11.5px] text-muted">
           {t("topbar.tagline")}
