@@ -3,8 +3,14 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
-## v0.8.1 - unreleased
+## v0.9.0 - 2026-08-23
 
+Arranging a page is now a click away, and a batch of fixes to what you look at all day.
+
+- **Click a photo to arrange the page**: the "Arrange" button is gone. Click any photo on a
+  page whose slots are all filled and free placement opens on that photo, ready to move and
+  resize. Escape, a click outside the page, or Done leaves it. A page that still has an empty
+  slot ignores the click, and dragging a photo onto another slot still swaps the two.
 - **Library thumbnails stop overlapping**: with a large library the rows of the photo tray were
   shorter than the square thumbnails they held, so every row overlapped the one above, and the
   more photos you imported the worse it looked. Rows now take the height of their thumbnails at
