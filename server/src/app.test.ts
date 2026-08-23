@@ -13,7 +13,7 @@ process.env.DOCKER_SOCKET_PATH = "/tmp/passepartout-no-such.sock";
 const USER = "alice";
 const PASSWORD = "correct horse battery";
 
-function makeApp(): FastifyInstance {
+async function makeApp(): Promise<FastifyInstance> {
   const dir = mkdtempSync(join(tmpdir(), "pp-srv-"));
   const store = new Store(":memory:", dir);
   return buildApp({ store, sessionSecret: "test-secret-not-for-production", cookieSecure: false });
@@ -36,7 +36,7 @@ const doc = (id: string, name = "Trip") => ({ id, name, createdAt: 1, updatedAt:
 
 describe("server auth & users (spec 026)", () => {
   it("serves health + status without auth; a fresh db needs setup", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     expect((await app.inject({ method: "GET", url: "/health" })).statusCode).toBe(200);
     const status = await app.inject({ method: "GET", url: "/auth/status" });
     expect(status.statusCode).toBe(200);
@@ -45,13 +45,13 @@ describe("server auth & users (spec 026)", () => {
   });
 
   it("gates the API before setup", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     expect((await app.inject({ method: "GET", url: "/projects" })).statusCode).toBe(401);
     await app.close();
   });
 
   it("first-run setup creates the first user + logs in; a second setup is refused", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const res = await app.inject({ method: "POST", url: "/auth/setup", payload: { username: USER, password: PASSWORD } });
     expect(res.statusCode).toBe(201);
     expect(res.json().username).toBe(USER);
@@ -67,13 +67,13 @@ describe("server auth & users (spec 026)", () => {
   });
 
   it("rejects a short password at setup", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     expect((await app.inject({ method: "POST", url: "/auth/setup", payload: { username: USER, password: "short" } })).statusCode).toBe(400);
     await app.close();
   });
 
   it("logs in with the right credentials, rejects wrong ones", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     await setupAndCookie(app);
     expect((await app.inject({ method: "POST", url: "/auth/login", payload: { username: USER, password: "nope" } })).statusCode).toBe(401);
     const ok = await app.inject({ method: "POST", url: "/auth/login", payload: { username: USER, password: PASSWORD } });
@@ -83,7 +83,7 @@ describe("server auth & users (spec 026)", () => {
   });
 
   it("me returns the current user", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app);
     const me = await app.inject({ method: "GET", url: "/auth/me", headers: { cookie } });
     expect(me.statusCode).toBe(200);
@@ -92,7 +92,7 @@ describe("server auth & users (spec 026)", () => {
   });
 
   it("manages users: add, dup 409, list, delete (not the last)", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app); // alice
     const add = await app.inject({ method: "POST", url: "/users", headers: { cookie }, payload: { username: "bob", password: PASSWORD } });
     expect(add.statusCode).toBe(201);
@@ -111,7 +111,7 @@ describe("server auth & users (spec 026)", () => {
   });
 
   it("changes own password (wrong current -> 401, then login with the new one)", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app);
     expect(
       (await app.inject({ method: "POST", url: "/account/password", headers: { cookie }, payload: { currentPassword: "wrong", newPassword: "new-good-password" } })).statusCode,
@@ -124,7 +124,7 @@ describe("server auth & users (spec 026)", () => {
   });
 
   it("invalidates the session of a deleted user", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app); // alice
     await app.inject({ method: "POST", url: "/users", headers: { cookie }, payload: { username: "bob", password: PASSWORD } });
     const list = (await app.inject({ method: "GET", url: "/users", headers: { cookie } })).json() as { id: string; username: string }[];
@@ -135,9 +135,65 @@ describe("server auth & users (spec 026)", () => {
   });
 });
 
+// Issue 78: /auth/login is the only endpoint reachable without a session, and it verifies a
+// bcrypt hash synchronously, so an unlimited one freezes the event loop long before it leaks
+// the password. The budget is per client and per window, never a permanent lockout.
+describe("server rate limiting (issue 78)", () => {
+  const login = (app: FastifyInstance, password: string) =>
+    app.inject({ method: "POST", url: "/auth/login", payload: { username: USER, password } });
+
+  it("answers 429 once the password attempts run out, and says when to retry", async () => {
+    const app = await makeApp();
+    await setupAndCookie(app);
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i++) codes.push((await login(app, "wrong password")).statusCode);
+    expect(codes.slice(0, 10)).toEqual(Array(10).fill(401)); // the budget: ten attempts
+    expect(codes.slice(10)).toEqual([429, 429]); // then the door closes
+    const last = await login(app, "wrong password");
+    expect(last.statusCode).toBe(429);
+    expect(last.headers["retry-after"]).toBeDefined(); // a window, not a lockout
+    await app.close();
+  });
+
+  it("spends the budget on attempts, so a correct password inside it still works", async () => {
+    const app = await makeApp();
+    await setupAndCookie(app);
+    for (let i = 0; i < 3; i++) expect((await login(app, "nope")).statusCode).toBe(401);
+    const good = await login(app, PASSWORD);
+    expect(good.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("never throttles image requests, however many a book fires at once", async () => {
+    const app = await makeApp();
+    const cookie = await setupAndCookie(app);
+    const id = "44444444-4444-4444-8444-444444444444";
+    await app.inject({ method: "PUT", url: `/images/${id}`, headers: { cookie, "content-type": "image/png" }, payload: Buffer.from([1, 2, 3]) });
+    // Far past the global budget: opening a large album is exactly this burst.
+    const codes = new Set<number>();
+    for (let i = 0; i < 650; i++) {
+      codes.add((await app.inject({ method: "GET", url: `/images/${id}`, headers: { cookie } })).statusCode);
+    }
+    expect([...codes]).toEqual([200]);
+    await app.close();
+  });
+
+  it("keeps a budget on the other routes", async () => {
+    const app = await makeApp();
+    const cookie = await setupAndCookie(app);
+    let throttled = false;
+    for (let i = 0; i < 620 && !throttled; i++) {
+      const r = await app.inject({ method: "GET", url: "/projects", headers: { cookie } });
+      throttled = r.statusCode === 429;
+    }
+    expect(throttled).toBe(true);
+    await app.close();
+  });
+});
+
 describe("server projects / images / version / update", () => {
   it("does project CRUD when authed", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app);
     const id = "11111111-1111-4111-8111-111111111111";
     expect((await app.inject({ method: "POST", url: "/projects", headers: { cookie }, payload: doc(id) })).statusCode).toBe(200);
@@ -151,7 +207,7 @@ describe("server projects / images / version / update", () => {
   });
 
   it("round-trips an image with its mime", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app);
     const id = "22222222-2222-4222-8222-222222222222";
     const bytes = Buffer.from([1, 2, 3, 4, 5, 255, 0, 128]);
@@ -165,7 +221,7 @@ describe("server projects / images / version / update", () => {
   });
 
   it("deletes an image, and stays ok on an id that is already gone", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app);
     const id = "33333333-3333-4333-8333-333333333333";
     const bytes = Buffer.from([9, 8, 7]);
@@ -180,7 +236,7 @@ describe("server projects / images / version / update", () => {
   });
 
   it("rejects a delete with an unsafe image id", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app);
     const bad = await app.inject({ method: "DELETE", url: "/images/..%2Fescape", headers: { cookie } });
     expect(bad.statusCode).toBe(400);
@@ -201,7 +257,7 @@ describe("server projects / images / version / update", () => {
   it("reports version info, gated", async () => {
     clearVersionCache();
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: "v99.0.0" }) })));
-    const app = makeApp();
+    const app = await makeApp();
     expect((await app.inject({ method: "GET", url: "/version" })).statusCode).toBe(401);
     const cookie = await setupAndCookie(app);
     const res = await app.inject({ method: "GET", url: "/version", headers: { cookie } });
@@ -212,7 +268,7 @@ describe("server projects / images / version / update", () => {
   });
 
   it("refuses one-click update without the Docker socket", async () => {
-    const app = makeApp();
+    const app = await makeApp();
     const cookie = await setupAndCookie(app);
     const res = await app.inject({ method: "POST", url: "/update", headers: { cookie } });
     expect(res.statusCode).toBe(409);

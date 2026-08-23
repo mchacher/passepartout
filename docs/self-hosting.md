@@ -131,6 +131,13 @@ The default compose runs both `web` and `api`. Set the cookie secret before you 
 SESSION_SECRET=a-long-random-string
 ```
 
+The endpoints that verify a password (sign in, first-run setup, password change) are rate
+limited to ten attempts per minute per client, and the rest of the API to a much higher
+budget; serving photos is never throttled. The client is identified from the `X-Forwarded-For`
+the bundled nginx sets. If you run the `api` service on its own, with no proxy in front, set
+`TRUST_PROXY=off` so the limit keys on the connection instead of on a header the caller can
+write.
+
 Then `docker compose up -d --build` and open the instance. On the first run you are asked to
 **create the first account** (username + password); after that everyone signs in with their own
 account (all accounts are equal - manage them from the project menu under **Users**). Projects
