@@ -70,3 +70,37 @@ describe("viewStore language preference (spec 032)", () => {
     expect(useView.getState().lang).toBe("fr");
   });
 });
+
+describe("arrange (spec 038)", () => {
+  it("starts with no page being arranged", async () => {
+    const { useView } = await freshStore({});
+    expect(useView.getState().arrange).toBeNull();
+  });
+
+  it("startArrange records the page and the clicked cell", async () => {
+    const { useView } = await freshStore({});
+    useView.getState().startArrange("page-a", 2);
+    expect(useView.getState().arrange).toEqual({ pageId: "page-a", index: 2 });
+  });
+
+  it("arranging another page replaces the first, so two pages are never open at once", async () => {
+    const { useView } = await freshStore({});
+    useView.getState().startArrange("page-a", 2);
+    useView.getState().startArrange("page-b", 0);
+    expect(useView.getState().arrange).toEqual({ pageId: "page-b", index: 0 });
+  });
+
+  it("stopArrange clears it", async () => {
+    const { useView } = await freshStore({});
+    useView.getState().startArrange("page-a", 1);
+    useView.getState().stopArrange();
+    expect(useView.getState().arrange).toBeNull();
+  });
+
+  it("never persists it: it is transient, and a stale page id must not survive a reload", async () => {
+    const { useView, store } = await freshStore({});
+    const before = [...store.m.keys()];
+    useView.getState().startArrange("page-a", 1);
+    expect([...store.m.keys()]).toEqual(before);
+  });
+});

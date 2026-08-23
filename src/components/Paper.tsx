@@ -43,6 +43,10 @@ interface PaperProps {
   page: AlbumPage;
   // "Edit layout" mode (spec 013 Phase B): move/resize photos on the grid.
   editing?: boolean;
+  /** The cell to select when editing opens: the photo the user clicked (spec 038). */
+  initialIndex?: number;
+  /** A click on a photo while not editing, with the cell index it landed on (spec 038). */
+  onActivate?: (index: number) => void;
   onSelection?: (sel: PaperSelection | null) => void;
 }
 
@@ -53,7 +57,10 @@ const rectsOverlap = (a: CellRect, b: CellRect) =>
 // then asking the pure engine to place each one inside its grid cell. Nothing is cropped:
 // each photo is contain-fit in its region. In edit mode the cells become draggable /
 // resizable on the grid (writing the page's custom placement).
-export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, editing = false, onSelection }, ref) {
+export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper(
+  { page, editing = false, initialIndex, onActivate, onSelection },
+  ref,
+) {
   const { photos, bookSize, placeOnPage, removeFromPage, swapPhotosOnPage, setCaption, setPagePlacement, setPhotoFrameFocus } = useAlbum();
   const textSizes = useAlbum((s) => s.textSizes);
   const { t } = useT();
@@ -111,9 +118,12 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
   const workingRef = useRef<CellRect[]>([]);
   useEffect(() => {
     setEditCells(canEdit ? resolveCells(layoutId, slots, page.placement).map((c) => ({ ...c })) : null);
-    setSel(canEdit && items.length > 0 ? selectSingle(0) : EMPTY_SELECTION);
+    // Open on the photo the click landed on (spec 038), falling back to the first cell; a
+    // stale index (the page shrank since) would select nothing, so clamp it.
+    const start = Math.min(Math.max(initialIndex ?? 0, 0), Math.max(items.length - 1, 0));
+    setSel(canEdit && items.length > 0 ? selectSingle(start) : EMPTY_SELECTION);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canEdit, page.id, items.length]);
+  }, [canEdit, page.id, items.length, initialIndex]);
 
   // The page renders `slots` cells (spec 035): the first items.length hold photos, the rest
   // are empty placeholders.
@@ -460,6 +470,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper({ page, 
                             w={cell.w}
                             h={cell.h}
                             slot={{ pageId: page.id, index: idx }}
+                            onActivate={onActivate ? () => onActivate(idx) : undefined}
                             onRemove={() => removeFromPage(cell.item.id, page.id)}
                             onCaption={(text) => setCaption(cell.item.id, text)}
                           />
@@ -484,11 +495,13 @@ interface CellProps {
   // Where this photo sits, so dragging it onto another slot of the same page can swap them
   // (spec 056). The slot index is the photo's position in the page's photoIds.
   slot?: { pageId: string; index: number };
+  /** Click the photo itself to arrange the page (spec 038). Absent when it cannot be. */
+  onActivate?: () => void;
   onRemove: () => void;
   onCaption: (text: string) => void;
 }
 
-function Cell({ photo, w, h, slot, onRemove, onCaption }: CellProps) {
+function Cell({ photo, w, h, slot, onActivate, onRemove, onCaption }: CellProps) {
   const { t } = useT();
   const capRef = useRef<HTMLDivElement>(null);
 
@@ -513,8 +526,13 @@ function Cell({ photo, w, h, slot, onRemove, onCaption }: CellProps) {
         className="flex flex-col items-center gap-[5px]"
         style={{ transform: photo.rotation ? `rotate(${photo.rotation}deg)` : undefined, transformOrigin: `center ${h / 2}px` }}
       >
+        {/* The photo, and only the photo, opens free placement on click (spec 038): the
+            caption below it and the remove button above it keep their own behaviour. A drag
+            never lands here, the browser fires no click when one started. */}
         <div
           draggable
+          onClick={onActivate}
+          className={onActivate ? "cursor-pointer" : undefined}
           onDragStart={(e) => {
             e.dataTransfer.setData(PHOTO_DND_TYPE, photo.id);
             if (slot) e.dataTransfer.setData(PHOTO_SLOT_DND_TYPE, `${slot.pageId}:${slot.index}`);

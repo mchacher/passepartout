@@ -52,6 +52,12 @@ function readLang(): Lang {
   return detectLang(typeof navigator !== "undefined" ? navigator.language : undefined);
 }
 
+export interface Arrange {
+  pageId: string;
+  /** The cell the click landed on: it becomes the primary selection when editing opens. */
+  index: number;
+}
+
 interface ViewState {
   // Show the discreet 12 x 12 page grid on editor pages (spec 013).
   showGrid: boolean;
@@ -65,6 +71,12 @@ interface ViewState {
   // Active UI language (spec 032). Album content is never translated, only chrome.
   lang: Lang;
   setLang: (l: Lang) => void;
+  // The page being arranged by hand and the cell to select on entry (spec 038). Clicking a
+  // photo opens it; one page at a time, so entering another page closes the first. Purely
+  // transient: never persisted, never part of the project document, never undoable.
+  arrange: Arrange | null;
+  startArrange: (pageId: string, index: number) => void;
+  stopArrange: () => void;
 }
 
 export const useView = create<ViewState>((set, get) => ({
@@ -107,4 +119,7 @@ export const useView = create<ViewState>((set, get) => ({
     }
     set({ lang: l });
   },
+  arrange: null,
+  startArrange: (pageId, index) => set({ arrange: { pageId, index } }),
+  stopArrange: () => set({ arrange: null }),
 }));
