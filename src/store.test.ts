@@ -487,6 +487,22 @@ describe("store insert page (spec 053)", () => {
     expect(new Set(s.pages.map((p) => p.id)).size).toBe(s.pages.length);
     expect(s.pages.find((p) => p.id === "p1")).toBe(before); // reference unchanged
   });
+
+  // The page list renders one Add page button per gap, slot k for gap k (issue 62), so every
+  // slot in [0, pages.length] must land the blank page exactly there and leave the existing
+  // pages in order with their photos untouched.
+  it("lands the new page at every gap slot, existing pages untouched", () => {
+    for (let slot = 0; slot <= 3; slot++) {
+      seed();
+      useAlbum.getState().insertPage(slot);
+      const s = useAlbum.getState();
+      expect(s.pages).toHaveLength(4);
+      expect(s.pages[slot].photoIds, `slot ${slot} holds the blank page`).toEqual([]);
+      const rest = s.pages.filter((_, i) => i !== slot);
+      expect(rest.map((p) => p.id), `slot ${slot} keeps the order`).toEqual(["p1", "p2", "p3"]);
+      expect(rest.map((p) => p.photoIds), `slot ${slot} keeps the photos`).toEqual([["x"], [], ["y"]]);
+    }
+  });
 });
 
 describe("store swap photos on a page (spec 056)", () => {

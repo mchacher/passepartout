@@ -64,7 +64,6 @@ const en: Record<string, string> = {
     "Choose, page by page, how many photos to place and which ones. The engine arranges them in whitespace, keeping their original framing. There is no crop tool: that is the whole point.",
   "app.empty.import": "Import photos",
   "app.addPage": "Add page",
-  "app.insertPage": "Insert a page here",
 
   // Top bar
   "topbar.tagline": "layout without cropping",
@@ -419,7 +418,6 @@ const fr: Record<string, string> = {
     "Choisissez, page par page, combien de photos placer et lesquelles. Le moteur les dispose dans des blancs, en préservant leur cadrage d'origine. Il n'y a pas d'outil de recadrage : c'est tout l'intérêt.",
   "app.empty.import": "Importer des photos",
   "app.addPage": "Ajouter une page",
-  "app.insertPage": "Insérer une page ici",
 
   // Top bar
   "topbar.tagline": "mise en page sans recadrage",

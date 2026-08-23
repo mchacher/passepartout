@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useAlbum } from "./store";
 import { useView } from "./viewStore";
 import { fitWidthPx, zoomedWidthPx } from "./lib/zoom";
@@ -6,7 +6,7 @@ import { useApplyTheme } from "./useApplyTheme";
 import { TopBar } from "./components/TopBar";
 import { Library } from "./components/Library";
 import { PageCard } from "./components/PageCard";
-import { InsertPageBar } from "./components/InsertPageBar";
+import { AddPageButton } from "./components/AddPageButton";
 import { CoverCard } from "./components/CoverCard";
 import { SpineCard } from "./components/SpineCard";
 import { PageRail } from "./components/PageRail";
@@ -18,7 +18,7 @@ import { UpdatingOverlay } from "./components/UpdatingOverlay";
 import { useT, useApplyLang } from "./useT";
 
 export function App() {
-  const { photos, pages, addPage, importFiles, initProjects, ready, persistent, remote, authed, needsSetup } =
+  const { photos, pages, importFiles, initProjects, ready, persistent, remote, authed, needsSetup } =
     useAlbum();
   const updating = useAlbum((s) => s.updating);
   const { t } = useT();
@@ -100,21 +100,18 @@ export function App() {
               <div id="cover-insideFront">
                 <CoverCard which="insideFront" />
               </div>
+              {/* One affordance for adding a page, present in every gap: before the first
+                  page, between each pair, and after the last one. The button in gap k
+                  inserts a page at slot k (issue 62). */}
               {pages.map((page, i) => (
-                <div id={`page-${page.id}`} key={page.id} className="relative">
-                  <InsertPageBar index={i} />
-                  <PageCard page={page} index={i} />
-                </div>
+                <Fragment key={page.id}>
+                  <AddPageButton index={i} />
+                  <div id={`page-${page.id}`} className="relative">
+                    <PageCard page={page} index={i} />
+                  </div>
+                </Fragment>
               ))}
-              <button
-                onClick={addPage}
-                className="inline-flex items-center gap-2 self-center rounded-[10px] border border-dashed border-line-strong px-5 py-2.5 text-[12.5px] text-muted hover:border-accent hover:text-accent"
-              >
-                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                {t("app.addPage")}
-              </button>
+              <AddPageButton index={pages.length} />
               <div id="cover-insideBack">
                 <CoverCard which="insideBack" />
               </div>
