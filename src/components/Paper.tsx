@@ -23,7 +23,7 @@ import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
 import { PHOTO_DND_TYPE, PHOTO_SLOT_DND_TYPE } from "./dnd";
-import { EMPTY_SELECTION, selectSingle, toggleSelection, type Selection } from "../lib/selection";
+import { EMPTY_SELECTION, outlineFor, selectSingle, toggleSelection, type Selection } from "../lib/selection";
 
 // The selection reported up so the page controls can show its toolbar. `photoId` is the
 // primary (last-touched) photo that drives the single-photo controls and active state;
@@ -567,7 +567,7 @@ interface EditCellProps {
   ox: number;
   oy: number;
   panHint: boolean;
-  selected: boolean;
+  selected: boolean; // the primary cell: it carries the resize handles
   multi: boolean; // part of the multi-selection but not the primary cell (spec 055)
   onMoveDown: (e: React.PointerEvent) => void;
   onResizeDown: (e: React.PointerEvent, corner: Corner) => void;
@@ -577,11 +577,14 @@ interface EditCellProps {
 // whitespace, and (when selected) drag a corner to resize. Selecting a cell surfaces its
 // actions (crop / layer / remove) in the page toolbar above, so they are always visible.
 function EditCell({ photo, w, h, ox, oy, panHint, selected, multi, onMoveDown, onResizeDown }: EditCellProps) {
+  // One single outline for every selected photo, primary included (issue 85); the rule and
+  // the classes live in lib/selection so they are unit tested.
+  const outline = outlineFor(selected, multi);
   return (
     <div
-      className={`absolute inset-0 touch-none select-none rounded-[2px] ring-1 ${
-        selected ? "ring-2 ring-accent" : multi ? "ring-2 ring-accent/70" : "ring-accent/40 hover:ring-accent/70"
-      } ${panHint ? "cursor-grab active:cursor-grabbing" : "cursor-move"}`}
+      className={`absolute inset-0 touch-none select-none rounded-[2px] ${outline} ${
+        panHint ? "cursor-grab active:cursor-grabbing" : "cursor-move"
+      }`}
       onPointerDown={onMoveDown}
     >
       <div className="pointer-events-none absolute" style={{ left: `${ox}px`, top: `${oy}px` }}>

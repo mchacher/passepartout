@@ -4,6 +4,7 @@ import {
   selectSingle,
   toggleSelection,
   clampSelection,
+  outlineFor,
   type Selection,
 } from "./selection";
 
@@ -49,5 +50,21 @@ describe("selection reducer (spec 055)", () => {
   it("clamp keeps primary when it is still in range", () => {
     const s: Selection = { indices: [0, 1], primary: 0 };
     expect(clampSelection(s, 2)).toEqual<Selection>({ indices: [0, 1], primary: 0 });
+  });
+});
+
+describe("outlineFor", () => {
+  it("gives the primary cell and the other selected cells the very same outline", () => {
+    expect(outlineFor(true, true)).toBe(outlineFor(false, true));
+    expect(outlineFor(true, false)).toBe(outlineFor(false, true));
+  });
+
+  it("gives an unselected cell a different outline", () => {
+    expect(outlineFor(false, false)).not.toBe(outlineFor(false, true));
+  });
+
+  it("keeps the accent for selected cells only, so nothing else reads as selected", () => {
+    expect(outlineFor(false, true)).toContain("accent");
+    expect(outlineFor(false, false)).not.toContain("accent");
   });
 });
