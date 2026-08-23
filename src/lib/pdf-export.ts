@@ -13,6 +13,7 @@ import { type TextSizes } from "./text-sizes";
 import { coverSourceRect } from "./fit";
 import { maskById } from "./masks";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "./frames";
+import { winAnsiSafe } from "./winansi";
 import handFontUrl from "../assets/Caveat.ttf?url";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
 import {
@@ -165,13 +166,6 @@ async function photoJpegBytes(
   );
   if (!blob) return null;
   return { bytes: new Uint8Array(await blob.arrayBuffer()), png: !!shape };
-}
-
-// pdf-lib standard fonts encode WinAnsi (Latin-1). Drop any glyph outside it so an
-// exotic character (emoji) can never throw mid-export.
-function winAnsiSafe(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/[^\x00-\xff]/g, "");
 }
 
 interface Ctx {
