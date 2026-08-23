@@ -235,5 +235,14 @@ export function buildApp(cfg: AppConfig): FastifyInstance {
     return { ok: true };
   });
 
+  // Drop one image: a photo deleted from the library (issue 66). Idempotent, like the
+  // project delete: removing an id that is already gone still answers ok.
+  app.delete("/images/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!isSafeId(id)) return reply.code(400).send({ error: "bad id" });
+    cfg.store.deleteImage(id);
+    return { ok: true };
+  });
+
   return app;
 }

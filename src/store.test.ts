@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { useAlbum } from "./store";
-import { clearAll, loadProjectDoc, saveProjectDoc } from "./persistence";
+import { clearAll, getImage, loadProjectDoc, putImage, saveProjectDoc } from "./persistence";
 import { newCover, newProjectDoc } from "./lib/project";
 import type { ProjectDoc } from "./lib/project";
 import type { AlbumPage, CellRect, Photo } from "./types";
@@ -502,6 +502,107 @@ describe("store insert page (spec 053)", () => {
       expect(rest.map((p) => p.id), `slot ${slot} keeps the order`).toEqual(["p1", "p2", "p3"]);
       expect(rest.map((p) => p.photoIds), `slot ${slot} keeps the photos`).toEqual([["x"], [], ["y"]]);
     }
+  });
+});
+
+describe("store delete photo (issue 66)", () => {
+  const seed = () =>
+    useAlbum.setState({
+      photos: [photo("a"), photo("b"), photo("c")],
+      pages: [page("p1", ["a", "b"], "two-row"), page("p2", ["c", "a"], "two-row")],
+      frontCover: { ...newCover(), photoId: "a" },
+      insideFrontCover: { ...newCover(), photoId: "b" },
+      insideBackCover: newCover(),
+      backCover: { ...newCover(), photoId: "a" },
+    });
+
+  it("removes the photo from the library, every page and every cover face using it", () => {
+    seed();
+    useAlbum.getState().deletePhoto("a");
+    const s = useAlbum.getState();
+    expect(s.photos.map((p) => p.id)).toEqual(["b", "c"]);
+    expect(s.pages.map((pg) => pg.photoIds)).toEqual([["b"], ["c"]]);
+    expect(s.frontCover.photoId).toBeNull();
+    expect(s.backCover.photoId).toBeNull();
+    expect(s.insideFrontCover.photoId).toBe("b"); // a cover on another photo is untouched
+  });
+
+  it("keeps each page's slot count, so the freed slot becomes an empty drop target", () => {
+    seed();
+    const before = useAlbum.getState().pages.map((pg) => pg.layoutId);
+    useAlbum.getState().deletePhoto("a");
+    expect(useAlbum.getState().pages.map((pg) => pg.layoutId)).toEqual(before);
+  });
+
+  it("keeps a custom placement whole: the freed cell just empties", () => {
+    const cells: CellRect[] = [
+      { col: 0, row: 0, colSpan: 2, rowSpan: 2 },
+      { col: 2, row: 0, colSpan: 2, rowSpan: 2 },
+    ];
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [{ ...page("p1", ["a", "b"], "two-row"), placement: cells }],
+      frontCover: newCover(),
+      insideFrontCover: newCover(),
+      insideBackCover: newCover(),
+      backCover: newCover(),
+    });
+    useAlbum.getState().deletePhoto("a");
+    const pg = useAlbum.getState().pages[0];
+    expect(pg.photoIds).toEqual(["b"]);
+    // Placement is one rectangle per slot (spec 013), so the page keeps both cells and the
+    // freed one becomes an empty drop target, exactly like removing a photo from a page.
+    expect(pg.placement).toEqual(cells)
+  });
+
+  it("leaves the album untouched for an unknown id", () => {
+    seed();
+    const before = useAlbum.getState();
+    useAlbum.getState().deletePhoto("nope");
+    const after = useAlbum.getState();
+    expect(after.photos).toBe(before.photos);
+    expect(after.pages).toBe(before.pages);
+  });
+
+});
+
+describe("store delete photo, stored blob (issue 66)", () => {
+  beforeAll(() => {
+    globalThis.URL.createObjectURL ??= () => "blob:test";
+    globalThis.URL.revokeObjectURL ??= () => {};
+  });
+
+  beforeEach(async () => {
+    await clearAll();
+    useAlbum.setState({ photos: [], pages: [], projects: [], activeId: null, persistent: false });
+    await useAlbum.getState().initProjects();
+  });
+
+  it("deletes the stored blob of the deleted photo, and only that one", async () => {
+    const id = crypto.randomUUID();
+    const other = crypto.randomUUID();
+    await putImage(id, new Blob([new Uint8Array([1, 2, 3])]));
+    await putImage(other, new Blob([new Uint8Array([4, 5, 6])]));
+    useAlbum.setState({
+      photos: [photo(id), photo(other)],
+      pages: [page("p1", [], "single")],
+      frontCover: newCover(),
+      insideFrontCover: newCover(),
+      insideBackCover: newCover(),
+      backCover: newCover(),
+    });
+    expect(useAlbum.getState().persistent).toBe(true);
+    useAlbum.getState().deletePhoto(id);
+    await vi.waitFor(async () => expect(await getImage(id)).toBeUndefined());
+    expect(await getImage(other)).toBeDefined();
+  });
+});
+
+describe("store skipped duplicates notice (issue 65)", () => {
+  it("is cleared by dismissSkippedDuplicates", () => {
+    useAlbum.setState({ skippedDuplicates: 3 });
+    useAlbum.getState().dismissSkippedDuplicates();
+    expect(useAlbum.getState().skippedDuplicates).toBe(0);
   });
 });
 

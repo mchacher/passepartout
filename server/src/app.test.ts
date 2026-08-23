@@ -164,6 +164,29 @@ describe("server projects / images / version / update", () => {
     await app.close();
   });
 
+  it("deletes an image, and stays ok on an id that is already gone", async () => {
+    const app = makeApp();
+    const cookie = await setupAndCookie(app);
+    const id = "33333333-3333-4333-8333-333333333333";
+    const bytes = Buffer.from([9, 8, 7]);
+    await app.inject({ method: "PUT", url: `/images/${id}`, headers: { cookie, "content-type": "image/png" }, payload: bytes });
+    const del = await app.inject({ method: "DELETE", url: `/images/${id}`, headers: { cookie } });
+    expect(del.statusCode).toBe(200);
+    const got = await app.inject({ method: "GET", url: `/images/${id}`, headers: { cookie } });
+    expect(got.statusCode).toBe(404);
+    const again = await app.inject({ method: "DELETE", url: `/images/${id}`, headers: { cookie } });
+    expect(again.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("rejects a delete with an unsafe image id", async () => {
+    const app = makeApp();
+    const cookie = await setupAndCookie(app);
+    const bad = await app.inject({ method: "DELETE", url: "/images/..%2Fescape", headers: { cookie } });
+    expect(bad.statusCode).toBe(400);
+    await app.close();
+  });
+
   it("reports version info, gated", async () => {
     clearVersionCache();
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ tag_name: "v99.0.0" }) })));
