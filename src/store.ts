@@ -911,16 +911,19 @@ export const useAlbum = create<AlbumState>((set, get) => {
       scheduleSave();
     },
 
+    // Drop a photo from every page that holds it (the Library is a drop target). Like
+    // removeFromPage and deletePhoto, the page keeps its slot count AND its custom placement:
+    // a placement is one rectangle per SLOT, not per photo, so the freed cell simply empties
+    // (issue 70). Filtering the placement here used to leave it one cell short of the slot
+    // count, and syncLayout then threw the user's whole arrangement away.
     unplaceFromAllPages: (photoId) => {
       set((s) => {
         if (!s.pages.some((pg) => pg.photoIds.includes(photoId))) return {};
-        const pages = s.pages.map((pg) => {
-          const i = pg.photoIds.indexOf(photoId);
-          if (i < 0) return pg;
-          const next = { ...pg, photoIds: pg.photoIds.filter((id) => id !== photoId) };
-          if (next.placement) next.placement = next.placement.filter((_, idx) => idx !== i);
-          return next;
-        });
+        const pages = s.pages.map((pg) =>
+          pg.photoIds.includes(photoId)
+            ? { ...pg, photoIds: pg.photoIds.filter((id) => id !== photoId) }
+            : pg,
+        );
         pages.forEach(syncLayout);
         return { pages };
       });
