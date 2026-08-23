@@ -59,9 +59,9 @@ const en: Record<string, string> = {
   // App shell / empty state
   "app.loading": "Loading your projects...",
   "app.noLocalSave": "This browser cannot save projects locally, so your work will be lost when you close the tab.",
-  "app.empty.title": "Your photos, never cropped.",
+  "app.empty.title": "Your photos, your framing.",
   "app.empty.body":
-    "Choose, page by page, how many photos to place and which ones. The engine arranges them in whitespace, keeping their original framing. There is no crop tool: that is the whole point.",
+    "Choose, page by page, how many photos to place and which ones. The engine arranges them in whitespace and keeps their original framing. Cropping is never automatic: it is your call, photo by photo.",
   "app.empty.import": "Import photos",
   "app.addPage": "Add page",
 
@@ -71,7 +71,7 @@ const en: Record<string, string> = {
   "undo.redo": "Redo",
 
   // Top bar
-  "topbar.tagline": "layout without cropping",
+  "topbar.tagline": "your framing, preserved",
   "topbar.import": "Import",
   "topbar.preview": "Preview",
   "topbar.update": "Update",
@@ -425,9 +425,9 @@ const fr: Record<string, string> = {
   // App shell / empty state
   "app.loading": "Chargement de vos projets...",
   "app.noLocalSave": "Ce navigateur ne peut pas enregistrer les projets localement, votre travail sera perdu en fermant l'onglet.",
-  "app.empty.title": "Vos photos, jamais recadrées.",
+  "app.empty.title": "Vos photos, votre cadrage.",
   "app.empty.body":
-    "Choisissez, page par page, combien de photos placer et lesquelles. Le moteur les dispose dans des blancs, en préservant leur cadrage d'origine. Il n'y a pas d'outil de recadrage : c'est tout l'intérêt.",
+    "Choisissez, page par page, combien de photos placer et lesquelles. Le moteur les dispose dans des blancs en préservant leur cadrage d'origine. Aucun recadrage automatique : c'est vous qui décidez, photo par photo.",
   "app.empty.import": "Importer des photos",
   "app.addPage": "Ajouter une page",
 
@@ -437,7 +437,7 @@ const fr: Record<string, string> = {
   "undo.redo": "Rétablir",
 
   // Top bar
-  "topbar.tagline": "mise en page sans recadrage",
+  "topbar.tagline": "votre cadrage, préservé",
   "topbar.import": "Importer",
   "topbar.preview": "Aperçu",
   "topbar.update": "Mettre à jour",

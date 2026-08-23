@@ -4,11 +4,11 @@ Guidance for Claude Code (and any AI agent) working on **Passepartout**. First f
 
 ## Project in one paragraph
 
-Passepartout is a **local-first photo album layout tool that never crops your photos**. You import a set of photos (a holiday, a trip), and page by page you decide how many photos go on the page, which ones, and which **layout** (an explicit arrangement: rows and grids). A layout engine places each photo inside a fixed region that keeps its native aspect ratio and surrounds it with generous whitespace ("blancs assumes"); a per-page whitespace level (1-8) only scales the photos inside that frozen layout, it never re-groups them. The only degrees of freedom are size and gap: there is deliberately **no crop tool**, so a photo is never clipped or distorted. Everything runs in the browser, photos never leave the machine, and the app builds to static files. The end goal is a print-ready export (300 DPI + bleed) for services like CEWE / Blurb / Saal Digital.
+Passepartout is a **local-first photo album layout tool that keeps your photos' original framing**. You import a set of photos (a holiday, a trip), and page by page you decide how many photos go on the page, which ones, and which **layout** (an explicit arrangement: rows and grids). A layout engine places each photo inside a fixed region that keeps its native aspect ratio and surrounds it with generous whitespace ("blancs assumes"); a per-page whitespace level (1-8) only scales the photos inside that frozen layout, it never re-groups them. The engine's only degrees of freedom are size and gap: it never crops on its own, so a photo is never clipped or distorted by a layout choice. Cropping exists as a deliberate, opt-in user choice (crop tool spec 015, full-page Fill spec 012, masks spec 018), never as something the engine does. Everything runs in the browser, photos never leave the machine, and the app builds to static files. The end goal is a print-ready export (300 DPI + bleed) for services like CEWE / Blurb / Saal Digital.
 
 ## Guiding principle
 
-**The page is the unit of control; the photo's framing is sacred.** The engine may change a photo's size and the white around it, never its crop. Any feature that would resize non-proportionally or clip a photo is out of scope by definition.
+**The page is the unit of control; the photo's framing is the user's call, never the engine's.** The engine may change a photo's size and the white around it, never its crop. Any feature that would resize non-proportionally, or clip a photo without the user asking for it, is out of scope by definition.
 
 ## Tech stack
 
@@ -96,4 +96,4 @@ Claude Code skills live under `.claude/skills/`:
 
 ## When in doubt
 
-If a change could crop, clip, or non-proportionally resize a photo, it is wrong by definition. Everything else is negotiable.
+If a change would let the engine crop, clip, or non-proportionally resize a photo on its own, it is wrong by definition. A crop the user asks for is a feature, not a violation. Everything else is negotiable.

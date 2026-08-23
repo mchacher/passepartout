@@ -1,8 +1,8 @@
 # Passepartout
 
-A local-first photo album layout tool that **never crops your photos**.
+A local-first photo album layout tool that **keeps your photos' original framing**.
 
-Import a set of photos, then decide page by page how many go on each page, which ones, and which layout (rows and grids). The layout engine places each photo inside its region and keeps its original aspect ratio, surrounded by whitespace. There is no crop tool, by design: your framing is respected exactly.
+Import a set of photos, then decide page by page how many go on each page, which ones, and which layout (rows and grids). The layout engine places each photo inside its region and keeps its original aspect ratio, surrounded by whitespace. It never crops on its own: cropping exists, but only where you ask for it, photo by photo.
 
 > A _passe-partout_ is the white mat around a framed photo. This app makes that whitespace the point.
 

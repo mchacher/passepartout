@@ -18,7 +18,7 @@ Conventions (stack, structure, branch) live in `CLAUDE.md` — read it first, do
 
 ## The one rule (applies throughout)
 
-**A photo's aspect ratio is never changed and a photo is never clipped.** The layout engine only ever chooses a photo's size and the whitespace around it. Any issue whose fix would crop, clip, or non-proportionally resize a photo is wrong by definition — flag it and stop.
+**The engine never crops.** It only ever chooses a photo's size and the whitespace around it, and it never changes an aspect ratio. Clipping happens only where the user explicitly asks for it: the per-photo crop tool (spec 015), full-page Fill (spec 012) and decorative masks (spec 018), each off by default. Anything that would crop, clip, or non-proportionally resize a photo as a side effect of layout is wrong by definition — flag it and stop. A crop the user explicitly asks for is a feature, not a violation.
 
 All written output on GitHub (issue body, comments, commits, PR) is in **English**, no em-dashes or en-dashes.
 
