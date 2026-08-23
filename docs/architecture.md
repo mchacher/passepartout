@@ -290,8 +290,11 @@ Dragging whitespace never re-groups photos.
 - **A new album font or color palette**: add a `FontTheme` / `ColorTheme` (with a stable
   new id) to the catalog in `src/lib/themes.ts`. `ThemeMenu`, `theme-vars.ts` and
   `useApplyTheme` pick it up for free; no engine or store change.
-- **Free placement** (shipped, spec 013 Phase B): a per-page "Edit layout" mode (local to
-  `PageCard`) turns `Paper` into an editor: dragging a cell moves it and corner handles
+- **Free placement** (shipped, spec 013 Phase B): a per-page "Edit layout" mode turns `Paper`
+  into an editor. It is entered by clicking a photo on a page whose every slot is filled
+  (spec 038, `lib/arrange.ts` gates it), and left with Escape, a click outside the page card
+  or the Done control. Which page is open, and which cell the click landed on, live in
+  `viewStore.arrange`, so only one page is ever in the mode. In it: dragging a cell moves it and corner handles
   resize it, snapped to the grid (`src/lib/grid-edit.ts`, pure), writing `page.placement`
   via `store.setPagePlacement`. Overlap is allowed; a per-cell `z` (front/back) drives a
   pure `drawOrder(cells)` that `Paper` / `Thumb` / `PreviewPaper` / `print.ts` all paint

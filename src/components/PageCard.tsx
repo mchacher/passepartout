@@ -1,8 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
+import { useView } from "../viewStore";
 import { useT } from "../useT";
 import { WHITESPACE_LEVELS, type AlbumPage } from "../types";
 import { layoutsForCount, slotCount } from "../lib/layouts";
+import { canArrange as pageCanArrange } from "../lib/arrange";
 import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
 import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
@@ -29,10 +31,16 @@ export function PageCard({ page, index }: PageCardProps) {
   const placed = page.photoIds.length;
   const layouts = layoutsForCount(slots);
   const isFullPage = page.fullPage !== undefined;
-  const [editing, setEditing] = useState(false);
   // Free-placement editing needs a full page (every slot filled), so it operates on real
   // cells rather than empty ones.
-  const canArrange = placed >= 1 && placed === slots && !isFullPage;
+  const canArrange = pageCanArrange(placed, slots, isFullPage);
+  // Which page is being arranged lives in the view store (spec 038): clicking a photo opens
+  // it, and only one page is ever open, so entering another closes this one.
+  const arrange = useView((s) => s.arrange);
+  const startArrange = useView((s) => s.startArrange);
+  const stopArrange = useView((s) => s.stopArrange);
+  const editing = arrange?.pageId === page.id && canArrange;
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // The selected photo (reported by Paper) drives the Edit-layout toolbar, and which photo
   // the crop editor opens (spec 015).
@@ -53,6 +61,31 @@ export function PageCard({ page, index }: PageCardProps) {
     if (!sel) return;
     (sel.photoIds.length ? sel.photoIds : [sel.photoId]).forEach(fn);
   };
+  // Leaving free placement (spec 038). Escape closes it, and so does a click landing outside
+  // this page card. The crop editor is modal and owns the first Escape, so hold off while it
+  // is open. Both listeners only exist while this page is the one being arranged.
+  useEffect(() => {
+    if (!editing) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || cropping) return;
+      e.preventDefault();
+      stopArrange();
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      if (cropping) return;
+      const target = e.target;
+      if (target instanceof Node && cardRef.current?.contains(target)) return;
+      stopArrange();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    // Capture, so a click on a control that stops propagation still closes the mode.
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [editing, cropping, stopArrange]);
+
 
   // Full-page choices for a single-photo page (spec 012). Off = normal page; Fit fills the
   // page without cropping; Fill fills the page by cropping to the page ratio.
@@ -63,7 +96,7 @@ export function PageCard({ page, index }: PageCardProps) {
   ] as const;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-surface-2 shadow-soft">
+    <div ref={cardRef} className="overflow-hidden rounded-xl border border-line bg-surface-2 shadow-soft">
       <div className="flex items-center gap-3 border-b border-line px-3 py-2.5">
         <span className="whitespace-nowrap font-display text-[13px] text-muted">
           <b className="font-semibold text-accent">{index + 1}</b>
@@ -116,21 +149,18 @@ export function PageCard({ page, index }: PageCardProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-3 py-2">
-        {canArrange && (
+        {/* Editing is entered by clicking a photo (spec 038), so the only control left is the
+            way out; Escape and a click outside the page do the same. */}
+        {editing && (
           <button
-            onClick={() => setEditing((v) => !v)}
-            aria-pressed={editing}
-            title={editing ? t("page.arrangeDone") : t("page.arrangeStart")}
-            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-[5px] text-[11.5px] transition-colors ${
-              editing
-                ? "border-accent bg-accent text-white"
-                : "border-line bg-surface text-muted hover:border-faint hover:text-ink"
-            }`}
+            onClick={stopArrange}
+            title={t("page.arrangeDone")}
+            className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 py-[5px] text-[11.5px] text-white transition-colors"
           >
             <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-              <path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" />
+              <path d="M5 13l4 4L19 7" />
             </svg>
-            {editing ? t("page.done") : t("page.arrange")}
+            {t("page.done")}
           </button>
         )}
 
@@ -344,7 +374,14 @@ export function PageCard({ page, index }: PageCardProps) {
         )}
       </div>
 
-      <Paper page={page} editing={editing && canArrange} ref={paperRef} onSelection={onSelection} />
+      <Paper
+        page={page}
+        editing={editing}
+        initialIndex={editing ? arrange?.index : undefined}
+        onActivate={canArrange ? (index) => startArrange(page.id, index) : undefined}
+        ref={paperRef}
+        onSelection={onSelection}
+      />
 
       {croppingPhoto && (
         <CropEditor

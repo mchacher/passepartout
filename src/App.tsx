@@ -52,6 +52,14 @@ export function App() {
     void initProjects();
   }, [initProjects]);
 
+  // Opening another project leaves no page in free placement (spec 038): the page being
+  // arranged belongs to the project that was open, and its id means nothing in the new one.
+  const activeId = useAlbum((s) => s.activeId);
+  const stopArrange = useView((s) => s.stopArrange);
+  useEffect(() => {
+    stopArrange();
+  }, [activeId, stopArrange]);
+
   // A running update takes over the whole screen and cannot be dismissed or re-triggered
   // (spec 031). It outranks every other screen, including loading and the auth flow, so a
   // refresh mid-update stays locked instead of dropping back to login.
