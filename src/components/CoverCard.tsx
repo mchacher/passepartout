@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { useT } from "../useT";
+import { F_COVER_SUBTITLE, F_COVER_TITLE, headerFontCss } from "../lib/page-header";
 import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { effectiveRatio } from "../lib/crop";
@@ -143,14 +144,14 @@ export function CoverCard({ which }: CoverCardProps) {
               placeholder={t(`cover.${which}.title`)}
               onChange={(e) => updateCover(which, { title: e.target.value })}
               className="w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none"
-              style={{ fontSize: "calc(clamp(16px, 5cqw, 34px) * var(--cover-title-scale))", color: "var(--album-ink)" }}
+              style={{ fontSize: headerFontCss(F_COVER_TITLE, "--cover-title-scale"), color: "var(--album-ink)" }}
             />
             <input
               value={cover.subtitle}
               placeholder={t(`cover.${which}.subtitle`)}
               onChange={(e) => updateCover(which, { subtitle: e.target.value })}
               className="mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none"
-              style={{ fontSize: "calc(clamp(11px, 2.6cqw, 16px) * var(--cover-subtitle-scale))", color: "var(--album-ink-soft)" }}
+              style={{ fontSize: headerFontCss(F_COVER_SUBTITLE, "--cover-subtitle-scale"), color: "var(--album-ink-soft)" }}
             />
           </div>
 

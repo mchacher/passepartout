@@ -3,6 +3,7 @@ import { bookSizeOrDefault, BLEED_MM } from "./book-sizes";
 import { CLEARANCE, F_PAGE_SUBTITLE, F_PAGE_TITLE, LINE, PAGE_MARGIN, halfLeading, headerGeometry } from "./page-header";
 import {
   coverWrapGeometry,
+  insideCoverPageGeometry,
   estimateSpineMm,
   fontFamilyForTheme,
   interiorPageGeometry,
@@ -268,6 +269,90 @@ describe("interiorPageGeometry - full page (spec 012)", () => {
     // Falls back to the normal two-photo layout inside the trim content box.
     expect(g.photos).toHaveLength(2);
     expect(g.photos.every((p) => !p.cover)).toBe(true);
+  });
+});
+
+// Issue 71: an inside cover face is printed as a page of the interior file, but drawn with
+// the COVER rules, matching what CoverCard shows in the editor and the cover leaf in the book
+// preview. Routing it through interiorPageGeometry made the PDF disagree with both.
+describe("insideCoverPageGeometry", () => {
+  const face = (over: Partial<Parameters<typeof insideCoverPageGeometry>[0]> = {}) =>
+    insideCoverPageGeometry({
+      size,
+      title: "A dedication",
+      subtitle: "for someone",
+      whitespace: 4,
+      photo: { photoId: "a", ratio: 1.5 },
+      scales: { coverTitle: 1, coverSubtitle: 1 },
+      ...over,
+    });
+
+  it("is a page-sized sheet with bleed, like every other interior page", () => {
+    const g = face();
+    expect(g.mediaBox.w).toBeCloseTo(trimW + 2 * bleedPt, 5);
+    expect(g.mediaBox.h).toBeCloseTo(trimH + 2 * bleedPt, 5);
+    expect(g.trimBox).toMatchObject({ x: bleedPt, y: bleedPt });
+  });
+
+  it("draws the text at the COVER fractions, not the page ones", () => {
+    const g = face();
+    expect(g.title!.sizePt).toBeCloseTo(0.05 * trimW, 6); // F_COVER_TITLE, not 0.031
+    expect(g.subtitle!.sizePt).toBeCloseTo(0.026 * trimW, 6); // F_COVER_SUBTITLE, not 0.022
+  });
+
+  it("follows the COVER size levels and ignores the page ones", () => {
+    const big = face({ scales: { coverTitle: 1.45, coverSubtitle: 1.45 } });
+    expect(big.title!.sizePt).toBeCloseTo(0.05 * trimW * 1.45, 6);
+    expect(big.subtitle!.sizePt).toBeCloseTo(0.026 * trimW * 1.45, 6);
+  });
+
+  it("keeps the fixed cover band, so a bigger cover title never shrinks the photo", () => {
+    const normal = face();
+    const big = face({ scales: { coverTitle: 1.45, coverSubtitle: 1.45 } });
+    expect(big.contentBox.y).toBeCloseTo(normal.contentBox.y, 6);
+    expect(big.photos[0].h).toBeCloseTo(normal.photos[0].h, 6);
+    expect(normal.contentBox.y - normal.trimBox.y).toBeCloseTo(0.2 * trimW, 6); // COVER_TOP_SUBTITLE
+  });
+
+  it("gives a title-only face the smaller band, and a bare face the plain margin", () => {
+    expect(face({ subtitle: "" }).contentBox.y - bleedPt).toBeCloseTo(0.15 * trimW, 6);
+    expect(face({ title: "", subtitle: "" }).contentBox.y - bleedPt).toBeCloseTo(0.06 * trimW, 6);
+  });
+
+  it("keeps the photo's ratio and contains it, and carries no captions", () => {
+    const g = face({ photo: { photoId: "a", ratio: 2.4 } });
+    const photo = g.photos[0];
+    expect(photo.w / photo.h).toBeCloseTo(2.4, 6);
+    expect(photo.x).toBeGreaterThanOrEqual(g.contentBox.x - 1e-6);
+    expect(photo.y).toBeGreaterThanOrEqual(g.contentBox.y - 1e-6);
+    expect(photo.x + photo.w).toBeLessThanOrEqual(g.contentBox.x + g.contentBox.w + 1e-6);
+    expect(photo.y + photo.h).toBeLessThanOrEqual(g.contentBox.y + g.contentBox.h + 1e-6);
+    expect(g.captions).toEqual([]);
+  });
+
+  it("handles a face with no photo and a face with no text", () => {
+    expect(face({ photo: undefined }).photos).toEqual([]);
+    const bare = face({ title: "", subtitle: "" });
+    expect(bare.title).toBeNull();
+    expect(bare.subtitle).toBeNull();
+  });
+
+  it("places its text like the outer cover faces do, not like an interior page", () => {
+    const inside = face();
+    const wrap = coverWrapGeometry({
+      size,
+      spineWidthPt: mmToPt(10),
+      front: { title: "A dedication", subtitle: "for someone", whitespace: 4, photo: null },
+      back: { title: "", subtitle: "", whitespace: 4, photo: null },
+      spineTitle: "",
+      spineSubtitle: "",
+      scales: { coverTitle: 1, coverSubtitle: 1 },
+    });
+    const front = wrap.front;
+    // Same offsets from the face's own trim origin, so the two read as one family.
+    expect(inside.title!.y - inside.trimBox.y).toBeCloseTo(front.title!.y - front.trimBox.y, 6);
+    expect(inside.subtitle!.y - inside.trimBox.y).toBeCloseTo(front.subtitle!.y - front.trimBox.y, 6);
+    expect(inside.title!.sizePt).toBeCloseTo(front.title!.sizePt, 6);
   });
 });
 

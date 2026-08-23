@@ -37,12 +37,16 @@ export function ExportPanel() {
   const photoById = (id: string | null): Photo | undefined =>
     id ? store.photos.find((p) => p.id === id) : undefined;
 
+  // An inside cover face travels in the interior file but is DRAWN as a cover (issue 71):
+  // the flag tells the painter to use the cover fractions, scales and band, which is what the
+  // editor and the book preview already show.
   const faceToPage = (cover: Cover): ExportPageLike => {
     const p = photoById(cover.photoId);
     return {
       title: cover.title,
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
+      insideCover: true,
       layoutId: "single",
       items: p
         ? [{ photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), photoRatio: effectiveRatio(p.ratio, p.crop), sourceRatio: p.ratio, url: p.url, caption: "", crop: p.crop }]

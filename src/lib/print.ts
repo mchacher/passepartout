@@ -9,7 +9,14 @@
 // (1 pt = 1/72 inch).
 
 import { BLEED_MM, type BookSize } from "./book-sizes";
-import { F_PAGE_SUBTITLE, F_PAGE_TITLE, PAGE_MARGIN, headerGeometry } from "./page-header";
+import {
+  F_COVER_SUBTITLE,
+  F_COVER_TITLE,
+  F_PAGE_SUBTITLE,
+  F_PAGE_TITLE,
+  PAGE_MARGIN,
+  headerGeometry,
+} from "./page-header";
 import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
 import { resolveCells } from "./layouts";
 import type { FontThemeId } from "./themes";
@@ -83,8 +90,6 @@ const COVER_TOP_SUBTITLE = 0.2; // reserved top band for a title + subtitle
 // the project's text-size scale. The two page fractions live in page-header.ts, which also
 // derives the band they sit in.
 const F_CAPTION = 0.018;
-const F_COVER_TITLE = 0.05;
-const F_COVER_SUBTITLE = 0.026;
 
 export interface PageInput {
   size: BookSize;
@@ -206,6 +211,66 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     : null;
 
   return { mediaBox, trimBox, contentBox, photos, title, subtitle, captions };
+}
+
+/** One inside cover face, printed as a page of the interior file (issue 71). */
+export interface InsideCoverPageInput {
+  size: BookSize;
+  title: string;
+  subtitle: string;
+  whitespace: number;
+  photo?: { photoId: string; ratio: number };
+  /** Cover text multipliers: an inside face is a COVER, not a page (issue 71). */
+  scales: { coverTitle: number; coverSubtitle: number };
+}
+
+/**
+ * Geometry for an inside cover face. It lives in the interior PDF, so it is a page-sized
+ * sheet with bleed, but it is drawn with the COVER rules: cover font fractions, cover text
+ * scales and the fixed cover band, exactly like `CoverCard` on screen and the book preview's
+ * cover leaf. Routing it through `interiorPageGeometry` instead is what made the printed
+ * inside faces disagree with the editor (issue 71): page fractions, page scales, and since
+ * spec 036 a band that followed the page text sizes.
+ */
+export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeometry {
+  const trimW = mmToPt(input.size.widthMm);
+  const trimH = mmToPt(input.size.heightMm);
+  const bleed = mmToPt(BLEED_MM);
+  const mediaBox: PtRect = { x: 0, y: 0, w: trimW + 2 * bleed, h: trimH + 2 * bleed };
+  const trimBox: PtRect = { x: bleed, y: bleed, w: trimW, h: trimH };
+
+  const panel = coverPanel(
+    {
+      title: input.title,
+      subtitle: input.subtitle,
+      whitespace: input.whitespace,
+      photo: input.photo ?? null,
+    },
+    trimBox,
+    trimW,
+    input.scales,
+  );
+
+  const hasTitle = input.title.trim().length > 0;
+  const hasSubtitle = input.subtitle.trim().length > 0;
+  const margin = COVER_MARGIN * trimW;
+  const topBand = (hasSubtitle ? COVER_TOP_SUBTITLE : hasTitle ? COVER_TOP_TITLE : COVER_MARGIN) * trimW;
+  const contentBox: PtRect = {
+    x: trimBox.x + margin,
+    y: trimBox.y + topBand,
+    w: trimW - 2 * margin,
+    h: trimH - topBand - margin,
+  };
+
+  return {
+    mediaBox,
+    trimBox,
+    contentBox,
+    photos: panel.photo ? [panel.photo] : [],
+    title: panel.title,
+    subtitle: panel.subtitle,
+    captions: [],
+  };
 }
 
 export interface CoverPanel {
