@@ -118,7 +118,7 @@ export function CoverCard({ which }: CoverCardProps) {
 
       <div className="paper-hatch p-[22px]">
         <div
-          className="relative overflow-hidden rounded-sm border border-line bg-paper shadow-paper transition-shadow"
+          className="group relative overflow-hidden rounded-sm border border-line bg-paper shadow-paper transition-shadow"
           style={{
             aspectRatio: String(aspect),
             boxShadow: hot ? "0 0 0 2px var(--accent)" : undefined,
@@ -137,20 +137,25 @@ export function CoverCard({ which }: CoverCardProps) {
             if (id) updateCover(which, { photoId: id });
           }}
         >
-          {/* Title + subtitle, edited directly on the cover, sitting in the fixed top band. */}
-          <div className="absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
+          {/* Title + subtitle, edited directly on the cover, sitting in the fixed top band.
+              The band is fixed but the inputs are not: two full-width rows always take their
+              natural height (placeholders included), so this overlay reaches well below
+              photoTop and over the photo. It is therefore transparent to the pointer as a box,
+              and only the two text rows take hits (#96) - otherwise it stole the hover from
+              the photo and its remove control. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
             <input
               value={cover.title}
               placeholder={t(`cover.${which}.title`)}
               onChange={(e) => updateCover(which, { title: e.target.value })}
-              className="w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none"
+              className="pointer-events-auto w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none"
               style={{ fontSize: headerFontCss(F_COVER_TITLE, "--cover-title-scale"), color: "var(--album-ink)" }}
             />
             <input
               value={cover.subtitle}
               placeholder={t(`cover.${which}.subtitle`)}
               onChange={(e) => updateCover(which, { subtitle: e.target.value })}
-              className="mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none"
+              className="pointer-events-auto mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none"
               style={{ fontSize: headerFontCss(F_COVER_SUBTITLE, "--cover-subtitle-scale"), color: "var(--album-ink-soft)" }}
             />
           </div>
@@ -176,6 +181,11 @@ export function CoverCard({ which }: CoverCardProps) {
   );
 }
 
+// The cover photo and its remove control. The control hangs on the hover of the PAPER, not
+// of the photo: the text overlay above covers the photo's top strip, so a photo-scoped hover
+// dropped as soon as the pointer crossed a text row on its way to the button, and the button
+// vanished before it could be clicked (#96). It also sits inside the photo's corner, above
+// the overlay, so it never lands on the editable text.
 interface CoverPhotoProps {
   photo: Photo;
   w: number;
@@ -186,11 +196,11 @@ interface CoverPhotoProps {
 function CoverPhoto({ photo, w, h, onRemove }: CoverPhotoProps) {
   const { t } = useT();
   return (
-    <div className="group relative">
+    <div className="relative">
       <button
         onClick={onRemove}
         title={t("cover.removePhoto")}
-        className="absolute -right-2 -top-2 z-20 hidden h-5 w-5 items-center justify-center rounded-full border-0 bg-ink text-[12px] leading-none text-paper shadow-soft group-hover:flex"
+        className="absolute right-1.5 top-1.5 z-30 hidden h-5 w-5 items-center justify-center rounded-full border-0 bg-ink text-[12px] leading-none text-paper shadow-soft group-hover:flex"
       >
         ×
       </button>
