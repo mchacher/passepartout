@@ -3,6 +3,32 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.10.0 - 2026-08-25
+
+Words on the page, and fonts that survive the trip to the printer.
+
+- **Notes on the page**: drop a small block of text anywhere on a page or a cover face, in the
+  whitespace or right over a photo. Drag it where you want it, pull a handle to decide where
+  the text wraps, tilt it, and type on the paper itself. Six typefaces, regular, italic or
+  bold, five sizes, the album's own inks or a colour of your choosing, and four typographic
+  treatments: spaced small caps, a hairline rule, an opacity step, and a paper reserve that
+  keeps a note legible over a busy image. A note is laid on top of the finished page: it never
+  moves, resizes or crops a single photo.
+- **The font you pick is the font that prints**: until now the exported PDF could not carry
+  your album's font and quietly replaced it with Times, Helvetica or Courier, so three of the
+  five styles came out of the printer identical and a title could wrap on paper where it did
+  not on screen. Every style is now set in a typeface that ships with the app and travels
+  inside the PDF. Two styles join the five, which keep their names and gain a real typeface:
+  Serif is EB Garamond, Sans is Lato, Humanist is Cabin, Rounded is Quicksand, Typewriter is
+  Courier Prime, and the new Display and Handwritten are Playfair Display and Caveat. Your
+  albums keep the style you chose; only the typeface it is set in changes. The style menu now
+  names the typeface, and your titles can use the characters those faces carry, well beyond
+  what the old export allowed.
+- **A cover photo can be removed again**: on a cover face, the small cross that clears the
+  photo sat underneath the editable title and disappeared the moment the pointer went for it,
+  so a photo that filled the face could not be removed at all. It now sits in the corner of
+  the photo and stays put.
+
 ## v0.9.0 - 2026-08-23
 
 Arranging a page is now a click away, and a batch of fixes to what you look at all day.
