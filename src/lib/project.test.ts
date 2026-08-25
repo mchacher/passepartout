@@ -14,7 +14,8 @@ import {
   type ProjectDoc,
   type ProjectState,
 } from "./project";
-import type { Cover, Photo } from "../types";
+import type { Cover, Note, Photo } from "../types";
+import { pageOrDefault } from "./project";
 
 const photo = (id: string, ratio: number): Photo => ({
   id,
@@ -285,5 +286,61 @@ describe("covers", () => {
     expect(cleaned.title).toBe("T");
     const kept = cleanCover({ ...cover, photoId: "a" }, new Set(["a"]));
     expect(kept.photoId).toBe("a");
+  });
+});
+
+describe("notes (spec 039)", () => {
+  const note = (id: string, text: string): Note => ({
+    id,
+    text,
+    x: 0.3,
+    y: 0.8,
+    w: 0.4,
+    font: "playfair",
+    size: "lg",
+    align: "left",
+    ink: "accent",
+    caps: true,
+  });
+
+  it("serializes and hydrates notes on a page and on a cover face", () => {
+    const st = state();
+    st.pages[0].notes = [note("n1", "Sanary, juillet")];
+    st.backCover.notes = [note("n2", "The end")];
+    const doc = serializeProject(st, 2000);
+    expect(doc.pages[0].notes).toHaveLength(1);
+    expect(doc.pages[0].notes![0]).toMatchObject({ text: "Sanary, juillet", font: "playfair", caps: true });
+    expect(doc.backCover.notes![0].text).toBe("The end");
+  });
+
+  it("gives every note a fresh id when a project is duplicated", () => {
+    const st = state();
+    st.pages[0].notes = [note("n1", "kept")];
+    st.frontCover.notes = [note("n2", "cover")];
+    const src = serializeProject(st, 2000);
+    const dup = duplicateDoc(src, { id: "p2", name: "copy", now: 3000, photoIdMap: new Map() });
+    expect(dup.pages[0].notes).toHaveLength(1);
+    expect(dup.pages[0].notes![0].id).not.toBe("n1");
+    expect(dup.pages[0].notes![0].text).toBe("kept");
+    expect(dup.frontCover.notes![0].id).not.toBe("n2");
+    expect(dup.frontCover.notes![0].text).toBe("cover");
+  });
+
+  it("coerces an unknown font on load rather than losing the note", () => {
+    const cover = coverOrDefault({
+      title: "",
+      subtitle: "",
+      photoId: null,
+      whitespace: 4,
+      notes: [{ ...note("n1", "kept"), font: "comic" } as unknown as Note],
+    });
+    expect(cover.notes).toHaveLength(1);
+    expect(cover.notes![0].font).toBe("garamond");
+  });
+
+  it("leaves a page with no note without the field, and normalizes an old page", () => {
+    const loaded = pageOrDefault({ id: "pg", title: "", photoIds: [], whitespace: 4, layoutId: "single" } as never);
+    expect(loaded.notes).toBeUndefined();
+    expect(loaded.subtitle).toBe("");
   });
 });

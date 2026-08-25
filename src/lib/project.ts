@@ -9,7 +9,8 @@
 // session, so it is NEVER persisted. `serializeProject` strips it and `hydratePhotos`
 // re-attaches a fresh one from the stored blob.
 
-import { DEFAULT_WHITESPACE, type AlbumPage, type Cover, type PageFormat, type Photo, type Spine } from "../types";
+import { DEFAULT_WHITESPACE, type AlbumPage, type Cover, type Note, type PageFormat, type Photo, type Spine } from "../types";
+import { coerceNotes } from "./notes";
 import {
   DEFAULT_COLOR_THEME,
   DEFAULT_FONT_THEME,
@@ -115,7 +116,27 @@ export function newCover(): Cover {
 export function coverOrDefault(cover: Cover | undefined | null): Cover {
   // Coalesce photoId after the spread so an explicit `undefined` never leaks past
   // the declared `string | null`.
-  return cover ? { ...newCover(), ...cover, photoId: cover.photoId ?? null } : newCover();
+  if (!cover) return newCover();
+  const out: Cover = { ...newCover(), ...cover, photoId: cover.photoId ?? null };
+  // Notes (spec 039) are coerced rather than trusted: an unknown font or size falls back to
+  // the default and the note is kept, a malformed entry is dropped.
+  const notes = coerceNotes(cover.notes);
+  if (notes.length) out.notes = notes;
+  else delete out.notes;
+  return out;
+}
+
+/**
+ * A page as loaded from a document: fields added after it was saved are normalized, and its
+ * notes (spec 039) are coerced the same way a cover's are. Photo references are cleaned by
+ * the caller, which is the only thing that needs the project's photo set.
+ */
+export function pageOrDefault(page: AlbumPage): AlbumPage {
+  const out: AlbumPage = { ...page, subtitle: page.subtitle ?? "" };
+  const notes = coerceNotes(page.notes);
+  if (notes.length) out.notes = notes;
+  else delete out.notes;
+  return out;
 }
 
 /** Clear a cover's photo reference when its photo is no longer present. */
@@ -207,10 +228,17 @@ export function duplicateDoc(
   opts: { id: string; name: string; now: number; photoIdMap: Map<string, string> },
 ): ProjectDoc {
   const remap = (id: string) => opts.photoIdMap.get(id) ?? id;
-  const remapCover = (c: Cover): Cover => ({
-    ...c,
-    photoId: c.photoId ? remap(c.photoId) : null,
-  });
+  // A note carries no photo reference, but the copy still gets its own ids so the two
+  // projects never share one (spec 039).
+  const freshNotes = (notes: Note[] | undefined) =>
+    notes && notes.length ? notes.map((n) => ({ ...n, id: crypto.randomUUID() })) : undefined;
+  const remapCover = (c: Cover): Cover => {
+    const out: Cover = { ...c, photoId: c.photoId ? remap(c.photoId) : null };
+    const notes = freshNotes(c.notes);
+    if (notes) out.notes = notes;
+    else delete out.notes;
+    return out;
+  };
   return {
     id: opts.id,
     name: opts.name,
@@ -222,7 +250,13 @@ export function duplicateDoc(
     colorTheme: colorThemeOrDefault(doc.colorTheme).id,
     textSizes: textSizesOrDefault(doc.textSizes),
     photos: doc.photos.map((p) => ({ ...p, id: remap(p.id) })),
-    pages: doc.pages.map((pg) => ({ ...pg, photoIds: pg.photoIds.map(remap) })),
+    pages: doc.pages.map((pg) => {
+      const page: AlbumPage = { ...pg, photoIds: pg.photoIds.map(remap) };
+      const notes = freshNotes(pg.notes);
+      if (notes) page.notes = notes;
+      else delete page.notes;
+      return page;
+    }),
     frontCover: remapCover(coverOrDefault(doc.frontCover)),
     insideFrontCover: remapCover(coverOrDefault(doc.insideFrontCover)),
     insideBackCover: remapCover(coverOrDefault(doc.insideBackCover)),

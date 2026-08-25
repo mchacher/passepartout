@@ -17,6 +17,138 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Note fonts (spec 039). Every face is SHIPPED as a real file rather than being a
+   system stack, and the very same file is embedded in the PDF by the export, so a
+   note prints exactly as previewed, line breaks included (see issue #99 for why the
+   album's own fonts do not have that property yet). A face is only downloaded when a
+   note actually uses it. All six families are OFL; each licence sits next to its font.
+
+   "Caveat Note" is deliberately a different family name from the "Caveat" above: that
+   one is a single variable file serving the Polaroid note (spec 019), while notes need
+   two static faces the painter can embed one at a time.
+--------------------------------------------------------------------------- */
+@font-face {
+  font-family: "EB Garamond";
+  src: url("./assets/fonts/ebgaramond-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "EB Garamond";
+  src: url("./assets/fonts/ebgaramond-italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "EB Garamond";
+  src: url("./assets/fonts/ebgaramond-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/playfair-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/playfair-italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/playfair-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lato";
+  src: url("./assets/fonts/lato-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lato";
+  src: url("./assets/fonts/lato-italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lato";
+  src: url("./assets/fonts/lato-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Quicksand";
+  src: url("./assets/fonts/quicksand-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Quicksand";
+  src: url("./assets/fonts/quicksand-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Courier Prime";
+  src: url("./assets/fonts/courierprime-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Courier Prime";
+  src: url("./assets/fonts/courierprime-italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Courier Prime";
+  src: url("./assets/fonts/courierprime-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Caveat Note";
+  src: url("./assets/fonts/caveat-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Caveat Note";
+  src: url("./assets/fonts/caveat-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+/* A note is measured on screen with a canvas context and drawn in the PDF by pdf-lib,
+   and pdf-lib neither measures nor draws kerned text. Turning kerning and ligatures off
+   here is what makes the two agree glyph for glyph, so a line breaks at the same word
+   in the editor and on paper. */
+.note-type {
+  font-kerning: none;
+  font-variant-ligatures: none;
+}
+
+/* ---------------------------------------------------------------------------
    Design tokens. Both themes are defined here so components only ever use the
    semantic Tailwind utilities (bg-surface, text-ink, border-line, ...).
    The theme follows the OS preference; a `.dark` / `.light` class on <html>

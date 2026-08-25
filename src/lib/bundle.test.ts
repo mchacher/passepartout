@@ -40,6 +40,19 @@ describe("buildBundle / parseBundle", () => {
     expect(parsed.images.get("b")!.mime).toBe("image/png");
   });
 
+  it("carries the notes of a page and of a cover face through the round trip (spec 039)", () => {
+    const doc = docWithPhotos(["a"]);
+    doc.pages[0].notes = [
+      { id: "n1", text: "Sanary,\njuillet", x: 0.3, y: 0.8, w: 0.4, font: "caveat", size: "md", align: "left", ink: "inkSoft", rotation: -5 },
+    ];
+    doc.backCover.notes = [
+      { id: "n2", text: "The end", x: 0.5, y: 0.9, w: 0.6, font: "lato", size: "xs", align: "center", ink: "ink", caps: true },
+    ];
+    const parsed = parseBundle(buildBundle(doc, new Map([["a", img([1, 2, 3])]]), 999));
+    expect(parsed.doc.pages[0].notes).toEqual(doc.pages[0].notes);
+    expect(parsed.doc.backCover.notes).toEqual(doc.backCover.notes);
+  });
+
   it("carries the format tag, version and export time in the manifest", () => {
     const bytes = buildBundle(docWithPhotos([]), new Map(), 42);
     // Peek at the raw manifest to assert its shape.

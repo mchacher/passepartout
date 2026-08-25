@@ -9,6 +9,8 @@ import {
   type CoverFace,
   type CropFocus,
   type CropRect,
+  type Note,
+  type NoteTarget,
   type PageFill,
   type Photo,
   type Spine,
@@ -37,12 +39,14 @@ import {
   type TextSizeLevel,
   type TextSizes,
 } from "./lib/text-sizes";
+import { clampNote, newNote, noteTargetKey } from "./lib/notes";
 import {
   bookSizeOfDoc,
   cleanCover,
   coverOrDefault,
   duplicateDoc,
   hydratePhotos,
+  pageOrDefault,
   metaOf,
   newCover,
   newProjectDoc,
@@ -237,11 +241,41 @@ interface AlbumState {
   setPhotoFrameFocus: (photoId: string, focus: CropFocus) => void;
   setPhotoRotation: (photoId: string, deg: number) => void;
 
+  // Notes (spec 039): a freely placed text block on a page or a cover face. They are an
+  // overlay, so none of these ever touches a photo, a layout or the whitespace.
+  addNote: (target: NoteTarget, patch?: Partial<Note>) => string;
+  updateNote: (target: NoteTarget, id: string, patch: Partial<Note>) => void;
+  deleteNote: (target: NoteTarget, id: string) => void;
+
   setBookSize: (bookSize: BookSizeId) => void;
   setSpineTitle: (title: string) => void;
   setFontTheme: (fontTheme: FontThemeId) => void;
   setColorTheme: (colorTheme: ColorThemeId) => void;
   setTextSize: (role: TextRole, level: TextSizeLevel) => void;
+}
+
+/**
+ * Rewrite the notes of one page or one cover face. Everything else in the state, and every
+ * other container, is left byte for byte alone: a note edit can never disturb a photo, a
+ * layout or another page (spec 039).
+ */
+function patchNotes(
+  state: AlbumState,
+  target: NoteTarget,
+  fn: (notes: Note[]) => Note[],
+): Partial<AlbumState> {
+  const apply = <T extends { notes?: Note[] }>(holder: T): T => {
+    const next = fn(holder.notes ?? []);
+    const out = { ...holder } as T;
+    if (next.length) out.notes = next;
+    else delete out.notes;
+    return out;
+  };
+  if (target.kind === "page") {
+    return { pages: state.pages.map((pg) => (pg.id === target.pageId ? apply(pg) : pg)) };
+  }
+  const key = COVER_KEY[target.face];
+  return { [key]: apply(state[key]) } as Partial<AlbumState>;
 }
 
 // Load one File into a Photo (with a runtime object URL) plus the File itself so the
@@ -741,8 +775,9 @@ export const useAlbum = create<AlbumState>((rawSet, get) => {
       // Drop any page reference to a photo whose blob was missing, then re-sync layouts.
       const existing = new Set(photos.map((p) => p.id));
       const pages = doc.pages.map((pg) => ({
-        ...pg,
-        subtitle: pg.subtitle ?? "", // normalize pages saved before page subtitles existed
+        // pageOrDefault normalizes fields added after the document was saved (a page
+        // subtitle, spec 039 notes) the way coverOrDefault does for a cover face.
+        ...pageOrDefault(pg),
         photoIds: pg.photoIds.filter((pid) => existing.has(pid)),
       }));
       pages.forEach(syncLayout);
@@ -1312,6 +1347,30 @@ export const useAlbum = create<AlbumState>((rawSet, get) => {
       set((s) => ({
         photos: s.photos.map((p) => (p.id === photoId ? { ...p, frameFocus: f } : p)),
       }));
+      scheduleSave();
+    },
+
+    addNote: (target, patch = {}) => {
+      const note = newNote(crypto.randomUUID(), patch);
+      set((st) => patchNotes(st, target, (notes) => [...notes, note]));
+      scheduleSave();
+      return note.id;
+    },
+
+    updateNote: (target, id, patch) => {
+      // One drag, or one burst of typing, is one undo step: coalesce on the target, the note
+      // and the fields being written (the updateCover pattern).
+      coalesceAs(`note:${noteTargetKey(target)}:${id}:${Object.keys(patch).join(",")}`);
+      set((st) =>
+        patchNotes(st, target, (notes) =>
+          notes.map((n) => (n.id === id ? clampNote({ ...n, ...patch }) : n)),
+        ),
+      );
+      scheduleSave();
+    },
+
+    deleteNote: (target, id) => {
+      set((st) => patchNotes(st, target, (notes) => notes.filter((n) => n.id !== id)));
       scheduleSave();
     },
 

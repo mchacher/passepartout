@@ -52,6 +52,16 @@ function readLang(): Lang {
   return detectLang(typeof navigator !== "undefined" ? navigator.language : undefined);
 }
 
+/** The note being worked on (spec 039): where it lives, which one, and whether the text is
+ *  being typed. Purely transient, like `arrange`: never persisted, never undoable. */
+export interface NoteSelection {
+  /** `page:<pageId>` or `cover:<face>`, the key of the container holding the note. */
+  key: string;
+  id: string;
+  /** True while the text is being edited in place, which suppresses the drag gesture. */
+  editing: boolean;
+}
+
 export interface Arrange {
   pageId: string;
   /** The cell the click landed on: it becomes the primary selection when editing opens. */
@@ -77,6 +87,12 @@ interface ViewState {
   arrange: Arrange | null;
   startArrange: (pageId: string, index: number) => void;
   stopArrange: () => void;
+  // The selected note (spec 039). Only one at a time, across every page and cover face.
+  // Arranging a page takes the surface over, so opening arrange clears it.
+  note: NoteSelection | null;
+  selectNote: (key: string, id: string, editing?: boolean) => void;
+  editNote: (editing: boolean) => void;
+  clearNote: () => void;
 }
 
 export const useView = create<ViewState>((set, get) => ({
@@ -120,6 +136,10 @@ export const useView = create<ViewState>((set, get) => ({
     set({ lang: l });
   },
   arrange: null,
-  startArrange: (pageId, index) => set({ arrange: { pageId, index } }),
+  startArrange: (pageId, index) => set({ arrange: { pageId, index }, note: null }),
   stopArrange: () => set({ arrange: null }),
+  note: null,
+  selectNote: (key, id, editing = false) => set({ note: { key, id, editing }, arrange: null }),
+  editNote: (editing) => set((s) => (s.note ? { note: { ...s.note, editing } } : {})),
+  clearNote: () => set({ note: null }),
 }));

@@ -24,6 +24,7 @@ import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
 import { PHOTO_DND_TYPE, PHOTO_SLOT_DND_TYPE } from "./dnd";
 import { EMPTY_SELECTION, outlineFor, selectSingle, toggleSelection, type Selection } from "../lib/selection";
+import { NoteLayer } from "./NoteLayer";
 
 // The selection reported up so the page controls can show its toolbar. `photoId` is the
 // primary (last-touched) photo that drives the single-photo controls and active state;
@@ -342,6 +343,17 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper(
           if (id) placeOnPage(id, page.id);
         }}
       >
+        {/* Notes (spec 039) are painted over whatever the page holds, full-page photo
+            included. The layer is an overlay: it never enters the layout, and it only takes
+            the pointer while the page is NOT being arranged, so free placement keeps every
+            gesture it had. */}
+        <NoteLayer
+          notes={page.notes}
+          boxW={pageBox.w}
+          boxH={pageBox.h}
+          target={canEdit ? undefined : { kind: "page", pageId: page.id }}
+        />
+
         {fullPage ? (
           <FullPagePhoto page={page} photo={items[0]} mode={fullPage} onRemove={() => removeFromPage(items[0].id, page.id)} />
         ) : (

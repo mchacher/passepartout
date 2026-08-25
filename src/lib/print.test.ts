@@ -11,6 +11,8 @@ import {
   SPINE_COVER_MM,
   type PageInput,
 } from "./print";
+import { NOTE_REF_W, NOTE_SIZES } from "./notes";
+import type { Note } from "../types";
 
 const size = bookSizeOrDefault("blurb-portrait-8x10");
 const bleedPt = mmToPt(BLEED_MM);
@@ -456,5 +458,101 @@ describe("spine estimate + font mapping", () => {
     expect(fontFamilyForTheme("sans")).toBe("sans");
     expect(fontFamilyForTheme("humanist")).toBe("sans");
     expect(fontFamilyForTheme("rounded")).toBe("sans");
+  });
+});
+
+describe("notes in print (spec 039)", () => {
+  const note = (patch: Partial<Note> = {}): Note => ({
+    id: "n1",
+    text: "Sanary, juillet",
+    x: 0.25,
+    y: 0.75,
+    w: 0.4,
+    font: "garamond",
+    size: "md",
+    align: "center",
+    ink: "inkSoft",
+    ...patch,
+  });
+
+  it("places a note from the trim box, in points, keeping its tilt", () => {
+    const g = interiorPageGeometry(
+      pageInput([{ photoId: "a", ratio: 1.5, caption: "" }], "single", { notes: [note({ rotation: -5 })] }),
+    );
+    expect(g.notes).toHaveLength(1);
+    const n = g.notes[0];
+    expect(n.cx).toBeCloseTo(bleedPt + 0.25 * trimW, 6);
+    expect(n.cy).toBeCloseTo(bleedPt + 0.75 * trimH, 6);
+    expect(n.w).toBeCloseTo(0.4 * trimW, 6);
+    expect(n.sizePt).toBeCloseTo(NOTE_SIZES.md * trimW, 6);
+    expect(n.rotation).toBe(-5);
+    expect(n.font).toBe("garamond");
+  });
+
+  it("wraps at the canonical reference size, not at the page size", () => {
+    const g = interiorPageGeometry(pageInput([], "single", { notes: [note()] }));
+    const n = g.notes[0];
+    expect(n.wrapW).toBeCloseTo(0.4 * NOTE_REF_W, 6);
+    expect(n.refSize).toBeCloseTo(NOTE_SIZES.md * NOTE_REF_W, 6);
+    // Same ratio between the drawn size and the reference size as between the two widths,
+    // which is what lets the painter wrap once and draw at any size.
+    expect(n.sizePt / n.refSize).toBeCloseTo(trimW / NOTE_REF_W, 6);
+  });
+
+  it("emits nothing for an empty note", () => {
+    const g = interiorPageGeometry(pageInput([], "single", { notes: [note({ text: "   " })] }));
+    expect(g.notes).toEqual([]);
+  });
+
+  it("uppercases and tracks a small-caps note, the way CSS does", () => {
+    const g = interiorPageGeometry(pageInput([], "single", { notes: [note({ caps: true })] }));
+    const n = g.notes[0];
+    expect(n.text).toBe("SANARY, JUILLET");
+    expect(n.caps).toBe(true);
+    expect(n.trackingPt).toBeGreaterThan(0);
+    expect(n.refTrackingPt).toBeGreaterThan(0);
+  });
+
+  it("leaves the photo boxes identical to the same page without a note", () => {
+    const items = [
+      { photoId: "a", ratio: 1.5, caption: "" },
+      { photoId: "b", ratio: 2 / 3, caption: "" },
+    ];
+    const without = interiorPageGeometry(pageInput(items, "two-row"));
+    const with_ = interiorPageGeometry(pageInput(items, "two-row", { notes: [note(), note({ id: "n2" })] }));
+    expect(with_.photos).toEqual(without.photos);
+    expect(with_.contentBox).toEqual(without.contentBox);
+  });
+
+  it("places a note on an inside cover face from that face's trim box", () => {
+    const g = insideCoverPageGeometry({
+      size,
+      title: "",
+      subtitle: "",
+      whitespace: 4,
+      scales: { coverTitle: 1, coverSubtitle: 1 },
+      notes: [note()],
+    });
+    expect(g.notes).toHaveLength(1);
+    expect(g.notes[0].cx).toBeCloseTo(bleedPt + 0.25 * trimW, 6);
+  });
+
+  it("places a note on each outside cover face of the wrap, in its own panel", () => {
+    const face = (notes: Note[]) => ({ title: "", subtitle: "", photo: null, whitespace: 4, notes });
+    const g = coverWrapGeometry({
+      size,
+      spineWidthPt: 20,
+      front: face([note({ id: "nf" })]),
+      back: face([note({ id: "nb" })]),
+      spineTitle: "",
+      spineSubtitle: "",
+      scales: { coverTitle: 1, coverSubtitle: 1 },
+    });
+    expect(g.back.notes).toHaveLength(1);
+    expect(g.front.notes).toHaveLength(1);
+    // Each is placed inside its own panel, so the front note sits to the right of the back one.
+    expect(g.front.notes[0].cx).toBeGreaterThan(g.back.notes[0].cx);
+    expect(g.back.notes[0].cx).toBeCloseTo(g.back.trimBox.x + 0.25 * trimW, 6);
+    expect(g.front.notes[0].cx).toBeCloseTo(g.front.trimBox.x + 0.25 * trimW, 6);
   });
 });

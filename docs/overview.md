@@ -24,6 +24,13 @@ opt-in exceptions are a page's **Fill** mode (spec 012) and the per-photo **crop
   per-page `whitespace` level (1 .. `WHITESPACE_LEVELS`), a `layoutId` (which
   arrangement template is applied), and optional full-page fields (`fullPage` Fit/Fill,
   `fullPageFocus` for the Fill crop; spec 012).
+- **Note** (spec 039): a small block of text placed freely on a page or a cover face
+  (`notes` on `AlbumPage` and on `Cover`). Its position, its wrapping width and its size
+  are fractions of the page, so it lands on the same spot in the editor, in a thumbnail,
+  in the book preview and in the PDF. It is an overlay on top of the finished layout: it
+  never takes part in `computeLayout`, so a note can never move or crop a photo. Its six
+  typefaces are shipped with the app and embedded in the PDF, which is what makes the
+  printed note identical to the previewed one, line breaks included.
 - **Book size** (`src/lib/book-sizes.ts`): a real Blurb trim size (mm + orientation)
   whose ratio drives the page, so the preview matches the printed page. Carries the
   print constants the export will reuse. Superseded the abstract `PageFormat`.

@@ -18,6 +18,9 @@ export function themeCssVars(
     "--paper": color.paper,
     "--album-ink": color.ink,
     "--album-ink-soft": color.inkSoft,
+    // The album's accent as an INK: fixed like paper and ink, because a note written in
+    // the accent is printed, and print colors must not follow the OS theme (spec 039).
+    "--album-accent": color.accent.light,
     "--accent": color.accent[mode],
     "--accent-ink": color.accentInk[mode],
     "--accent-soft": color.accentSoft[mode],

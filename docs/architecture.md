@@ -47,8 +47,11 @@ src/
 │   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
 │   ├── grid-edit.ts    # PURE move/resize/restack helpers for free placement (spec 013 Phase B)
 │   ├── crop.ts         # PURE photo-crop geometry: effectiveRatio, crop-rect edit, cropImgBox (spec 015)
+│   ├── notes.ts        # PURE note geometry + line breaker (spec 039): sizes, wrapLines, clamp, snap, ink
+│   ├── note-fonts.ts   # PURE catalog of the six SHIPPED note faces (screen + PDF read the same file)
 │   ├── i18n.ts         # PURE UI translation catalog (en + fr) + translate/plural/detectLang (spec 032)
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
+├── noteMeasure.ts      # IMPURE canvas text measurement for notes (the callback wrapLines takes)
 ├── useApplyTheme.ts    # Hook: write the active theme's CSS vars onto <html>, react to OS theme
 ├── useT.ts             # Hook: bound t()/plural from viewStore.lang; useApplyLang writes <html lang> (spec 032)
 ├── viewStore.ts        # Ephemeral view prefs (showGrid, editor zoom, UI language), localStorage-persisted, not album data
@@ -114,6 +117,16 @@ Three hard boundaries:
   A page's **slot count** is its layout capacity (`slotCount()` in `src/lib/layouts.ts`),
   independent of how many photos are placed (spec 035): `photoIds` fills the first slots
   and the rest render as empty drop targets. Invariant: `photoIds.length <= slotCount`.
+- **Note** (`Note` in `src/types.ts`, spec 039): a small block of text placed freely on a page
+  or a cover face, in `notes?: Note[]` on `AlbumPage` and on `Cover`. It is an **overlay**: it
+  never enters `computeLayout`, so adding, moving or resizing one cannot move, resize or clip a
+  photo. Placement is normalized to the page (`x`/`y` are the box CENTRE, `w` the wrapping
+  width, all fractions), which is what makes the same numbers serve the editor at any zoom, the
+  rail thumbnails, the book preview and the PDF. It carries a font from the shipped catalog, a
+  size level, bold/italic, an alignment, an ink (the album's ink / soft ink / accent / paper, or
+  a custom hex), the decorative tilt of spec 020, and four typographic treatments (spaced small
+  caps, a hairline rule above or below, an opacity step, a paper reserve behind the text).
+  `coerceNotes` keeps a note whose font or size id is unknown, coercing it to the default.
 - **Book size** (`src/lib/book-sizes.ts`): the physical print size a project targets,
   one of a curated set of real Blurb trim sizes (mm + orientation). Its ratio drives the
   page and cover preview, so what you see is what prints. Carries the print constants
@@ -308,6 +321,16 @@ Dragging whitespace never re-groups photos.
   `ThemeMenu` renders the new row/level automatically. If the role is drawn in a content
   page's header, feed its size to `headerGeometry` too, or the band will not reserve room
   for it.
+- **Notes** (shipped, spec 039): the geometry is pure (`src/lib/notes.ts`) and the renderer is
+  single (`NoteLayer.tsx`, read only unless given a `NoteTarget`), so a new surface only has to
+  pass its notes and its page box in pixels. Two rules make the printed note the previewed one:
+  every family is a **shipped font file** that both `@font-face` and the PDF painter read (the
+  album's own fonts are still substituted at print, see issue #99), and wrapping always happens
+  at the canonical `NOTE_REF_W` with kerning and ligatures off, because pdf-lib neither measures
+  nor draws kerned text. **A new treatment**: add the field to `Note`, render it in `NoteLayer`,
+  mirror it in `notePlaces` (`print.ts`) and in `drawNote` (`pdf-export.ts`), and coerce it in
+  `coerceNotes`. **A new note font**: add a family to `NOTE_FONTS` with its `.ttf` per face plus
+  its licence in `src/assets/fonts/`, and declare the faces in `src/index.css`.
 - **Internationalization** (shipped, spec 032): UI chrome is translated, not album content. Every
   user-facing string goes through `t("key")` from the `useT()` hook, keyed into the pure `en`/`fr`
   catalog in `src/lib/i18n.ts` (a parity test enforces both languages carry every key; catalog
