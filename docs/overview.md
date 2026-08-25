@@ -44,7 +44,8 @@ opt-in exceptions are a page's **Fill** mode (spec 012) and the per-photo **crop
   editor, an explicit `placement` of cell rectangles. This grid is the shared model for
   templates and free placement.
 - **Album theme** (`src/lib/themes.ts`): two project-level choices, a `fontTheme`
-  (a system-font stack applied to album text) and a `colorTheme` (the album's paper +
+  (one of seven styles, each set in a font the app ships and the PDF embeds, so the
+  printed album reads exactly like the preview, spec 040) and a `colorTheme` (the album's paper +
   ink print colors plus an accent that also recolors the app chrome). Both default so
   existing albums look unchanged. Picked in the top bar's **Style** menu.
 - **Text size** (`src/lib/text-sizes.ts`): a per-role size across five roles (cover

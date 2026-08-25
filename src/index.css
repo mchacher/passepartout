@@ -2,30 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Handwriting font for the Polaroid note (spec 019), self-hosted for offline use and to
-   match the PDF (the same font is embedded there via @pdf-lib/fontkit). */
-@font-face {
-  font-family: "Caveat";
-  src: url("./assets/Caveat.ttf") format("truetype");
-  font-weight: 400 700;
-  font-display: swap;
-}
-
-/* The handwritten note; falls back to a system cursive if the font has not loaded yet. */
+/* The handwritten note of a Polaroid frame (spec 019). Caveat is declared below with the
+   rest of the shipped families; falls back to a system cursive until it has loaded. */
 .font-hand {
   font-family: "Caveat", "Segoe Script", "Snell Roundhand", cursive;
 }
 
 /* ---------------------------------------------------------------------------
-   Note fonts (spec 039). Every face is SHIPPED as a real file rather than being a
-   system stack, and the very same file is embedded in the PDF by the export, so a
-   note prints exactly as previewed, line breaks included (see issue #99 for why the
-   album's own fonts do not have that property yet). A face is only downloaded when a
-   note actually uses it. All six families are OFL; each licence sits next to its font.
-
-   "Caveat Note" is deliberately a different family name from the "Caveat" above: that
-   one is a single variable file serving the Polaroid note (spec 019), while notes need
-   two static faces the painter can embed one at a time.
+   The shipped fonts (spec 039 for notes, spec 040 for the album). Every face is a real
+   file rather than a system stack, and the very same file is embedded in the PDF by the
+   export, so text prints exactly as previewed, line breaks included. Before spec 040 the
+   album's own text was substituted with Times or Helvetica at export (issue #99); now
+   nothing is. A face is only downloaded when something actually uses it. All seven
+   families are OFL; each licence sits next to its font.
 --------------------------------------------------------------------------- */
 @font-face {
   font-family: "EB Garamond";
@@ -91,6 +80,27 @@
   font-display: swap;
 }
 @font-face {
+  font-family: "Cabin";
+  src: url("./assets/fonts/cabin-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cabin";
+  src: url("./assets/fonts/cabin-italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cabin";
+  src: url("./assets/fonts/cabin-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
   font-family: "Quicksand";
   src: url("./assets/fonts/quicksand-regular.ttf") format("truetype");
   font-weight: 400;
@@ -126,14 +136,14 @@
   font-display: swap;
 }
 @font-face {
-  font-family: "Caveat Note";
+  font-family: "Caveat";
   src: url("./assets/fonts/caveat-regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Caveat Note";
+  font-family: "Caveat";
   src: url("./assets/fonts/caveat-bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
@@ -171,7 +181,13 @@
   /* Album theme (font + print colors). These default to the classic theme and are
      overridden at runtime by useApplyTheme from the active project's choice. Unlike
      the chrome tokens above, the album print colors do not vary with the OS theme. */
-  --album-font: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  /* The `serif` style's shipped stack (src/lib/fonts.ts). useApplyTheme overwrites this
+     from the active project, but it is what the album is painted with until React has
+     mounted, so it must not be a system stack: that is the substitution spec 040 removed,
+     and a mismatch here flashes the old face and reflows on every load. Keep it equal to
+     the default style's stack in src/lib/fonts.ts by hand: a test cannot read this file
+     (vitest resolves a CSS import to an empty string), so nothing catches a drift. */
+  --album-font: "EB Garamond", Georgia, "Iowan Old Style", serif;
   --album-ink: #1c2226;
   --album-ink-soft: #4a5157;
 

@@ -81,7 +81,7 @@ npm run validate   # typecheck + lint + test
 ## Roadmap (not built yet)
 
 1. **More imprimeur presets** (CEWE / Saal Digital, etc.). Blurb trim sizes + the 300 DPI sRGB PDF export (cover wrap + interior) already ship (specs 008-009).
-2. **Embed the real album fonts** in the PDF (today print maps each album font to a standard PDF family: Times / Helvetica / Courier).
+2. **Album text bold / italic**: the album's fonts now ship with the app and are embedded in the PDF (spec 040), so the three faces are there; what is missing is a control to use them on a title.
 3. **Full-bleed / spread templates** (one photo across a double page) while still never cropping.
 4. **Reorder photos within a page** by drag (reordering whole pages already ships, spec 007).
 5. **Project files** export/import (backup, move machine, share). Local persistence and multi-project management already ship via IndexedDB (spec 002); this adds a portable file on top.

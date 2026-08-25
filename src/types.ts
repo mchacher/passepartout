@@ -1,7 +1,7 @@
 // Core domain types. A Photo keeps its native aspect ratio forever: the layout
 // engine only ever chooses its size and the whitespace around it, never a crop.
 
-import type { NoteFontId } from "./lib/note-fonts";
+import type { ShippedFontId } from "./lib/fonts";
 
 // A normalized sub-rectangle of a photo's source (spec 015): the region the user chose to
 // keep, in 0..1 fractions of the source. Absent = the whole image (no crop, the default).
@@ -199,7 +199,7 @@ export interface Note {
   w: number; // 0..1 of the page width: the width the text wraps at
   /** Decorative tilt in degrees, the same range and steps as a photo (spec 020). */
   rotation?: number;
-  font: NoteFontId;
+  font: ShippedFontId;
   size: NoteSizeLevel;
   bold?: boolean;
   italic?: boolean;

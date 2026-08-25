@@ -21,7 +21,7 @@ import {
   wrapLines,
   type NotePalette,
 } from "../lib/notes";
-import { noteFontById } from "../lib/note-fonts";
+import { shippedFontById } from "../lib/fonts";
 import { loadNoteFace, noteMeasurer } from "../noteMeasure";
 
 // The ONE place a Note becomes a box (spec 039). The editor page, the cover faces, the page
@@ -79,7 +79,7 @@ function NoteView({ note, boxW, boxH, target }: NoteViewProps) {
   const editing = selected && selection?.editing === true;
 
   const sizePx = noteFontSize(note.size, boxW);
-  const family = noteFontById(note.font);
+  const family = shippedFontById(note.font);
   // Wrapping is measured at the canonical reference width, never at the rendered size, so
   // the lines break at the same words in the editor, in a thumbnail and in the PDF.
   const spec = useMemo(

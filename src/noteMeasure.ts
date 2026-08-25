@@ -3,12 +3,12 @@
 //
 // The pure line breaker (`wrapLines` in src/lib/notes.ts) takes a `measure` callback; on
 // screen that callback comes from here, in the PDF painter it comes from the embedded
-// font. Both read the SAME font file (see src/lib/note-fonts.ts), and notes are drawn with
+// font. Both read the SAME font file (see src/lib/fonts.ts), and notes are drawn with
 // kerning and ligatures off (`.note-type` in src/index.css, `fontKerning = "none"` below)
 // because pdf-lib neither measures nor draws kerned text. That is what makes a note break
 // its lines at the same word in the editor and on paper.
 
-import { noteFontById, noteFontFace } from "./lib/note-fonts";
+import { shippedFontById, shippedFontFace } from "./lib/fonts";
 
 let ctx: CanvasRenderingContext2D | null | undefined;
 
@@ -31,8 +31,8 @@ export interface NoteFaceSpec {
 
 /** The CSS `font` shorthand for a note face, used both to measure and to load it. */
 export function noteFontCss({ font, sizePx, bold, italic }: NoteFaceSpec): string {
-  const family = noteFontById(font);
-  const face = noteFontFace(font, { bold, italic });
+  const family = shippedFontById(font);
+  const face = shippedFontFace(font, { bold, italic });
   const style = face.style === "italic" ? "italic " : "";
   return `${style}${face.weight} ${sizePx}px ${family.stack}`;
 }

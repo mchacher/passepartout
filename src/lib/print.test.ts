@@ -5,7 +5,7 @@ import {
   coverWrapGeometry,
   insideCoverPageGeometry,
   estimateSpineMm,
-  fontFamilyForTheme,
+  albumFontFamily,
   interiorPageGeometry,
   mmToPt,
   SPINE_COVER_MM,
@@ -13,6 +13,8 @@ import {
 } from "./print";
 import { NOTE_REF_W, NOTE_SIZES } from "./notes";
 import type { Note } from "../types";
+import { FONT_THEMES } from "./themes";
+import { SHIPPED_FONTS } from "./fonts";
 
 const size = bookSizeOrDefault("blurb-portrait-8x10");
 const bleedPt = mmToPt(BLEED_MM);
@@ -452,12 +454,22 @@ describe("spine estimate + font mapping", () => {
     expect(estimateSpineMm(20, "nope")).toBe(estimateSpineMm(20, "standard")); // unknown -> default
   });
 
-  it("maps each album font to a standard PDF family", () => {
-    expect(fontFamilyForTheme("serif")).toBe("serif");
-    expect(fontFamilyForTheme("typewriter")).toBe("mono");
-    expect(fontFamilyForTheme("sans")).toBe("sans");
-    expect(fontFamilyForTheme("humanist")).toBe("sans");
-    expect(fontFamilyForTheme("rounded")).toBe("sans");
+  it("maps every album style to the shipped family it is set in", () => {
+    expect(albumFontFamily("serif")).toBe("garamond");
+    expect(albumFontFamily("sans")).toBe("lato");
+    expect(albumFontFamily("humanist")).toBe("cabin");
+    expect(albumFontFamily("rounded")).toBe("quicksand");
+    expect(albumFontFamily("typewriter")).toBe("courier");
+    expect(albumFontFamily("display")).toBe("playfair");
+    expect(albumFontFamily("hand")).toBe("caveat");
+  });
+
+  it("resolves every album style to a family the app ships, so nothing is substituted", () => {
+    for (const theme of FONT_THEMES) {
+      const family = SHIPPED_FONTS.find((f) => f.id === albumFontFamily(theme.id));
+      expect(family, theme.id).toBeDefined();
+      expect(family!.faces.regular.assetUrl.length).toBeGreaterThan(0);
+    }
   });
 });
 

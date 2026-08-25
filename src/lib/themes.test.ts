@@ -5,8 +5,11 @@ import {
   DEFAULT_FONT_THEME,
   FONT_THEMES,
   colorThemeOrDefault,
+  fontThemeTypeface,
   fontThemeOrDefault,
+  fontThemeStack,
 } from "./themes";
+import { SHIPPED_FONTS } from "./fonts";
 
 describe("theme catalogs", () => {
   it("has unique font ids and unique color ids", () => {
@@ -21,11 +24,28 @@ describe("theme catalogs", () => {
     expect(COLOR_THEMES.some((t) => t.id === DEFAULT_COLOR_THEME)).toBe(true);
   });
 
-  it("every font theme has a non-empty name and stack", () => {
+  it("every font theme names a family the app actually ships", () => {
+    // The guarantee of spec 040: an album style can never resolve to a system font, because
+    // a system font cannot be embedded in the PDF and would be substituted at export.
     for (const t of FONT_THEMES) {
+      const family = SHIPPED_FONTS.find((f) => f.id === t.family);
+      expect(family, `font theme ${t.id}`).toBeDefined();
       expect(t.name.length).toBeGreaterThan(0);
-      expect(t.stack.length).toBeGreaterThan(0);
+      expect(fontThemeTypeface(t)).toBe(family!.name);
+      expect(fontThemeStack(t)).toContain(family!.name);
     }
+  });
+
+  it("keeps the five historical style ids and adds the two new ones", () => {
+    expect(FONT_THEMES.map((t) => t.id)).toEqual([
+      "serif",
+      "sans",
+      "humanist",
+      "rounded",
+      "typewriter",
+      "display",
+      "hand",
+    ]);
   });
 
   it("every color theme has print colors and a light/dark accent set", () => {
@@ -45,8 +65,11 @@ describe("theme catalogs", () => {
     expect(classic.paper).toBe("#ffffff");
     expect(classic.ink).toBe("#1C2226");
     expect(classic.inkSoft).toBe("#4A5157");
+    // The serif style keeps its id and its voice; since spec 040 it is set in a shipped
+    // face (Garamond) rather than in the system Georgia, so it prints as it previews.
     const serif = fontThemeOrDefault("serif");
-    expect(serif.stack).toContain("Georgia");
+    expect(serif.family).toBe("garamond");
+    expect(fontThemeStack(serif)).toContain("EB Garamond");
   });
 });
 

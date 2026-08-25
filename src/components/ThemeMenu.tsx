@@ -4,6 +4,8 @@ import { useT } from "../useT";
 import {
   COLOR_THEMES,
   FONT_THEMES,
+  fontThemeStack,
+  fontThemeTypeface,
   colorThemeOrDefault,
 } from "../lib/themes";
 import { TEXT_ROLES, TEXT_SIZE_LEVELS } from "../lib/text-sizes";
@@ -56,9 +58,16 @@ export function ThemeMenu() {
                   className={`flex items-center justify-between rounded-md px-2 py-1.5 text-left text-[15px] ${
                     fontTheme === f.id ? "bg-surface-2 text-ink" : "text-muted hover:bg-surface-2"
                   }`}
-                  style={{ fontFamily: f.stack }}
+                  style={{ fontFamily: fontThemeStack(f) }}
                 >
-                  <span>{t(`font.${f.id}`)}</span>
+                  <span className="flex min-w-0 items-baseline gap-2">
+                    <span>{t(`font.${f.id}`)}</span>
+                    {/* The real typeface, so the style is not a mystery and the printed
+                        result is nameable (spec 040). */}
+                    <span className="truncate font-ui text-[10.5px] text-faint">
+                      {fontThemeTypeface(f)}
+                    </span>
+                  </span>
                   {fontTheme === f.id && <span className="text-accent">•</span>}
                 </button>
               ))}

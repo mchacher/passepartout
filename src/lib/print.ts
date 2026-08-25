@@ -19,8 +19,8 @@ import {
 } from "./page-header";
 import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
 import { resolveCells } from "./layouts";
-import type { FontThemeId } from "./themes";
-import type { NoteFontId } from "./note-fonts";
+import { fontThemeOrDefault, type FontThemeId } from "./themes";
+import type { ShippedFontId } from "./fonts";
 import {
   CARTOUCHE_PAD_X,
   CARTOUCHE_PAD_Y,
@@ -89,7 +89,7 @@ export interface NotePlace {
   /** Wrapping inputs, in the canonical reference units. */
   wrapW: number;
   refSize: number;
-  font: NoteFontId;
+  font: ShippedFontId;
   bold: boolean;
   italic: boolean;
   align: NoteAlign;
@@ -556,9 +556,12 @@ export function estimateSpineMm(interiorPageCount: number, paperId: string): num
   return SPINE_COVER_MM + Math.max(0, interiorPageCount) * paper.mmPerPage;
 }
 
-/** Map an album font to a standard PDF font family (no external font files). */
-export function fontFamilyForTheme(fontTheme: FontThemeId): "serif" | "sans" | "mono" {
-  if (fontTheme === "serif") return "serif";
-  if (fontTheme === "typewriter") return "mono";
-  return "sans";
+/**
+ * The shipped family an album style is set in (spec 040). The painter embeds that file, so
+ * the printed album text is the previewed album text. This replaced a mapping onto the three
+ * standard PDF families, which is why an album used to print in Times or Helvetica whatever
+ * style it was set in (issue #99).
+ */
+export function albumFontFamily(fontTheme: FontThemeId): ShippedFontId {
+  return fontThemeOrDefault(fontTheme).family;
 }

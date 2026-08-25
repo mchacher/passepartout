@@ -26,6 +26,7 @@ export function ExportPanel() {
   const [spineOverride, setSpineOverride] = useState("");
   const [spineContent, setSpineContent] = useState<"title" | "titleSubtitle">("title");
   const [busy, setBusy] = useState<null | "cover" | "interior">(null);
+  const [failed, setFailed] = useState(false);
 
   const size = bookSizeOrDefault(store.bookSize);
   const interiorCount = store.pages.length + 2; // inside front + pages + inside back
@@ -132,23 +133,22 @@ export function ExportPanel() {
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   };
 
-  const exportInterior = async () => {
-    setBusy("interior");
+  // A build that fails must say so: the painter throws rather than handing back an empty
+  // document, so without this the user would get a valid-looking PDF with nothing in it.
+  const run = async (which: "interior" | "cover", build: () => Promise<Uint8Array>) => {
+    setBusy(which);
+    setFailed(false);
     try {
-      download(await buildInteriorPdf(assemble()), "interior");
+      download(await build(), which);
+    } catch {
+      setFailed(true);
     } finally {
       setBusy(null);
     }
   };
 
-  const exportCover = async () => {
-    setBusy("cover");
-    try {
-      download(await buildCoverWrapPdf(assemble(), mmToPt(spineMm)), "cover");
-    } finally {
-      setBusy(null);
-    }
-  };
+  const exportInterior = () => run("interior", async () => buildInteriorPdf(assemble()));
+  const exportCover = () => run("cover", async () => buildCoverWrapPdf(assemble(), mmToPt(spineMm)));
 
   return (
     <div className="relative">
@@ -242,6 +242,11 @@ export function ExportPanel() {
                 {busy === "interior" ? t("export.building") : t("export.interior")}
               </button>
             </div>
+            {failed && (
+              <p role="alert" className="mt-2 text-[11px] leading-snug text-[#c0392b]">
+                {t("export.failed")}
+              </p>
+            )}
             <p className="mt-2 text-[10.5px] leading-snug text-faint">{t("export.footer")}</p>
           </div>
         </>

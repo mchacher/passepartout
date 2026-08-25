@@ -4,7 +4,7 @@ import { useView } from "../viewStore";
 import { useT } from "../useT";
 import type { Note, NoteAlign, NoteInkId, NoteSizeLevel, NoteTarget } from "../types";
 import { NOTE_ALIGNS, NOTE_OPACITIES, NOTE_SIZE_LEVELS, noteTargetKey } from "../lib/notes";
-import { hasItalic, NOTE_FONTS } from "../lib/note-fonts";
+import { hasItalic, SHIPPED_FONTS } from "../lib/fonts";
 import { ROTATION_STEPS } from "../lib/rotation";
 
 // The note toolbar (spec 039), shared by the page card and the four cover cards: only the
@@ -110,13 +110,13 @@ export function NoteControls({ target, notes }: NoteControlsProps) {
           title={t("note.fontTitle")}
           className={`${BTN} ${IDLE}`}
         >
-          {NOTE_FONTS.find((f) => f.id === selected.font)?.name ?? ""}
+          {SHIPPED_FONTS.find((f) => f.id === selected.font)?.name ?? ""}
         </button>
         {open === "font" && (
           <>
             {backdrop}
             <div className={POP}>
-              {NOTE_FONTS.map((f) => (
+              {SHIPPED_FONTS.map((f) => (
                 <button
                   key={f.id}
                   onClick={() => {

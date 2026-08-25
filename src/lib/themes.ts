@@ -1,3 +1,5 @@
+import { shippedFontById, type ShippedFontId } from "./fonts";
+
 // Album theme catalog (pure, framework-free), the same shape as the layout catalog
 // in src/lib/layouts.ts: a small versioned set of curated options a project picks by
 // id. Two independent axes, each a project-level choice (see src/lib/project.ts):
@@ -6,53 +8,60 @@
 //   - a COLOR theme: the album's print colors (paper + ink) plus an accent that also
 //     recolors the app chrome.
 //
-// Fonts are system-font stacks only, so the app never fetches anything and stays
-// fully offline. Print colors (paper/ink) are single fixed values because they model
-// the physical page; the accent carries a light/dark pair so the chrome stays legible
-// in either OS theme.
+// A font STYLE does not carry a font: it names a family from the shipped catalog
+// (src/lib/fonts.ts), whose file the browser and the PDF painter both read. Before spec
+// 040 these were system stacks, which a PDF cannot embed, so the export substituted
+// Times / Helvetica / Courier and three of the five styles printed identically (issue
+// #99). The app still fetches nothing: the files ship with it.
+//
+// Print colors (paper/ink) are single fixed values because they model the physical page;
+// the accent carries a light/dark pair so the chrome stays legible in either OS theme.
 
 // ---------------------------------------------------------------------------
 // Fonts
 // ---------------------------------------------------------------------------
 
-export type FontThemeId = "serif" | "sans" | "humanist" | "rounded" | "typewriter";
+export type FontThemeId =
+  | "serif"
+  | "sans"
+  | "humanist"
+  | "rounded"
+  | "typewriter"
+  | "display"
+  | "hand";
 
 export interface FontTheme {
   id: FontThemeId;
+  /** The style's own name (the voice), which is what the picker labels it with. */
   name: string;
-  /** A CSS font-family value, system fonts only (no downloads). */
-  stack: string;
+  /** The shipped family this style is set in (src/lib/fonts.ts). */
+  family: ShippedFontId;
 }
 
-// `serif` is the historical default and its stack is byte-for-byte the old
-// `font-display` family, so existing projects render unchanged.
+// The five historical ids keep their voice, now in a real file: Georgia becomes Garamond,
+// system-ui becomes Lato, Optima becomes Cabin, SF Pro Rounded becomes Quicksand, Rockwell
+// becomes Courier Prime. Ids never change, so every stored project keeps its style with no
+// migration; only the typeface it is set in does. `display` and `hand` are new (spec 040):
+// their files were already shipped for notes.
 export const FONT_THEMES: FontTheme[] = [
-  {
-    id: "serif",
-    name: "Serif",
-    stack: `Georgia, "Iowan Old Style", "Times New Roman", serif`,
-  },
-  {
-    id: "sans",
-    name: "Sans",
-    stack: `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`,
-  },
-  {
-    id: "humanist",
-    name: "Humanist",
-    stack: `Optima, Candara, "Gill Sans", "Segoe UI", sans-serif`,
-  },
-  {
-    id: "rounded",
-    name: "Rounded",
-    stack: `ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Segoe UI", system-ui, sans-serif`,
-  },
-  {
-    id: "typewriter",
-    name: "Typewriter",
-    stack: `Rockwell, "Courier New", ui-monospace, Menlo, monospace`,
-  },
+  { id: "serif", name: "Serif", family: "garamond" },
+  { id: "sans", name: "Sans", family: "lato" },
+  { id: "humanist", name: "Humanist", family: "cabin" },
+  { id: "rounded", name: "Rounded", family: "quicksand" },
+  { id: "typewriter", name: "Typewriter", family: "courier" },
+  { id: "display", name: "Display", family: "playfair" },
+  { id: "hand", name: "Handwritten", family: "caveat" },
 ];
+
+/** The CSS font-family value for an album style, from its shipped family. */
+export function fontThemeStack(theme: FontTheme): string {
+  return shippedFontById(theme.family).stack;
+}
+
+/** The real typeface a style is set in, shown under its name in the picker. */
+export function fontThemeTypeface(theme: FontTheme): string {
+  return shippedFontById(theme.family).name;
+}
 
 export const DEFAULT_FONT_THEME: FontThemeId = "serif";
 
