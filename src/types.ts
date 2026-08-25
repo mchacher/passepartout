@@ -1,6 +1,8 @@
 // Core domain types. A Photo keeps its native aspect ratio forever: the layout
 // engine only ever chooses its size and the whitespace around it, never a crop.
 
+import type { NoteFontId } from "./lib/note-fonts";
+
 // A normalized sub-rectangle of a photo's source (spec 015): the region the user chose to
 // keep, in 0..1 fractions of the source. Absent = the whole image (no crop, the default).
 export interface CropRect {
@@ -105,6 +107,9 @@ export interface AlbumPage {
   fullPage?: PageFill;
   // Crop focus for `cover` full-page mode; defaults to centered when absent.
   fullPageFocus?: CropFocus;
+  // Freely placed text notes (spec 039), painted over the laid-out photos. Absent or
+  // empty = no note; they never take part in the layout.
+  notes?: Note[];
 }
 
 // A booklet cover face: text plus one optional photo chosen from the library. The
@@ -115,6 +120,8 @@ export interface Cover {
   subtitle: string;
   photoId: string | null; // references a library Photo, or null for a text-only cover
   whitespace: number; // whitespace level 1 .. WHITESPACE_LEVELS for the cover photo
+  // Freely placed text notes (spec 039), exactly as on an interior page.
+  notes?: Note[];
 }
 
 // The book spine (the edge of the bound book). Its title normally repeats the front
@@ -160,3 +167,57 @@ export const PAGE_ASPECT: Record<PageFormat, number> = {
   landscape: 1.414, // A-series landscape
   portrait: 0.707, // A-series portrait
 };
+
+// ---------------------------------------------------------------------------
+// Notes (spec 039)
+// ---------------------------------------------------------------------------
+
+/** How a note's lines sit inside its box. */
+export type NoteAlign = "left" | "center" | "right";
+
+/** The ink a note is written in. Everything but `custom` follows the album palette. */
+export type NoteInkId = "ink" | "inkSoft" | "accent" | "paper" | "custom";
+
+/** One of the five note sizes, a fraction of the page width (see src/lib/notes.ts). */
+export type NoteSizeLevel = "xs" | "sm" | "md" | "lg" | "xl";
+
+/**
+ * A small block of text placed freely on a page or a cover face (spec 039). It belongs to
+ * the page, never to a photo: it is an OVERLAY, painted after the engine has laid the photos
+ * out. Nothing about a note enters `computeLayout`, so no photo is ever moved, resized or
+ * clipped because a note exists.
+ *
+ * Placement is normalized to the page, `x`/`y` being the box's CENTRE, so the same numbers
+ * drive the editor, the thumbnails, the book preview and the PDF at any zoom.
+ */
+export interface Note {
+  id: string;
+  /** The text, which may hold explicit line breaks. */
+  text: string;
+  x: number; // 0..1 of the page width, the box centre
+  y: number; // 0..1 of the page height, the box centre
+  w: number; // 0..1 of the page width: the width the text wraps at
+  /** Decorative tilt in degrees, the same range and steps as a photo (spec 020). */
+  rotation?: number;
+  font: NoteFontId;
+  size: NoteSizeLevel;
+  bold?: boolean;
+  italic?: boolean;
+  align: NoteAlign;
+  ink: NoteInkId;
+  /** A hex color, only meaningful when `ink` is `custom`. */
+  customInk?: string;
+  /** Uppercase with tracking, the small-caps caption treatment. */
+  caps?: boolean;
+  /** A hairline rule above or below the text; absent = none. */
+  rule?: "over" | "under";
+  /** 0.6 or 0.3; absent = fully opaque. */
+  opacity?: number;
+  /** A paper reserve behind the text, so a note stays legible over a photo. */
+  cartouche?: boolean;
+}
+
+/** Where a note lives. Never serialized: it only addresses a store action or a selection. */
+export type NoteTarget =
+  | { kind: "page"; pageId: string }
+  | { kind: "cover"; face: CoverFace };

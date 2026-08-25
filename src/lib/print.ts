@@ -20,7 +20,18 @@ import {
 import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
 import { resolveCells } from "./layouts";
 import type { FontThemeId } from "./themes";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type PageFill } from "../types";
+import type { NoteFontId } from "./note-fonts";
+import {
+  CARTOUCHE_PAD_X,
+  CARTOUCHE_PAD_Y,
+  NOTE_LINE,
+  NOTE_REF_W,
+  NOTE_TRACKING,
+  RULE_GAP,
+  RULE_WEIGHT,
+  noteFontSize,
+} from "./notes";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type Note, type NoteAlign, type NoteInkId, type PageFill } from "../types";
 
 export const PT_PER_MM = 72 / 25.4;
 export const mmToPt = (mm: number) => mm * PT_PER_MM;
@@ -59,6 +70,89 @@ export interface TextPlace {
   rot?: { deg: number; cx0: number; cy0: number };
 }
 
+/**
+ * A note ready to paint (spec 039). Everything is in points except the wrapping, which the
+ * painter does at the CANONICAL reference size: it wraps `text` to `wrapW` using `refSize`,
+ * then draws the resulting lines at `sizePt`. That is what makes the printed note break its
+ * lines at exactly the same words as the editor and the book preview, whatever the book size
+ * and whatever the zoom (see NOTE_REF_W in src/lib/notes.ts).
+ */
+export interface NotePlace {
+  text: string;
+  /** The note box's centre, in the media box's coordinate space. */
+  cx: number;
+  cy: number;
+  /** The box width in points (the paper width the wrap corresponds to). */
+  w: number;
+  sizePt: number;
+  lineHeightPt: number;
+  /** Wrapping inputs, in the canonical reference units. */
+  wrapW: number;
+  refSize: number;
+  font: NoteFontId;
+  bold: boolean;
+  italic: boolean;
+  align: NoteAlign;
+  ink: NoteInkId;
+  customInk?: string;
+  /** Uppercase plus tracking; `trackingPt` is added after every character, as CSS does. */
+  caps: boolean;
+  trackingPt: number;
+  refTrackingPt: number;
+  rule: "over" | "under" | null;
+  opacity: number;
+  cartouche: boolean;
+  padXPt: number;
+  padYPt: number;
+  ruleGapPt: number;
+  ruleWeightPt: number;
+  /** Decorative tilt in on-screen clockwise degrees, about the note's centre. */
+  rotation: number;
+}
+
+/**
+ * Place a container's notes inside its trim box. A note is an overlay: this function reads
+ * nothing from the photos and writes nothing back, so adding one cannot move a photo. An
+ * empty note prints nothing at all.
+ */
+export function notePlaces(notes: Note[] | undefined, trimBox: PtRect): NotePlace[] {
+  if (!notes || notes.length === 0) return [];
+  const out: NotePlace[] = [];
+  for (const n of notes) {
+    if (n.text.trim().length === 0) continue;
+    const sizePt = noteFontSize(n.size, trimBox.w);
+    const refSize = noteFontSize(n.size, NOTE_REF_W);
+    out.push({
+      text: n.caps ? n.text.toUpperCase() : n.text,
+      cx: trimBox.x + n.x * trimBox.w,
+      cy: trimBox.y + n.y * trimBox.h,
+      w: n.w * trimBox.w,
+      sizePt,
+      lineHeightPt: sizePt * NOTE_LINE,
+      wrapW: n.w * NOTE_REF_W,
+      refSize,
+      font: n.font,
+      bold: n.bold === true,
+      italic: n.italic === true,
+      align: n.align,
+      ink: n.ink,
+      customInk: n.customInk,
+      caps: n.caps === true,
+      trackingPt: n.caps ? NOTE_TRACKING * sizePt : 0,
+      refTrackingPt: n.caps ? NOTE_TRACKING * refSize : 0,
+      rule: n.rule ?? null,
+      opacity: n.opacity ?? 1,
+      cartouche: n.cartouche === true,
+      padXPt: n.cartouche ? CARTOUCHE_PAD_X * sizePt : 0,
+      padYPt: n.cartouche ? CARTOUCHE_PAD_Y * sizePt : 0,
+      ruleGapPt: RULE_GAP * sizePt,
+      ruleWeightPt: RULE_WEIGHT * sizePt,
+      rotation: n.rotation ?? 0,
+    });
+  }
+  return out;
+}
+
 export interface PageGeometry {
   mediaBox: PtRect; // whole page including bleed, origin (0,0)
   trimBox: PtRect; // the trim area within the media box
@@ -67,6 +161,8 @@ export interface PageGeometry {
   title: TextPlace | null;
   subtitle: TextPlace | null;
   captions: TextPlace[];
+  /** Freely placed notes (spec 039), painted over the photos. */
+  notes: NotePlace[];
 }
 
 // The interior page margin and the header band come from src/lib/page-header.ts, the one
@@ -106,6 +202,8 @@ export interface PageInput {
   focus?: CropFocus;
   /** Custom grid placement (spec 013); overrides the named template when valid. */
   placement?: CellRect[];
+  /** Freely placed notes (spec 039). */
+  notes?: Note[];
 }
 
 /** Geometry for one interior page (or an inside cover face rendered as a page). */
@@ -144,7 +242,18 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
         h: boxH,
       };
     }
-    return { mediaBox, trimBox, contentBox: { ...mediaBox }, photos: [photo], title: null, subtitle: null, captions: [] };
+    // A full-page photo has no page text, but it does carry its notes: writing across a
+    // full-bleed photo is exactly what a note is for.
+    return {
+      mediaBox,
+      trimBox,
+      contentBox: { ...mediaBox },
+      photos: [photo],
+      title: null,
+      subtitle: null,
+      captions: [],
+      notes: notePlaces(input.notes, trimBox),
+    };
   }
 
   const hasTitle = input.title.trim().length > 0;
@@ -210,7 +319,7 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     ? { text: input.subtitle.trim(), cx: centerX, y: trimBox.y + header.subtitleGlyphTop, sizePt: subtitlePt }
     : null;
 
-  return { mediaBox, trimBox, contentBox, photos, title, subtitle, captions };
+  return { mediaBox, trimBox, contentBox, photos, title, subtitle, captions, notes: notePlaces(input.notes, trimBox) };
 }
 
 /** One inside cover face, printed as a page of the interior file (issue 71). */
@@ -222,6 +331,8 @@ export interface InsideCoverPageInput {
   photo?: { photoId: string; ratio: number };
   /** Cover text multipliers: an inside face is a COVER, not a page (issue 71). */
   scales: { coverTitle: number; coverSubtitle: number };
+  /** Freely placed notes (spec 039). */
+  notes?: Note[];
 }
 
 /**
@@ -245,6 +356,7 @@ export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeomet
       subtitle: input.subtitle,
       whitespace: input.whitespace,
       photo: input.photo ?? null,
+      notes: input.notes,
     },
     trimBox,
     trimW,
@@ -270,6 +382,7 @@ export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeomet
     title: panel.title,
     subtitle: panel.subtitle,
     captions: [],
+    notes: panel.notes,
   };
 }
 
@@ -279,6 +392,8 @@ export interface CoverPanel {
   photo: PhotoBox | null;
   title: TextPlace | null;
   subtitle: TextPlace | null;
+  /** Freely placed notes on this face (spec 039). */
+  notes: NotePlace[];
 }
 
 export interface CoverGeometry {
@@ -297,6 +412,8 @@ export interface CoverFaceInput {
   subtitle: string;
   photo: { photoId: string; ratio: number } | null;
   whitespace: number;
+  /** Freely placed notes (spec 039). */
+  notes?: Note[];
 }
 
 export interface CoverWrapInput {
@@ -361,7 +478,7 @@ function coverPanel(
     }
   }
 
-  return { trimBox, photo, title, subtitle };
+  return { trimBox, photo, title, subtitle, notes: notePlaces(face.notes, trimBox) };
 }
 
 /** Geometry for the cover wrap: back (left) + spine + front (right), with bleed. */

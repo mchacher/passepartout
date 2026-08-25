@@ -47,6 +47,8 @@ export function ExportPanel() {
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
       insideCover: true,
+      // Notes travel with their face (spec 039), printed over whatever it holds.
+      notes: cover.notes,
       layoutId: "single",
       items: p
         ? [{ photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), photoRatio: effectiveRatio(p.ratio, p.crop), sourceRatio: p.ratio, url: p.url, caption: "", crop: p.crop }]
@@ -61,6 +63,7 @@ export function ExportPanel() {
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
       photo: p ? { photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), url: p.url, crop: p.crop } : null,
+      notes: cover.notes,
     };
   };
 
@@ -86,6 +89,7 @@ export function ExportPanel() {
           fullPage: pg.fullPage,
           focus: pg.fullPageFocus,
           placement: pg.placement,
+          notes: pg.notes,
           items: pg.photoIds
             .map(photoById)
             .filter((p): p is Photo => p !== undefined)

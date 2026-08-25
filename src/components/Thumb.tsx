@@ -4,7 +4,8 @@ import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { effectiveRatio, cropImgBox } from "../lib/crop";
 import { maskClipValue } from "../lib/masks";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
+import { NoteLayer } from "./NoteLayer";
 
 export interface ThumbPhoto {
   id: string;
@@ -20,6 +21,8 @@ const INSET = 0.07;
 
 interface ThumbProps {
   photos: ThumbPhoto[];
+  /** Notes placed on this page or cover face (spec 039), painted over the photos. */
+  notes?: Note[];
   layoutId: string;
   whitespace: number;
   bookSize: BookSizeId;
@@ -38,7 +41,7 @@ const NH = 100;
 // A faithful miniature of a page or cover. It reuses the pure layout engine at a
 // nominal size, so every photo is contain-fit inside its region exactly like the real
 // page: nothing is cropped or stretched. The `inset` mirrors the page's content margin.
-export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus, placement }: ThumbProps) {
+export function Thumb({ photos, notes, layoutId, whitespace, bookSize, fullPage, focus, placement }: ThumbProps) {
   const aspect = ratioOf(bookSizeOrDefault(bookSize));
   const NW = NH * aspect;
   // The rounded mask needs a constant px radius (spec 034), but the thumbnail is positioned in
@@ -72,6 +75,7 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
     const f = focus ?? DEFAULT_CROP_FOCUS;
     return (
       <div
+        ref={boxRef}
         className="relative overflow-hidden rounded-[2px] bg-paper shadow-[0_1px_2px_rgba(0,0,0,.12)]"
         style={{ aspectRatio: String(aspect) }}
       >
@@ -82,6 +86,7 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
           className={`absolute inset-0 h-full w-full ${fullPage === "cover" ? "object-cover" : "object-contain"}`}
           style={fullPage === "cover" ? { objectPosition: `${f.x * 100}% ${f.y * 100}%` } : undefined}
         />
+        <NoteLayer notes={notes} boxW={boxW} boxH={boxW / aspect} />
       </div>
     );
   }
@@ -136,6 +141,7 @@ export function Thumb({ photos, layoutId, whitespace, bookSize, fullPage, focus,
           );
         })}
       </div>
+      <NoteLayer notes={notes} boxW={boxW} boxH={boxW / aspect} />
     </div>
   );
 }

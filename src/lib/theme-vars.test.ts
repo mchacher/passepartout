@@ -22,9 +22,12 @@ describe("themeCssVars", () => {
     expect(light["--accent"]).toBe(warm.accent.light);
     expect(dark["--accent"]).toBe(warm.accent.dark);
     expect(light["--accent"]).not.toBe(dark["--accent"]);
-    // Paper and ink are print colors: identical regardless of OS mode.
+    // Paper and ink are print colors: identical regardless of OS mode. The album accent
+    // (the ink a note can be written in, spec 039) is one of them.
     expect(dark["--paper"]).toBe(light["--paper"]);
     expect(dark["--album-ink"]).toBe(light["--album-ink"]);
+    expect(dark["--album-accent"]).toBe(light["--album-accent"]);
+    expect(light["--album-accent"]).toBe(warm.accent.light);
   });
 
   it("carries the chosen font stack", () => {

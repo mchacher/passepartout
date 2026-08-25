@@ -1201,3 +1201,78 @@ describe("store project management", () => {
     expect(s.backCover).toEqual(newCover());
   });
 });
+
+describe("store notes (spec 039)", () => {
+  const twoPages = () => {
+    useAlbum.setState({
+      photos: [photo("a"), photo("b")],
+      pages: [page("p1", ["a"], "single"), page("p2", ["b"], "single")],
+      frontCover: newCover(),
+      insideFrontCover: newCover(),
+      insideBackCover: newCover(),
+      backCover: newCover(),
+    });
+  };
+  const notesOf = (pageId: string) => useAlbum.getState().pages.find((p) => p.id === pageId)!.notes;
+
+  it("adds one note at the centre of the page, with the defaults, and returns its id", () => {
+    twoPages();
+    const id = useAlbum.getState().addNote({ kind: "page", pageId: "p1" });
+    const notes = notesOf("p1")!;
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({ id, x: 0.5, y: 0.5, text: "", align: "center", ink: "ink" });
+    // The other page is untouched.
+    expect(notesOf("p2")).toBeUndefined();
+  });
+
+  it("adds a note to a cover face without touching the pages", () => {
+    twoPages();
+    const id = useAlbum.getState().addNote({ kind: "cover", face: "back" });
+    expect(useAlbum.getState().backCover.notes).toHaveLength(1);
+    expect(useAlbum.getState().backCover.notes![0].id).toBe(id);
+    expect(useAlbum.getState().frontCover.notes).toBeUndefined();
+    expect(notesOf("p1")).toBeUndefined();
+  });
+
+  it("updates only the targeted note", () => {
+    twoPages();
+    const a = useAlbum.getState().addNote({ kind: "page", pageId: "p1" });
+    const b = useAlbum.getState().addNote({ kind: "page", pageId: "p1" });
+    useAlbum.getState().updateNote({ kind: "page", pageId: "p1" }, a, { text: "hello", size: "lg" });
+    const notes = notesOf("p1")!;
+    expect(notes.find((n) => n.id === a)).toMatchObject({ text: "hello", size: "lg" });
+    expect(notes.find((n) => n.id === b)).toMatchObject({ text: "", size: "sm" });
+  });
+
+  it("clamps an update, so a note dragged off the page stays on it", () => {
+    twoPages();
+    const id = useAlbum.getState().addNote({ kind: "page", pageId: "p1" });
+    useAlbum.getState().updateNote({ kind: "page", pageId: "p1" }, id, { x: 3, y: -2, rotation: 90 });
+    const note = notesOf("p1")![0];
+    expect(note.x).toBeLessThanOrEqual(1);
+    expect(note.y).toBeGreaterThanOrEqual(0);
+    expect(note.rotation).toBe(30);
+  });
+
+  it("deletes a note from its own container only, and drops the empty array", () => {
+    twoPages();
+    const a = useAlbum.getState().addNote({ kind: "page", pageId: "p1" });
+    useAlbum.getState().addNote({ kind: "page", pageId: "p2" });
+    useAlbum.getState().deleteNote({ kind: "page", pageId: "p1" }, a);
+    expect(notesOf("p1")).toBeUndefined();
+    expect(notesOf("p2")).toHaveLength(1);
+  });
+
+  it("never touches the photo state: a note is an overlay, not a layout change", () => {
+    twoPages();
+    const before = JSON.stringify(
+      useAlbum.getState().pages.map((p) => ({ ids: p.photoIds, layout: p.layoutId, place: p.placement })),
+    );
+    const id = useAlbum.getState().addNote({ kind: "page", pageId: "p1" });
+    useAlbum.getState().updateNote({ kind: "page", pageId: "p1" }, id, { text: "x", x: 0.2, w: 0.9 });
+    const after = JSON.stringify(
+      useAlbum.getState().pages.map((p) => ({ ids: p.photoIds, layout: p.layoutId, place: p.placement })),
+    );
+    expect(after).toBe(before);
+  });
+});

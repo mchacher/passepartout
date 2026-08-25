@@ -12,6 +12,8 @@ import { PhotoDecorControls } from "./PhotoDecorControls";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf } from "../lib/book-sizes";
 import { PHOTO_DND_TYPE } from "./dnd";
+import { NoteLayer } from "./NoteLayer";
+import { NoteControls } from "./NoteControls";
 
 interface CoverCardProps {
   which: CoverFace;
@@ -43,7 +45,20 @@ export function CoverCard({ which }: CoverCardProps) {
   const photoTop = hasSubtitle ? "20cqw" : hasTitle ? "15cqw" : "6cqw";
 
   const boxRef = useRef<HTMLDivElement>(null);
+  const paperRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  // The cover sheet in pixels, so a note lands on the same fraction of the face here, in
+  // the book preview and in the PDF (spec 039).
+  const [paperBox, setPaperBox] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const el = paperRef.current;
+    if (!el) return;
+    const measurePaper = () => setPaperBox({ w: el.clientWidth, h: el.clientHeight });
+    measurePaper();
+    const ro = new ResizeObserver(measurePaper);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const measure = useCallback(() => {
     const el = boxRef.current;
@@ -90,6 +105,11 @@ export function CoverCard({ which }: CoverCardProps) {
         <span className="mr-auto text-[11px] text-muted">{t("cover.dragHint")}</span>
         {/* Mask + frame for the cover photo (spec 054), the same controls as a page photo. */}
         {photo && <PhotoDecorControls photo={photo} apply={(fn) => fn(photo.id)} />}
+        {/* Notes (spec 039): a cover face carries them exactly like an interior page. */}
+        <NoteControls
+          target={{ kind: "cover", face: which }}
+          notes={cover.notes}
+        />
         <label
           className="flex items-center gap-2 text-[11px] text-muted"
           title={t("page.whitespaceTitle", { n: cover.whitespace, total: WHITESPACE_LEVELS })}
@@ -118,6 +138,7 @@ export function CoverCard({ which }: CoverCardProps) {
 
       <div className="paper-hatch p-[22px]">
         <div
+          ref={paperRef}
           className="group relative overflow-hidden rounded-sm border border-line bg-paper shadow-paper transition-shadow"
           style={{
             aspectRatio: String(aspect),
@@ -175,6 +196,13 @@ export function CoverCard({ which }: CoverCardProps) {
               </div>
             )}
           </div>
+
+          <NoteLayer
+            notes={cover.notes}
+            boxW={paperBox.w}
+            boxH={paperBox.h}
+            target={{ kind: "cover", face: which }}
+          />
         </div>
       </div>
     </div>

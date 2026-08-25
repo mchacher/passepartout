@@ -7,6 +7,8 @@
 
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+import { allNoteFaces, noteFontFace, type NoteFontId } from "./note-fonts";
+import { measureTracked, noteInk, wrapLines, type NotePalette } from "./notes";
 import { type BookSize } from "./book-sizes";
 import { colorThemeOrDefault, type ColorThemeId, type FontThemeId } from "./themes";
 import { type TextSizes } from "./text-sizes";
@@ -15,13 +17,16 @@ import { maskById } from "./masks";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "./frames";
 import { winAnsiSafe } from "./winansi";
 import handFontUrl from "../assets/Caveat.ttf?url";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
 import {
   coverWrapGeometry,
   fontFamilyForTheme,
   insideCoverPageGeometry,
   interiorPageGeometry,
   type CoverFaceInput,
+  mmToPt,
+  notePlaces,
+  type NotePlace,
   type PageGeometry,
   type PhotoBox,
   type PtRect,
@@ -40,6 +45,8 @@ export interface ExportPageLike {
    * editor and the book preview draw it, instead of as an ordinary interior page.
    */
   insideCover?: boolean;
+  /** Freely placed notes on this page or inside cover face (spec 039). */
+  notes?: Note[];
   layoutId: string;
   items: {
     photoId: string;
@@ -72,6 +79,8 @@ export interface ExportCoverFace {
   subtitle: string;
   whitespace: number;
   photo: { photoId: string; ratio: number; url: string; crop?: CropRect } | null;
+  /** Freely placed notes on this face (spec 039). */
+  notes?: Note[];
 }
 
 export interface ExportProject {
@@ -322,6 +331,158 @@ async function drawPhoto(ctx: Ctx, box: PhotoBox, url: string, crop?: CropRect, 
   ctx.page.drawImage(img, { x: p.x, y: p.y, width: box.w, height: box.h, rotate: p.rotate });
 }
 
+
+// ---------------------------------------------------------------------------
+// Notes (spec 039)
+// ---------------------------------------------------------------------------
+
+/** A key identifying one shipped note face inside a document's embedded-font cache. */
+const faceKey = (font: NoteFontId, bold: boolean, italic: boolean) =>
+  `${font}:${noteFontFace(font, { bold, italic }).assetUrl}`;
+
+/**
+ * Embed, once per document, only the note faces a project actually uses. The bytes come
+ * from the very file the browser rendered with, which is what makes the printed note
+ * identical to the previewed one, line breaks included (see src/lib/note-fonts.ts).
+ */
+async function embedNoteFaces(doc: PDFDocument, places: NotePlace[]): Promise<Map<string, PDFFont>> {
+  const out = new Map<string, PDFFont>();
+  const wanted = new Set(places.map((p) => faceKey(p.font, p.bold, p.italic)));
+  if (wanted.size === 0) return out;
+  doc.registerFontkit(fontkit);
+  for (const { font } of allNoteFaces()) {
+    for (const [bold, italic] of [[false, false], [true, false], [false, true], [true, true]] as const) {
+      const k = faceKey(font.id, bold, italic);
+      if (!wanted.has(k) || out.has(k)) continue;
+      const face = noteFontFace(font.id, { bold, italic });
+      try {
+        const bytes = await fetch(face.assetUrl).then((r) => r.arrayBuffer());
+        out.set(k, await doc.embedFont(bytes, { subset: true }));
+      } catch {
+        /* a face that cannot be fetched simply leaves its notes unpainted */
+      }
+    }
+  }
+  return out;
+}
+
+/** The album colors a note's ink resolves against, as hex, for the pure `noteInk`. */
+function notePalette(colorTheme: ColorThemeId): NotePalette {
+  const c = colorThemeOrDefault(colorTheme);
+  return { ink: c.ink, inkSoft: c.inkSoft, accent: c.accent.light, paper: c.paper };
+}
+
+/**
+ * Paint one note. The lines are wrapped at the canonical reference size with the embedded
+ * font's own metrics, then drawn at the page size, so the break points are the ones the
+ * editor showed. Tracking is applied character by character because pdf-lib has no letter
+ * spacing, mirroring what CSS does (a trailing space after the last character included).
+ */
+function drawNote(ctx: Ctx, place: NotePlace, font: PDFFont, palette: NotePalette) {
+  const refMeasure = (t: string) => {
+    try {
+      return font.widthOfTextAtSize(t, place.refSize);
+    } catch {
+      return t.length * place.refSize * 0.5;
+    }
+  };
+  const lines = wrapLines(place.text, place.wrapW, (t) => measureTracked(t, refMeasure, place.refTrackingPt));
+  if (lines.length === 0) return;
+
+  const measure = (t: string) => {
+    try {
+      return font.widthOfTextAtSize(t, place.sizePt);
+    } catch {
+      return t.length * place.sizePt * 0.5;
+    }
+  };
+
+  const textH = lines.length * place.lineHeightPt;
+  const ruleH = place.rule ? place.ruleGapPt + place.ruleWeightPt : 0;
+  const boxH = textH + 2 * place.padYPt + ruleH;
+  const left = place.cx - place.w / 2;
+  const top = place.cy - boxH / 2;
+  const rot = place.rotation ? { deg: place.rotation, cx: place.cx, cy: place.cy } : undefined;
+  const [r, g, b] = hexToRgb(noteInk(place.ink, place.customInk, palette));
+  const color = rgb(r, g, b);
+
+  // The paper reserve first, so the text sits on it (spec 039).
+  if (place.cartouche) {
+    const [pr, pg, pb] = hexToRgb(palette.paper);
+    const p = placeRotated(left, top, boxH, ctx.mediaH, rot);
+    ctx.page.drawRectangle({
+      x: p.x,
+      y: p.y,
+      width: place.w,
+      height: boxH,
+      color: rgb(pr, pg, pb),
+      opacity: place.opacity,
+      rotate: p.rotate,
+    });
+  }
+
+  const textTop = top + place.padYPt + (place.rule === "over" ? ruleH : 0);
+  const innerLeft = left + place.padXPt;
+  const innerW = place.w - 2 * place.padXPt;
+
+  if (place.rule) {
+    const ruleY = place.rule === "over" ? top + place.padYPt : top + boxH - place.padYPt - place.ruleWeightPt;
+    const p = placeRotated(left, ruleY, place.ruleWeightPt, ctx.mediaH, rot);
+    ctx.page.drawRectangle({
+      x: p.x,
+      y: p.y,
+      width: place.w,
+      height: place.ruleWeightPt,
+      color,
+      opacity: place.opacity,
+      rotate: p.rotate,
+    });
+  }
+
+  lines.forEach((line, i) => {
+    if (!line) return;
+    const lineW = measureTracked(line, measure, place.trackingPt);
+    const x =
+      place.align === "left"
+        ? innerLeft
+        : place.align === "right"
+          ? innerLeft + innerW - lineW
+          : innerLeft + (innerW - lineW) / 2;
+    // Mirror the browser's half-leading so the baselines land where the editor drew them.
+    const glyphTop = textTop + i * place.lineHeightPt + (place.lineHeightPt - place.sizePt) / 2;
+    const baseline = glyphTop + place.sizePt * 0.8;
+    const opts = { size: place.sizePt, font, color, opacity: place.opacity };
+    if (place.trackingPt > 0) {
+      // Character by character, because pdf-lib cannot letter-space a run.
+      let cursor = x;
+      for (const ch of line) {
+        const a = pointRotated(cursor, baseline, ctx.mediaH, rot);
+        try {
+          ctx.page.drawText(ch, { ...opts, x: a.x, y: a.y, rotate: a.rotate });
+        } catch {
+          /* skip an unsupported glyph rather than fail the export */
+        }
+        cursor += measure(ch) + place.trackingPt;
+      }
+      return;
+    }
+    const a = pointRotated(x, baseline, ctx.mediaH, rot);
+    try {
+      ctx.page.drawText(line, { ...opts, x: a.x, y: a.y, rotate: a.rotate });
+    } catch {
+      /* skip an unsupported glyph run rather than fail the whole export */
+    }
+  });
+}
+
+/** Paint every note of a page or a cover face, over whatever is already drawn. */
+function drawNotes(ctx: Ctx, places: NotePlace[], faces: Map<string, PDFFont>, palette: NotePalette) {
+  for (const place of places) {
+    const font = faces.get(faceKey(place.font, place.bold, place.italic));
+    if (font) drawNote(ctx, place, font, palette);
+  }
+}
+
 function fillPaper(ctx: Ctx, rect: PtRect) {
   ctx.page.drawRectangle({
     x: rect.x,
@@ -335,7 +496,7 @@ function fillPaper(ctx: Ctx, rect: PtRect) {
 const standardFont = (family: "serif" | "sans" | "mono") =>
   family === "serif" ? StandardFonts.TimesRoman : family === "mono" ? StandardFonts.Courier : StandardFonts.Helvetica;
 
-async function paintInteriorPage(doc: PDFDocument, font: PDFFont, hand: PDFFont, palette: Palette, p: ExportProject, pageLike: ExportPageLike) {
+async function paintInteriorPage(doc: PDFDocument, font: PDFFont, hand: PDFFont, palette: Palette, p: ExportProject, pageLike: ExportPageLike, noteFaces: Map<string, PDFFont>) {
   const first = pageLike.items[0];
   const g: PageGeometry = pageLike.insideCover
     ? insideCoverPageGeometry({
@@ -348,6 +509,7 @@ async function paintInteriorPage(doc: PDFDocument, font: PDFFont, hand: PDFFont,
           coverTitle: sizeScale(p.textSizes.coverTitle),
           coverSubtitle: sizeScale(p.textSizes.coverSubtitle),
         },
+        notes: pageLike.notes,
       })
     : interiorPageGeometry({
         size: p.size,
@@ -364,6 +526,7 @@ async function paintInteriorPage(doc: PDFDocument, font: PDFFont, hand: PDFFont,
         fullPage: pageLike.fullPage,
         focus: pageLike.focus,
         placement: pageLike.placement,
+        notes: pageLike.notes,
       });
   const page = doc.addPage([g.mediaBox.w, g.mediaBox.h]);
   page.setTrimBox(g.trimBox.x, g.mediaBox.h - g.trimBox.y - g.trimBox.h, g.trimBox.w, g.trimBox.h);
@@ -388,6 +551,8 @@ async function paintInteriorPage(doc: PDFDocument, font: PDFFont, hand: PDFFont,
   if (g.title) drawCenteredText(ctx, g.title, palette.ink);
   if (g.subtitle) drawCenteredText(ctx, g.subtitle, palette.inkSoft);
   for (const cap of g.captions) drawCenteredText(ctx, cap, palette.inkSoft);
+  // Notes last: they are an overlay, painted over the photos and the page text (spec 039).
+  drawNotes(ctx, g.notes, noteFaces, notePalette(p.colorTheme));
 }
 
 // The text-size levels are multipliers; mirror src/lib/text-sizes.ts SIZE_SCALE.
@@ -404,8 +569,15 @@ export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
   const handBytes = await fetch(handFontUrl).then((r) => r.arrayBuffer());
   const hand = await doc.embedFont(handBytes, { subset: true });
   const palette = paletteOf(p.colorTheme);
+  // Only the note faces this project actually uses are embedded, once for the document.
+  const noteFaces = await embedNoteFaces(
+    doc,
+    p.interior.flatMap((pl) =>
+      notePlaces(pl.notes, { x: 0, y: 0, w: mmToPt(p.size.widthMm), h: mmToPt(p.size.heightMm) }),
+    ),
+  );
   for (const pageLike of p.interior) {
-    await paintInteriorPage(doc, font, hand, palette, p, pageLike);
+    await paintInteriorPage(doc, font, hand, palette, p, pageLike, noteFaces);
   }
   return doc.save();
 }
@@ -421,6 +593,7 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
     subtitle: f.subtitle,
     whitespace: f.whitespace,
     photo: f.photo ? { photoId: f.photo.photoId, ratio: f.photo.ratio } : null,
+    notes: f.notes,
   });
 
   const g = coverWrapGeometry({
@@ -438,6 +611,9 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
   const ctx: Ctx = { page, mediaH: g.mediaBox.h, font, palette };
   fillPaper(ctx, g.mediaBox);
 
+  const noteFaces = await embedNoteFaces(doc, [...g.back.notes, ...g.front.notes]);
+  const inks = notePalette(p.colorTheme);
+
   for (const [panel, face] of [
     [g.back, p.back.photo],
     [g.front, p.front.photo],
@@ -445,6 +621,7 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
     if (panel.photo && face?.url) await drawPhoto(ctx, panel.photo, face.url, face.crop);
     if (panel.title) drawCenteredText(ctx, panel.title, palette.ink);
     if (panel.subtitle) drawCenteredText(ctx, panel.subtitle, palette.inkSoft);
+    drawNotes(ctx, panel.notes, noteFaces, inks);
   }
 
   // Spine text: each line rotated 90 deg so it runs along the spine, centered.

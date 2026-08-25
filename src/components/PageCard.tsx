@@ -9,6 +9,7 @@ import { Paper, type PaperHandle, type PaperSelection } from "./Paper";
 import { CropEditor } from "./CropEditor";
 import { LayoutThumb } from "./LayoutThumb";
 import { PhotoDecorControls } from "./PhotoDecorControls";
+import { NoteControls } from "./NoteControls";
 import { ROTATION_STEPS } from "../lib/rotation";
 
 interface PageCardProps {
@@ -286,6 +287,12 @@ export function PageCard({ page, index }: PageCardProps) {
           )
         ) : (
         <>
+        {/* Notes (spec 039): add one, or drive the selected one. Not offered while the page
+            is being arranged, where the surface belongs to the photos. */}
+        <NoteControls
+          target={{ kind: "page", pageId: page.id }}
+          notes={page.notes}
+        />
         {layouts.length > 1 && (
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted">{t("page.layout")}</span>

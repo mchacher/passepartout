@@ -177,6 +177,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           subtitle={cover.subtitle}
           whitespace={cover.whitespace}
           photo={coverPreviewPhoto(cover)}
+          notes={cover.notes}
         />
       );
     };
@@ -222,6 +223,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           fullPage={page.fullPage}
           focus={page.fullPageFocus}
           placement={page.placement}
+          notes={page.notes}
         />
       );
     }
@@ -237,6 +239,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
         subtitle={cover.subtitle}
         whitespace={cover.whitespace}
         photo={coverPreviewPhoto(cover)}
+        notes={cover.notes}
       />
     );
   };
@@ -334,11 +337,11 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
               <div className={`overflow-hidden rounded-[3px] ${isWrap ? "ring-2 ring-accent" : "ring-1 ring-white/10"}`}>
                 <div className="flex items-stretch">
                   <div className="flex-1">
-                    <Thumb photos={coverThumbPhotos(backCover)} layoutId="single" whitespace={backCover.whitespace} bookSize={bookSize} />
+                    <Thumb photos={coverThumbPhotos(backCover)} notes={backCover.notes} layoutId="single" whitespace={backCover.whitespace} bookSize={bookSize} />
                   </div>
                   <div className="w-[3px] shrink-0 bg-black/20" />
                   <div className="flex-1">
-                    <Thumb photos={coverThumbPhotos(frontCover)} layoutId="single" whitespace={frontCover.whitespace} bookSize={bookSize} />
+                    <Thumb photos={coverThumbPhotos(frontCover)} notes={frontCover.notes} layoutId="single" whitespace={frontCover.whitespace} bookSize={bookSize} />
                   </div>
                 </div>
               </div>
@@ -351,12 +354,12 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
                   ? (() => {
                       const page = pages.find((p) => p.id === leaf.pageId);
                       return page ? (
-                        <Thumb photos={pageThumbPhotos(page.photoIds)} layoutId={page.layoutId} whitespace={page.whitespace} bookSize={bookSize} fullPage={page.fullPage} focus={page.fullPageFocus} placement={page.placement} />
+                        <Thumb photos={pageThumbPhotos(page.photoIds)} notes={page.notes} layoutId={page.layoutId} whitespace={page.whitespace} bookSize={bookSize} fullPage={page.fullPage} focus={page.fullPageFocus} placement={page.placement} />
                       ) : null;
                     })()
                   : (() => {
                       const cover = covers[leaf.face];
-                      return <Thumb photos={coverThumbPhotos(cover)} layoutId="single" whitespace={cover.whitespace} bookSize={bookSize} />;
+                      return <Thumb photos={coverThumbPhotos(cover)} notes={cover.notes} layoutId="single" whitespace={cover.whitespace} bookSize={bookSize} />;
                     })();
               return (
                 <button

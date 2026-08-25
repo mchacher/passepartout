@@ -20,7 +20,9 @@ import { SIZE_SCALE } from "../lib/text-sizes";
 import { useAlbum } from "../store";
 import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect,
+  type Note, type PageFill } from "../types";
+import { NoteLayer } from "./NoteLayer";
 
 // A read-only, faithful render of one book leaf (a page or a cover face) at an exact
 // pixel width, for the in-app book preview (spec 011). It reuses the pure layout engine
@@ -52,6 +54,8 @@ const MARGIN = PAGE_MARGIN;
 
 interface PagePreviewProps {
   kind: "page";
+  /** Notes placed on this leaf (spec 039); read only here, like everything else. */
+  notes?: Note[];
   pageW: number;
   bookSize: BookSizeId;
   title: string;
@@ -66,6 +70,7 @@ interface PagePreviewProps {
 
 interface CoverPreviewProps {
   kind: "cover";
+  notes?: Note[];
   pageW: number;
   bookSize: BookSizeId;
   title: string;
@@ -86,6 +91,8 @@ export function PreviewPaper(props: PreviewPaperProps) {
       style={{ width: props.pageW, height: pageH, containerType: "inline-size" }}
     >
       {props.kind === "page" ? <PageLeaf {...props} w={props.pageW} h={pageH} /> : <CoverLeaf {...props} w={props.pageW} h={pageH} />}
+      {/* Notes sit over whatever the leaf holds (spec 039), read only in the preview. */}
+      <NoteLayer notes={props.notes} boxW={props.pageW} boxH={pageH} />
     </div>
   );
 }
