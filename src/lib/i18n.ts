@@ -249,6 +249,7 @@ const en: Record<string, string> = {
   "export.building": "Building...",
   "export.coverWrap": "Cover wrap",
   "export.interior": "Interior",
+  "export.failed": "The PDF could not be built. Reload the page and try again.",
   "export.footer": "300 DPI, sRGB, 0.32 cm bleed. Upload both files to Blurb PDF to Book (cover and pages).",
 
   // Book preview
@@ -367,6 +368,8 @@ const en: Record<string, string> = {
   "font.humanist": "Humanist",
   "font.rounded": "Rounded",
   "font.typewriter": "Typewriter",
+  "font.display": "Display",
+  "font.hand": "Handwritten",
 
   // Catalog: colors
   "color.classic": "Classic",
@@ -652,6 +655,7 @@ const fr: Record<string, string> = {
   "export.building": "Génération...",
   "export.coverWrap": "Couverture complète",
   "export.interior": "Intérieur",
+  "export.failed": "Le PDF n'a pas pu être fabriqué. Rechargez la page et réessayez.",
   "export.footer": "300 DPI, sRGB, fond perdu 0,32 cm. Envoyez les deux fichiers à Blurb PDF to Book (couverture et pages).",
 
   // Book preview
@@ -770,6 +774,8 @@ const fr: Record<string, string> = {
   "font.humanist": "Humaniste",
   "font.rounded": "Arrondie",
   "font.typewriter": "Machine à écrire",
+  "font.display": "Affiche",
+  "font.hand": "Manuscrite",
 
   // Catalog: colors
   "color.classic": "Classique",

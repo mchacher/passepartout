@@ -9,7 +9,7 @@
 // land on the same spot at any zoom and at print resolution.
 
 import { clampRotation } from "./rotation";
-import { DEFAULT_NOTE_FONT, noteFontById } from "./note-fonts";
+import { DEFAULT_SHIPPED_FONT, shippedFontById } from "./fonts";
 import type { Note, NoteAlign, NoteInkId, NoteSizeLevel, NoteTarget } from "../types";
 
 /**
@@ -209,7 +209,7 @@ export function newNote(id: string, patch: Partial<Note> = {}): Note {
     x: 0.5,
     y: 0.5,
     w: DEFAULT_NOTE_W,
-    font: DEFAULT_NOTE_FONT,
+    font: DEFAULT_SHIPPED_FONT,
     size: DEFAULT_NOTE_SIZE,
     align: "center",
     ink: "ink",
@@ -242,7 +242,7 @@ export function coerceNotes(value: unknown): Note[] {
       x: finite(raw.x, 0.5),
       y: finite(raw.y, 0.5),
       w: finite(raw.w, DEFAULT_NOTE_W),
-      font: noteFontById(raw.font as string).id,
+      font: shippedFontById(raw.font as string).id,
       size,
       align,
       ink,

@@ -48,7 +48,7 @@ src/
 │   ├── grid-edit.ts    # PURE move/resize/restack helpers for free placement (spec 013 Phase B)
 │   ├── crop.ts         # PURE photo-crop geometry: effectiveRatio, crop-rect edit, cropImgBox (spec 015)
 │   ├── notes.ts        # PURE note geometry + line breaker (spec 039): sizes, wrapLines, clamp, snap, ink
-│   ├── note-fonts.ts   # PURE catalog of the six SHIPPED note faces (screen + PDF read the same file)
+│   ├── fonts.ts        # PURE catalog of the seven SHIPPED families (screen + PDF read the same file)
 │   ├── i18n.ts         # PURE UI translation catalog (en + fr) + translate/plural/detectLang (spec 032)
 │   └── demo.ts         # Canvas-generated sample photos (with blobs, for persistence)
 ├── noteMeasure.ts      # IMPURE canvas text measurement for notes (the callback wrapLines takes)
@@ -157,7 +157,10 @@ Three hard boundaries:
   `photoId` whose photo is gone.
 - **Album theme** (`src/lib/themes.ts`): two project-level choices, `fontTheme` and
   `colorTheme`, each an id into a small curated catalog (like the layout catalog). A
-  `FontTheme` is a system-font stack (offline, no downloads) applied to album text; a
+  `FontTheme` names a family from the SHIPPED catalog (`src/lib/fonts.ts`, spec 040) rather
+  than carrying a system stack, which is what lets the export embed it: before that, an album
+  set in Georgia printed in Times and three of the five styles collapsed onto Helvetica
+  (issue #99). Seven styles, ids unchanged, so no project needed migrating; a
   `ColorTheme` carries the album's fixed print colors (`paper`, `ink`, `inkSoft`) plus
   an `accent` (light/dark pair) that also recolors the app chrome. `fontThemeOrDefault`
   / `colorThemeOrDefault` default an unknown or pre-theme id, exactly like
@@ -300,9 +303,13 @@ Dragging whitespace never re-groups photos.
   action, and a control in `PageCard.tsx`. Keep it per-page unless it is truly global.
 - **A new book size**: add a `BookSize` (real trim mm + orientation) to `BOOK_SIZES` in
   `src/lib/book-sizes.ts`; `SizeMenu` and every ratio consumer pick it up for free.
-- **A new album font or color palette**: add a `FontTheme` / `ColorTheme` (with a stable
-  new id) to the catalog in `src/lib/themes.ts`. `ThemeMenu`, `theme-vars.ts` and
-  `useApplyTheme` pick it up for free; no engine or store change.
+- **A new album font or color palette**: for a colour, add a `ColorTheme` with a stable new
+  id to `src/lib/themes.ts`. For a font, first add the family to `SHIPPED_FONTS`
+  (`src/lib/fonts.ts`) with its `.ttf` per face plus its licence in `src/assets/fonts/` and
+  its `@font-face` declarations in `src/index.css`, then add a `FontTheme` naming it. Never
+  point an album style at a system stack: the PDF cannot embed one, and the printed album
+  would stop matching the preview (issue #99). `ThemeMenu`, `theme-vars.ts` and
+  `useApplyTheme` pick either up for free; no engine or store change.
 - **Free placement** (shipped, spec 013 Phase B): a per-page "Edit layout" mode turns `Paper`
   into an editor. It is entered by clicking a photo on a page whose every slot is filled
   (spec 038, `lib/arrange.ts` gates it), and left with Escape, a click outside the page card
@@ -324,13 +331,12 @@ Dragging whitespace never re-groups photos.
 - **Notes** (shipped, spec 039): the geometry is pure (`src/lib/notes.ts`) and the renderer is
   single (`NoteLayer.tsx`, read only unless given a `NoteTarget`), so a new surface only has to
   pass its notes and its page box in pixels. Two rules make the printed note the previewed one:
-  every family is a **shipped font file** that both `@font-face` and the PDF painter read (the
-  album's own fonts are still substituted at print, see issue #99), and wrapping always happens
+  every family is a **shipped font file** that both `@font-face` and the PDF painter read (since
+  spec 040 the album's own text works the same way), and wrapping always happens
   at the canonical `NOTE_REF_W` with kerning and ligatures off, because pdf-lib neither measures
   nor draws kerned text. **A new treatment**: add the field to `Note`, render it in `NoteLayer`,
   mirror it in `notePlaces` (`print.ts`) and in `drawNote` (`pdf-export.ts`), and coerce it in
-  `coerceNotes`. **A new note font**: add a family to `NOTE_FONTS` with its `.ttf` per face plus
-  its licence in `src/assets/fonts/`, and declare the faces in `src/index.css`.
+  `coerceNotes`. **A new font**: see the album font extension point above; the catalog is shared.
 - **Internationalization** (shipped, spec 032): UI chrome is translated, not album content. Every
   user-facing string goes through `t("key")` from the `useT()` hook, keyed into the pure `en`/`fr`
   catalog in `src/lib/i18n.ts` (a parity test enforces both languages carry every key; catalog

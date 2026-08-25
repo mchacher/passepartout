@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { themeCssVars } from "./theme-vars";
-import { colorThemeOrDefault, fontThemeOrDefault } from "./themes";
+import { colorThemeOrDefault, fontThemeOrDefault, fontThemeStack } from "./themes";
 
 const classic = colorThemeOrDefault("classic");
 const warm = colorThemeOrDefault("warm");
@@ -13,7 +13,7 @@ describe("themeCssVars", () => {
     expect(vars["--album-ink"]).toBe("#1C2226");
     expect(vars["--album-ink-soft"]).toBe("#4A5157");
     expect(vars["--accent"]).toBe(classic.accent.light);
-    expect(vars["--album-font"]).toBe(serif.stack);
+    expect(vars["--album-font"]).toBe(fontThemeStack(serif));
   });
 
   it("switches only the accent between light and dark, print colors stay fixed", () => {
@@ -30,8 +30,10 @@ describe("themeCssVars", () => {
     expect(light["--album-accent"]).toBe(warm.accent.light);
   });
 
-  it("carries the chosen font stack", () => {
+  it("carries the chosen style's shipped font stack", () => {
     const sans = fontThemeOrDefault("sans");
-    expect(themeCssVars(classic, sans, "light")["--album-font"]).toBe(sans.stack);
+    expect(themeCssVars(classic, sans, "light")["--album-font"]).toBe(fontThemeStack(sans));
+    // A shipped family, not a system stack: this is what the PDF can embed (spec 040).
+    expect(themeCssVars(classic, sans, "light")["--album-font"]).toContain("Lato");
   });
 });

@@ -5,9 +5,9 @@
 // vector text. Produces two files matching Blurb's split: an interior PDF (inside
 // front, pages, inside back) and a cover-wrap PDF (back + spine + front).
 
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import { allNoteFaces, noteFontFace, type NoteFontId } from "./note-fonts";
+import { shippedFontFace, supportedText, type ShippedFontId } from "./fonts";
 import { measureTracked, noteInk, wrapLines, type NotePalette } from "./notes";
 import { type BookSize } from "./book-sizes";
 import { colorThemeOrDefault, type ColorThemeId, type FontThemeId } from "./themes";
@@ -15,12 +15,10 @@ import { type TextSizes } from "./text-sizes";
 import { coverSourceRect } from "./fit";
 import { maskById } from "./masks";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "./frames";
-import { winAnsiSafe } from "./winansi";
-import handFontUrl from "../assets/Caveat.ttf?url";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
 import {
   coverWrapGeometry,
-  fontFamilyForTheme,
+  albumFontFamily,
   insideCoverPageGeometry,
   interiorPageGeometry,
   type CoverFaceInput,
@@ -177,13 +175,24 @@ async function photoJpegBytes(
   return { bytes: new Uint8Array(await blob.arrayBuffer()), png: !!shape };
 }
 
+/**
+ * An embedded face: the pdf-lib font to draw with, and what it can actually draw. The
+ * coverage predicate comes from the same bytes, because a TrueType face paints an unmapped
+ * code point as a visible .notdef box instead of failing (see `supportedText`).
+ */
+interface Face {
+  pdf: PDFFont;
+  has: (codePoint: number) => boolean;
+}
+
 interface Ctx {
   page: PDFPage;
   mediaH: number;
-  font: PDFFont;
+  font: Face;
   palette: Palette;
-  // Handwriting font for a frame's note (spec 019); absent on the cover wrap (no frames).
-  hand?: PDFFont;
+  // Handwriting font for a frame's note (spec 019); absent on the cover wrap (no frames),
+  // and absent too if its file could not be read, which must not stop the rest of the book.
+  hand?: Face;
 }
 
 // A decorative tilt (spec 020): draw everything rotated about a center point (in top-left
@@ -266,7 +275,7 @@ async function drawFramedPhoto(
     await drawPhoto(ctx, { photoId: box.photoId, x: box.x + inner.x + (inner.w - pw) / 2, y: box.y + inner.y + (inner.h - ph) / 2, w: pw, h: ph }, url, item.crop, item.mask, rot);
   }
   // Handwritten note in the bottom band.
-  const note = (item.frameText ?? "").trim();
+  const note = supportedText((item.frameText ?? "").trim(), ctx.hand?.has ?? (() => false));
   if (style.hasText && note && ctx.hand) {
     const bandTop = box.y + inner.y + inner.h;
     const bandH = box.h - (inner.y + inner.h);
@@ -274,7 +283,7 @@ async function drawFramedPhoto(
     const ink = hexToRgb(color.ink);
     let width: number;
     try {
-      width = ctx.hand.widthOfTextAtSize(note, size);
+      width = ctx.hand.pdf.widthOfTextAtSize(note, size);
     } catch {
       return;
     }
@@ -284,7 +293,7 @@ async function drawFramedPhoto(
         x: np.x,
         y: np.y,
         size,
-        font: ctx.hand,
+        font: ctx.hand.pdf,
         color: rgb(ink[0], ink[1], ink[2]),
         rotate: np.rotate,
       });
@@ -297,11 +306,14 @@ async function drawFramedPhoto(
 // Draw text centered on cx with its top at y (top-left space), flipping to pdf's
 // bottom-left origin. Silently skips text that cannot be encoded.
 function drawCenteredText(ctx: Ctx, place: TextPlace, color: [number, number, number]) {
-  const text = winAnsiSafe(place.text);
+  // The album font is an embedded TrueType face since spec 040, so the repertoire is the
+  // face's own rather than CP1252: far wider, but not unlimited, and an unmapped code point
+  // would paint a .notdef box. Drop those, the way the WinAnsi filter used to (issue 75).
+  const text = supportedText(place.text, ctx.font.has);
   if (!text) return;
   let width: number;
   try {
-    width = ctx.font.widthOfTextAtSize(text, place.sizePt);
+    width = ctx.font.pdf.widthOfTextAtSize(text, place.sizePt);
   } catch {
     return;
   }
@@ -314,7 +326,7 @@ function drawCenteredText(ctx: Ctx, place: TextPlace, color: [number, number, nu
       x: anchor.x,
       y: anchor.y,
       size: place.sizePt,
-      font: ctx.font,
+      font: ctx.font.pdf,
       color: rgb(color[0], color[1], color[2]),
       rotate: anchor.rotate,
     });
@@ -336,34 +348,64 @@ async function drawPhoto(ctx: Ctx, box: PhotoBox, url: string, crop?: CropRect, 
 // Notes (spec 039)
 // ---------------------------------------------------------------------------
 
-/** A key identifying one shipped note face inside a document's embedded-font cache. */
-const faceKey = (font: NoteFontId, bold: boolean, italic: boolean) =>
-  `${font}:${noteFontFace(font, { bold, italic }).assetUrl}`;
+/**
+ * The export could not be built. Thrown rather than returning a page-less document: such a
+ * file downloads and opens as a valid, empty PDF, which reads as "it worked" (`BundleError`
+ * in src/lib/bundle.ts is the same contract for the project bundle).
+ */
+export class ExportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ExportError";
+  }
+}
+
+/** A key identifying one shipped face inside a document's embedded-font cache. */
+const faceKey = (font: ShippedFontId, bold: boolean, italic: boolean) =>
+  `${font}:${shippedFontFace(font, { bold, italic }).assetUrl}`;
 
 /**
- * Embed, once per document, only the note faces a project actually uses. The bytes come
- * from the very file the browser rendered with, which is what makes the printed note
- * identical to the previewed one, line breaks included (see src/lib/note-fonts.ts).
+ * Embed one shipped face into a document, once, and cache it. The bytes come from the very
+ * file the browser rendered with, which is what makes the printed text identical to the
+ * previewed text, line breaks included (see src/lib/fonts.ts). This replaced the three
+ * standard PDF families the album text used to be substituted with (issue #99), and it is
+ * the same path a note face takes (spec 039), so a note and the album share one embedding
+ * when they are set in the same family.
  */
-async function embedNoteFaces(doc: PDFDocument, places: NotePlace[]): Promise<Map<string, PDFFont>> {
-  const out = new Map<string, PDFFont>();
-  const wanted = new Set(places.map((p) => faceKey(p.font, p.bold, p.italic)));
-  if (wanted.size === 0) return out;
-  doc.registerFontkit(fontkit);
-  for (const { font } of allNoteFaces()) {
-    for (const [bold, italic] of [[false, false], [true, false], [false, true], [true, true]] as const) {
-      const k = faceKey(font.id, bold, italic);
-      if (!wanted.has(k) || out.has(k)) continue;
-      const face = noteFontFace(font.id, { bold, italic });
-      try {
-        const bytes = await fetch(face.assetUrl).then((r) => r.arrayBuffer());
-        out.set(k, await doc.embedFont(bytes, { subset: true }));
-      } catch {
-        /* a face that cannot be fetched simply leaves its notes unpainted */
-      }
-    }
+async function embedFace(
+  doc: PDFDocument,
+  cache: Map<string, Face>,
+  font: ShippedFontId,
+  opts: { bold?: boolean; italic?: boolean } = {},
+): Promise<Face | undefined> {
+  const key = faceKey(font, opts.bold === true, opts.italic === true);
+  const hit = cache.get(key);
+  if (hit) return hit;
+  try {
+    const buffer = await fetch(shippedFontFace(font, opts).assetUrl).then((r) => r.arrayBuffer());
+    const bytes = new Uint8Array(buffer);
+    const pdf = await doc.embedFont(bytes, { subset: true });
+    // Read the same bytes with fontkit for the coverage predicate: pdf-lib exposes no way
+    // to ask an embedded font whether it has a glyph for a code point.
+    const metrics = fontkit.create(bytes as unknown as Uint8Array<ArrayBuffer>);
+    const face: Face = { pdf, has: (cp) => metrics.hasGlyphForCodePoint(cp) };
+    cache.set(key, face);
+    return face;
+  } catch {
+    return undefined; // a face that cannot be read leaves its text unpainted
   }
-  return out;
+}
+
+/** Embed every face a set of notes needs, into the document's shared cache. */
+async function embedNoteFaces(
+  doc: PDFDocument,
+  cache: Map<string, Face>,
+  places: NotePlace[],
+): Promise<Map<string, Face>> {
+  for (const place of places) {
+    await embedFace(doc, cache, place.font, { bold: place.bold, italic: place.italic });
+  }
+  return cache;
 }
 
 /** The album colors a note's ink resolves against, as hex, for the pure `noteInk`. */
@@ -378,7 +420,8 @@ function notePalette(colorTheme: ColorThemeId): NotePalette {
  * editor showed. Tracking is applied character by character because pdf-lib has no letter
  * spacing, mirroring what CSS does (a trailing space after the last character included).
  */
-function drawNote(ctx: Ctx, place: NotePlace, font: PDFFont, palette: NotePalette) {
+function drawNote(ctx: Ctx, place: NotePlace, face: Face, palette: NotePalette) {
+  const font = face.pdf;
   const refMeasure = (t: string) => {
     try {
       return font.widthOfTextAtSize(t, place.refSize);
@@ -386,7 +429,10 @@ function drawNote(ctx: Ctx, place: NotePlace, font: PDFFont, palette: NotePalett
       return t.length * place.refSize * 0.5;
     }
   };
-  const lines = wrapLines(place.text, place.wrapW, (t) => measureTracked(t, refMeasure, place.refTrackingPt));
+  // Filter before wrapping, so a character the face cannot draw changes neither the line
+  // breaks nor the centring (it would otherwise be a full-width .notdef box).
+  const text = supportedText(place.text, face.has);
+  const lines = wrapLines(text, place.wrapW, (t) => measureTracked(t, refMeasure, place.refTrackingPt));
   if (lines.length === 0) return;
 
   const measure = (t: string) => {
@@ -476,10 +522,10 @@ function drawNote(ctx: Ctx, place: NotePlace, font: PDFFont, palette: NotePalett
 }
 
 /** Paint every note of a page or a cover face, over whatever is already drawn. */
-function drawNotes(ctx: Ctx, places: NotePlace[], faces: Map<string, PDFFont>, palette: NotePalette) {
+function drawNotes(ctx: Ctx, places: NotePlace[], faces: Map<string, Face>, palette: NotePalette) {
   for (const place of places) {
-    const font = faces.get(faceKey(place.font, place.bold, place.italic));
-    if (font) drawNote(ctx, place, font, palette);
+    const face = faces.get(faceKey(place.font, place.bold, place.italic));
+    if (face) drawNote(ctx, place, face, palette);
   }
 }
 
@@ -493,10 +539,7 @@ function fillPaper(ctx: Ctx, rect: PtRect) {
   });
 }
 
-const standardFont = (family: "serif" | "sans" | "mono") =>
-  family === "serif" ? StandardFonts.TimesRoman : family === "mono" ? StandardFonts.Courier : StandardFonts.Helvetica;
-
-async function paintInteriorPage(doc: PDFDocument, font: PDFFont, hand: PDFFont, palette: Palette, p: ExportProject, pageLike: ExportPageLike, noteFaces: Map<string, PDFFont>) {
+async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | undefined, palette: Palette, p: ExportProject, pageLike: ExportPageLike, noteFaces: Map<string, Face>) {
   const first = pageLike.items[0];
   const g: PageGeometry = pageLike.insideCover
     ? insideCoverPageGeometry({
@@ -564,14 +607,21 @@ function sizeScale(level: "sm" | "md" | "lg" | "xl"): number {
 export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const font = await doc.embedFont(standardFont(fontFamilyForTheme(p.fontTheme)));
-  // Embed the handwriting font once for every frame note (spec 019); subset to keep it small.
-  const handBytes = await fetch(handFontUrl).then((r) => r.arrayBuffer());
-  const hand = await doc.embedFont(handBytes, { subset: true });
+  // Every face is a shipped file, embedded on demand and shared across the document: the
+  // album's own style (spec 040), the handwriting of a Polaroid note (spec 019) and whatever
+  // families the page notes use (spec 039). Nothing is substituted any more.
+  const faces = new Map<string, Face>();
+  const font = await embedFace(doc, faces, albumFontFamily(p.fontTheme));
+  // Without the album face there is no text to draw with, and a PDF with no page at all is
+  // worse than no file: it downloads, it opens as a valid PDF and it is empty. Fail instead.
+  if (!font) throw new ExportError(`album font "${albumFontFamily(p.fontTheme)}" could not be read`);
+  // The handwriting face is only needed by a Polaroid frame note (spec 019). If its file
+  // cannot be read, that one note goes unpainted; the rest of the book still prints.
+  const hand = await embedFace(doc, faces, "caveat");
   const palette = paletteOf(p.colorTheme);
-  // Only the note faces this project actually uses are embedded, once for the document.
   const noteFaces = await embedNoteFaces(
     doc,
+    faces,
     p.interior.flatMap((pl) =>
       notePlaces(pl.notes, { x: 0, y: 0, w: mmToPt(p.size.widthMm), h: mmToPt(p.size.heightMm) }),
     ),
@@ -585,7 +635,10 @@ export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
 /** Build the cover-wrap PDF: back (left) + spine + front (right), with bleed. */
 export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const font = await doc.embedFont(standardFont(fontFamilyForTheme(p.fontTheme)));
+  doc.registerFontkit(fontkit);
+  const faces = new Map<string, Face>();
+  const font = await embedFace(doc, faces, albumFontFamily(p.fontTheme));
+  if (!font) throw new ExportError(`album font "${albumFontFamily(p.fontTheme)}" could not be read`);
   const palette = paletteOf(p.colorTheme);
 
   const toFace = (f: ExportCoverFace): CoverFaceInput => ({
@@ -611,7 +664,7 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
   const ctx: Ctx = { page, mediaH: g.mediaBox.h, font, palette };
   fillPaper(ctx, g.mediaBox);
 
-  const noteFaces = await embedNoteFaces(doc, [...g.back.notes, ...g.front.notes]);
+  const noteFaces = await embedNoteFaces(doc, faces, [...g.back.notes, ...g.front.notes]);
   const inks = notePalette(p.colorTheme);
 
   for (const [panel, face] of [
@@ -626,11 +679,11 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
 
   // Spine text: each line rotated 90 deg so it runs along the spine, centered.
   for (const line of g.spineLines) {
-    const text = winAnsiSafe(line.text);
+    const text = supportedText(line.text, font.has);
     if (!text) continue;
     let width: number;
     try {
-      width = font.widthOfTextAtSize(text, line.sizePt);
+      width = font.pdf.widthOfTextAtSize(text, line.sizePt);
     } catch {
       width = 0;
     }
@@ -640,7 +693,7 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
         x: line.cx + line.sizePt * 0.35,
         y: g.mediaBox.h - line.y - width / 2,
         size: line.sizePt,
-        font,
+        font: font.pdf,
         color: rgb(palette.ink[0], palette.ink[1], palette.ink[2]),
         rotate: degrees(90),
       });
