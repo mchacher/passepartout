@@ -3,6 +3,18 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.10.1 - 2026-08-29
+
+A self-hosted instance served over plain HTTP could not add a page.
+
+- **Pages, notes and photos can be added again on a plain-HTTP instance**: `crypto.randomUUID`,
+  which the app used to mint every id, only exists in a secure context, meaning HTTPS or
+  `http://localhost`. An instance reached at a LAN address such as `http://192.168.1.10`, which
+  is the setup described in the self-hosting guide, is not one, so inserting a page threw and
+  quietly did nothing. Nothing showed up in the server logs either, since the request was never
+  sent. Ids now come from a helper that falls back to `crypto.getRandomValues` when
+  `crypto.randomUUID` is missing, so the app behaves the same whichever way it is served.
+
 ## v0.10.0 - 2026-08-25
 
 Words on the page, and fonts that survive the trip to the printer.
