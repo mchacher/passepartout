@@ -2,14 +2,15 @@
 //
 // A project is one album: its pages, photos, and page format. This module only
 // shapes data (no DOM, no React, no IndexedDB), so it is unit-testable; the impure
-// IndexedDB read/write lives in src/persistence.ts. The only global it touches is
-// crypto.randomUUID for ids, per the repo convention.
+// IndexedDB read/write lives in src/persistence.ts. Ids come from newId() (src/lib/ids.ts),
+// which works in insecure contexts too, per the repo convention.
 //
 // A photo's runtime `url` is an object URL that only exists in the current browser
 // session, so it is NEVER persisted. `serializeProject` strips it and `hydratePhotos`
 // re-attaches a fresh one from the stored blob.
 
 import { DEFAULT_WHITESPACE, type AlbumPage, type Cover, type Note, type PageFormat, type Photo, type Spine } from "../types";
+import { newId } from "./ids";
 import { coerceNotes } from "./notes";
 import {
   DEFAULT_COLOR_THEME,
@@ -154,7 +155,7 @@ export function cleanCover(cover: Cover, existingPhotoIds: Set<string>): Cover {
  */
 export function newProjectDoc(name: string, now: number): ProjectDoc {
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     name,
     createdAt: now,
     updatedAt: now,
@@ -231,7 +232,7 @@ export function duplicateDoc(
   // A note carries no photo reference, but the copy still gets its own ids so the two
   // projects never share one (spec 039).
   const freshNotes = (notes: Note[] | undefined) =>
-    notes && notes.length ? notes.map((n) => ({ ...n, id: crypto.randomUUID() })) : undefined;
+    notes && notes.length ? notes.map((n) => ({ ...n, id: newId() })) : undefined;
   const remapCover = (c: Cover): Cover => {
     const out: Cover = { ...c, photoId: c.photoId ? remap(c.photoId) : null };
     const notes = freshNotes(c.notes);

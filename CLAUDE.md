@@ -75,7 +75,9 @@ npm run validate   # typecheck + lint + test
 - **All written content in English** (code, docs, commits). Conversation may be French.
 - **No em-dashes / en-dashes** in user-facing copy.
 - **Always write tests** for new engine behavior. The layout engine must stay pure and covered.
-- UUID v4 (`crypto.randomUUID()`) for ids. ISO / epoch-ms for time.
+- UUID v4 via `newId()` (`src/lib/ids.ts`) for ids, never `crypto.randomUUID()` directly:
+  it is undefined outside a secure context, which breaks plain-HTTP self-hosted instances.
+  ISO / epoch-ms for time.
 - Tailwind utility classes via semantic tokens (`bg-surface`, `text-ink`, `border-line`). Palette lives once in `src/index.css`; both light and dark themes are defined there.
 
 ## Roadmap (not built yet)

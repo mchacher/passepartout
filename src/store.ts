@@ -58,6 +58,7 @@ import {
 import * as db from "./persistence";
 import { initBackend, pingServerVersion, type PersistenceBackend, type VersionInfo, type User, type ActionResult } from "./persistence";
 import { buildBundle, parseBundle, BundleError } from "./lib/bundle";
+import { newId } from "./lib/ids";
 import {
   readUpdateLock,
   writeUpdateLock,
@@ -86,7 +87,7 @@ const COVER_KEY: Record<
 
 function newPage(): AlbumPage {
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     title: "",
     subtitle: "",
     photoIds: [],
@@ -296,7 +297,7 @@ async function loadPhoto(file: File): Promise<{ photo: Photo; file: File } | nul
       resolve({
         file,
         photo: {
-          id: crypto.randomUUID(),
+          id: newId(),
           url,
           w: img.naturalWidth,
           h: img.naturalHeight,
@@ -825,9 +826,9 @@ export const useAlbum = create<AlbumState>((rawSet, get) => {
       const src = await backend.loadProjectDoc(id);
       if (!src) return;
       const now = Date.now();
-      const photoIdMap = new Map(src.photos.map((p) => [p.id, crypto.randomUUID()]));
+      const photoIdMap = new Map(src.photos.map((p) => [p.id, newId()]));
       const dup = duplicateDoc(src, {
-        id: crypto.randomUUID(),
+        id: newId(),
         name: `${src.name} copy`,
         now,
         photoIdMap,
@@ -899,9 +900,9 @@ export const useAlbum = create<AlbumState>((rawSet, get) => {
       }
       await flushPending(); // persist the active project before opening the import
       const now = Date.now();
-      const photoIdMap = new Map(parsed.doc.photos.map((p) => [p.id, crypto.randomUUID()]));
+      const photoIdMap = new Map(parsed.doc.photos.map((p) => [p.id, newId()]));
       const dup = duplicateDoc(parsed.doc, {
-        id: crypto.randomUUID(),
+        id: newId(),
         name: parsed.doc.name?.trim() || DEFAULT_PROJECT_NAME,
         now,
         photoIdMap,
@@ -1351,7 +1352,7 @@ export const useAlbum = create<AlbumState>((rawSet, get) => {
     },
 
     addNote: (target, patch = {}) => {
-      const note = newNote(crypto.randomUUID(), patch);
+      const note = newNote(newId(), patch);
       set((st) => patchNotes(st, target, (notes) => [...notes, note]));
       scheduleSave();
       return note.id;
