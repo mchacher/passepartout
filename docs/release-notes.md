@@ -3,6 +3,33 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.11.0 - 2026-08-30
+
+Albums that the printer accepts.
+
+- **Blurb accepts the exported PDFs**: every file the app produced was rejected by Blurb's
+  preflight, on all three counts it checks. The book sizes were built on Blurb's catalogue
+  names, which are rounded: what it calls a 10x8 landscape is really cut at 9.5 x 8.0 inches,
+  and only the 8x10 portrait was the size its name claimed. The bleed, the margin of image that
+  runs past the cut, was added all the way round a page when Blurb only trims the top, the
+  bottom and the outer edge, never the fold. And the cover was laid out as two pages plus a
+  spine, which describes no cover Blurb actually binds: an ImageWrap hardcover is larger than
+  the pages it closes on, a dust jacket carries two flaps, a soft cover finishes flush. All
+  three are now taken from Blurb's own specification tool rather than worked out from the
+  catalogue name.
+- **The page you see is the page that prints**: correcting the sizes also corrects the shape of
+  the page in the editor, which had been slightly too wide in landscape and not quite square in
+  the small square format. Existing albums keep their photos and their layouts, and re-flow into
+  the true page. No photo is cropped, as ever.
+- **An even number of pages, ending where you meant it to**: Blurb only binds books with an even
+  page count, and pads odd ones itself by adding a sheet after the inside back cover, which
+  pushes the end of the book past its last page. The export now adds that blank sheet before the
+  inside back cover instead, so the book closes the way you arranged it.
+- **The export panel tells you what the printer expects**: pick the cover you are ordering, soft
+  cover, dust jacket or ImageWrap, and the panel shows the exact dimensions Blurb will demand of
+  both files, next to the page count it will actually print. A mismatch is now visible before an
+  upload rather than after one.
+
 ## v0.10.1 - 2026-08-29
 
 A self-hosted instance served over plain HTTP could not add a page.
