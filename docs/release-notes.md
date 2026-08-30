@@ -3,6 +3,15 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.12.1 - 2026-08-30
+
+- **A cover title set under the photo no longer touches it**: with the text band moved under the
+  picture, a title standing alone was drawn one line too high, over the photo. The editor keeps
+  both text fields on the sheet whether you filled them or not, and the empty one still took a
+  line, pushing the title out of its band. The printed book and the book preview were always
+  right; now the editor is too. The hint for the empty field still appears when you hover the
+  cover, and typing in it works as before.
+
 ## v0.12.0 - 2026-08-30
 
 Cover text that stays out of the picture.

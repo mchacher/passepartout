@@ -14,10 +14,33 @@
 /** Classes hiding an empty field at rest, behind the cover face's hover and its own focus. */
 const GHOST = "opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100";
 
+// An empty field is also taken OUT of the flow, so it never adds a line to the block. An input
+// keeps its natural height whether it holds a value or not, and the band is sized for the text
+// that exists: with the band under the photo (spec 042) a phantom line pushed the real title up
+// out of its band and onto the picture, which the book preview and the PDF never did because
+// they only draw text that exists. `above` and `below` put the hidden placeholder back where its
+// line would have been, for the moment a hover reveals it.
+const ABOVE = "absolute inset-x-0 bottom-full";
+const BELOW = "absolute inset-x-0 top-full";
+
+export interface CoverTextFieldClasses {
+  title: string;
+  subtitle: string;
+}
+
 /**
- * The extra classes for one cover text field, from its current value. Empty (or blank) hides
- * the placeholder until hover or focus; anything else adds nothing.
+ * The extra classes for a cover face's two text fields. A field holding a value adds nothing.
+ * An empty one is hidden until hover or focus, and out of the flow so the block is exactly as
+ * tall as the text it shows. A face with NO text at all keeps both fields in the flow: there is
+ * no visible line for them to displace, and the two placeholders are all that says where to
+ * type.
  */
-export function coverTextFieldClass(value: string): string {
-  return value.trim().length > 0 ? "" : GHOST;
+export function coverTextFieldClasses(title: string, subtitle: string): CoverTextFieldClasses {
+  const hasTitle = title.trim().length > 0;
+  const hasSubtitle = subtitle.trim().length > 0;
+  if (!hasTitle && !hasSubtitle) return { title: GHOST, subtitle: GHOST };
+  return {
+    title: hasTitle ? "" : `${GHOST} ${ABOVE}`,
+    subtitle: hasSubtitle ? "" : `${GHOST} ${BELOW}`,
+  };
 }
