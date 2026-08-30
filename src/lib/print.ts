@@ -9,6 +9,7 @@
 // (1 pt = 1/72 inch).
 
 import { BLEED_MM, type BookSize } from "./book-sizes";
+import { PAGE_SPECS, type CoverType } from "./blurb-specs";
 import {
   F_COVER_SUBTITLE,
   F_COVER_TITLE,
@@ -153,6 +154,25 @@ export function notePlaces(notes: Note[] | undefined, trimBox: PtRect): NotePlac
   return out;
 }
 
+/**
+ * Which edge of a page binds into the gutter. Blurb adds the bleed to the top, the bottom and
+ * the OUTSIDE edge only, never the binding edge, so a page's media box is asymmetric and which
+ * side carries the extra 1/8 inch depends on whether the sheet is a recto or a verso (spec 041).
+ * A right-hand page binds on its left, so its bleed is on the right.
+ */
+export type BindingSide = "left" | "right";
+
+/** The page media box and the trim inside it, per Blurb's asymmetric bleed rule. */
+export function pageBoxes(size: BookSize, bindingSide: BindingSide): { mediaBox: PtRect; trimBox: PtRect } {
+  const trimW = mmToPt(size.widthMm);
+  const trimH = mmToPt(size.heightMm);
+  const bleed = inToPt(PAGE_SPECS[size.id].bleedIn);
+  // One bleed horizontally (the outside edge), two vertically (top and bottom).
+  const mediaBox: PtRect = { x: 0, y: 0, w: trimW + bleed, h: trimH + 2 * bleed };
+  const trimBox: PtRect = { x: bindingSide === "left" ? 0 : bleed, y: bleed, w: trimW, h: trimH };
+  return { mediaBox, trimBox };
+}
+
 export interface PageGeometry {
   mediaBox: PtRect; // whole page including bleed, origin (0,0)
   trimBox: PtRect; // the trim area within the media box
@@ -204,16 +224,16 @@ export interface PageInput {
   placement?: CellRect[];
   /** Freely placed notes (spec 039). */
   notes?: Note[];
+  /** Which edge binds into the gutter; the bleed goes on the other one. Defaults to a recto. */
+  bindingSide?: BindingSide;
 }
 
 /** Geometry for one interior page (or an inside cover face rendered as a page). */
 export function interiorPageGeometry(input: PageInput): PageGeometry {
   const trimW = mmToPt(input.size.widthMm);
   const trimH = mmToPt(input.size.heightMm);
-  const bleed = mmToPt(BLEED_MM);
 
-  const mediaBox: PtRect = { x: 0, y: 0, w: trimW + 2 * bleed, h: trimH + 2 * bleed };
-  const trimBox: PtRect = { x: bleed, y: bleed, w: trimW, h: trimH };
+  const { mediaBox, trimBox } = pageBoxes(input.size, input.bindingSide ?? "left");
 
   // Full-page photo (spec 012): the single photo owns the whole media box (into the bleed)
   // and there is no page text. Contain keeps the ratio (paper bands where it differs);
@@ -333,6 +353,8 @@ export interface InsideCoverPageInput {
   scales: { coverTitle: number; coverSubtitle: number };
   /** Freely placed notes (spec 039). */
   notes?: Note[];
+  /** Which edge binds into the gutter; the bleed goes on the other one. */
+  bindingSide?: BindingSide;
 }
 
 /**
@@ -346,9 +368,7 @@ export interface InsideCoverPageInput {
 export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeometry {
   const trimW = mmToPt(input.size.widthMm);
   const trimH = mmToPt(input.size.heightMm);
-  const bleed = mmToPt(BLEED_MM);
-  const mediaBox: PtRect = { x: 0, y: 0, w: trimW + 2 * bleed, h: trimH + 2 * bleed };
-  const trimBox: PtRect = { x: bleed, y: bleed, w: trimW, h: trimH };
+  const { mediaBox, trimBox } = pageBoxes(input.size, input.bindingSide ?? "left");
 
   const panel = coverPanel(
     {

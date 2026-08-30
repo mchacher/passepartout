@@ -35,13 +35,25 @@ const pageInput = (items: PageInput["items"], layoutId: string, extra?: Partial<
 });
 
 describe("interiorPageGeometry", () => {
-  it("makes the media box the trim plus bleed on every side", () => {
+  // Blurb's page bleed is asymmetric: top, bottom and outside edge only, never the gutter
+  // (spec 041). So the media box is one bleed wider than the trim, not two, and which side
+  // carries it depends on whether the sheet is a recto or a verso.
+  it("adds one bleed horizontally and two vertically", () => {
     const g = interiorPageGeometry(pageInput([], "single"));
-    expect(g.mediaBox.w).toBeCloseTo(trimW + 2 * bleedPt, 5);
+    expect(g.mediaBox.w).toBeCloseTo(trimW + bleedPt, 5);
     expect(g.mediaBox.h).toBeCloseTo(trimH + 2 * bleedPt, 5);
-    expect(g.trimBox).toMatchObject({ x: bleedPt, y: bleedPt });
     expect(g.trimBox.w).toBeCloseTo(trimW, 5);
     expect(g.trimBox.h).toBeCloseTo(trimH, 5);
+  });
+
+  it("puts the bleed on the outside edge, whichever side that is", () => {
+    // A right-hand page binds on its left: trim flush left, bleed on the right.
+    const recto = interiorPageGeometry(pageInput([], "single", { bindingSide: "left" }));
+    expect(recto.trimBox).toMatchObject({ x: 0, y: bleedPt });
+    // A left-hand page binds on its right: bleed on the left, trim pushed across.
+    const verso = interiorPageGeometry(pageInput([], "single", { bindingSide: "right" }));
+    expect(verso.trimBox).toMatchObject({ x: bleedPt, y: bleedPt });
+    expect(verso.mediaBox.w).toBeCloseTo(recto.mediaBox.w, 5);
   });
 
   it("keeps the content box strictly inside the trim box", () => {
@@ -293,9 +305,9 @@ describe("insideCoverPageGeometry", () => {
 
   it("is a page-sized sheet with bleed, like every other interior page", () => {
     const g = face();
-    expect(g.mediaBox.w).toBeCloseTo(trimW + 2 * bleedPt, 5);
+    expect(g.mediaBox.w).toBeCloseTo(trimW + bleedPt, 5);
     expect(g.mediaBox.h).toBeCloseTo(trimH + 2 * bleedPt, 5);
-    expect(g.trimBox).toMatchObject({ x: bleedPt, y: bleedPt });
+    expect(g.trimBox).toMatchObject({ x: 0, y: bleedPt });
   });
 
   it("draws the text at the COVER fractions, not the page ones", () => {
@@ -493,7 +505,7 @@ describe("notes in print (spec 039)", () => {
     );
     expect(g.notes).toHaveLength(1);
     const n = g.notes[0];
-    expect(n.cx).toBeCloseTo(bleedPt + 0.25 * trimW, 6);
+    expect(n.cx).toBeCloseTo(g.trimBox.x + 0.25 * trimW, 6);
     expect(n.cy).toBeCloseTo(bleedPt + 0.75 * trimH, 6);
     expect(n.w).toBeCloseTo(0.4 * trimW, 6);
     expect(n.sizePt).toBeCloseTo(NOTE_SIZES.md * trimW, 6);
@@ -546,7 +558,7 @@ describe("notes in print (spec 039)", () => {
       notes: [note()],
     });
     expect(g.notes).toHaveLength(1);
-    expect(g.notes[0].cx).toBeCloseTo(bleedPt + 0.25 * trimW, 6);
+    expect(g.notes[0].cx).toBeCloseTo(g.trimBox.x + 0.25 * trimW, 6);
   });
 
   it("places a note on each outside cover face of the wrap, in its own panel", () => {

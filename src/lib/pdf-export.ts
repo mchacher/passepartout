@@ -21,6 +21,7 @@ import {
   albumFontFamily,
   insideCoverPageGeometry,
   interiorPageGeometry,
+  type BindingSide,
   type CoverFaceInput,
   mmToPt,
   notePlaces,
@@ -539,11 +540,12 @@ function fillPaper(ctx: Ctx, rect: PtRect) {
   });
 }
 
-async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | undefined, palette: Palette, p: ExportProject, pageLike: ExportPageLike, noteFaces: Map<string, Face>) {
+async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | undefined, palette: Palette, p: ExportProject, pageLike: ExportPageLike, noteFaces: Map<string, Face>, bindingSide: BindingSide) {
   const first = pageLike.items[0];
   const g: PageGeometry = pageLike.insideCover
     ? insideCoverPageGeometry({
         size: p.size,
+        bindingSide,
         title: pageLike.title,
         subtitle: pageLike.subtitle,
         whitespace: pageLike.whitespace,
@@ -556,6 +558,7 @@ async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | unde
       })
     : interiorPageGeometry({
         size: p.size,
+        bindingSide,
         items: pageLike.items.map((i) => ({ photoId: i.photoId, ratio: i.ratio, caption: i.caption, rotation: i.rotation })),
         layoutId: pageLike.layoutId,
         whitespace: pageLike.whitespace,
@@ -603,6 +606,21 @@ function sizeScale(level: "sm" | "md" | "lg" | "xl"): number {
   return level === "sm" ? 0.85 : level === "lg" ? 1.2 : level === "xl" ? 1.45 : 1;
 }
 
+/** A page with nothing on it: the leaf that pads an odd interior to an even count. */
+export function blankLeaf(): ExportPageLike {
+  return { title: "", subtitle: "", whitespace: 4, layoutId: "single", items: [] };
+}
+
+/**
+ * Blurb's page count must be a multiple of 2. Pad with one blank leaf placed just before the
+ * inside back cover, so the added sheet lands at the end of the book rather than in the middle
+ * of a sequence the author arranged.
+ */
+export function evenInterior(interior: ExportPageLike[]): ExportPageLike[] {
+  if (interior.length % 2 === 0) return interior;
+  return [...interior.slice(0, -1), blankLeaf(), ...interior.slice(-1)];
+}
+
 /** Build the interior PDF: inside front, every content page, inside back. */
 export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -626,8 +644,14 @@ export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
       notePlaces(pl.notes, { x: 0, y: 0, w: mmToPt(p.size.widthMm), h: mmToPt(p.size.heightMm) }),
     ),
   );
-  for (const pageLike of p.interior) {
-    await paintInteriorPage(doc, font, hand, palette, p, pageLike, noteFaces);
+  // Blurb refuses an odd page count ("submit an even number of pages"), and pads the file
+  // itself if you insist, which shifts every spread after the padding. Add the blank leaf
+  // ourselves, before the inside back cover, so the book ends where the author meant it to.
+  const leaves = evenInterior(p.interior);
+  // The first leaf of the interior file is a right-hand page, so it binds on its LEFT and
+  // carries its bleed on the right; the side alternates from there (spec 041).
+  for (const [i, pageLike] of leaves.entries()) {
+    await paintInteriorPage(doc, font, hand, palette, p, pageLike, noteFaces, i % 2 === 0 ? "left" : "right");
   }
   return doc.save();
 }
