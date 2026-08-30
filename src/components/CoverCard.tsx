@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { F_COVER_SUBTITLE, F_COVER_TITLE, headerFontCss } from "../lib/page-header";
+import { coverTextFieldClass } from "../lib/cover-text";
 import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { effectiveRatio } from "../lib/crop";
@@ -163,20 +164,21 @@ export function CoverCard({ which }: CoverCardProps) {
               natural height (placeholders included), so this overlay reaches well below
               photoTop and over the photo. It is therefore transparent to the pointer as a box,
               and only the two text rows take hits (#96) - otherwise it stole the hover from
-              the photo and its remove control. */}
+              the photo and its remove control. For the same reason an EMPTY field's placeholder
+              would print itself over the photo, so it only shows on hover or focus (#119). */}
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
             <input
               value={cover.title}
               placeholder={t(`cover.${which}.title`)}
               onChange={(e) => updateCover(which, { title: e.target.value })}
-              className="pointer-events-auto w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none"
+              className={`pointer-events-auto w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none ${coverTextFieldClass(cover.title)}`}
               style={{ fontSize: headerFontCss(F_COVER_TITLE, "--cover-title-scale"), color: "var(--album-ink)" }}
             />
             <input
               value={cover.subtitle}
               placeholder={t(`cover.${which}.subtitle`)}
               onChange={(e) => updateCover(which, { subtitle: e.target.value })}
-              className="pointer-events-auto mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none"
+              className={`pointer-events-auto mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none ${coverTextFieldClass(cover.subtitle)}`}
               style={{ fontSize: headerFontCss(F_COVER_SUBTITLE, "--cover-subtitle-scale"), color: "var(--album-ink-soft)" }}
             />
           </div>
