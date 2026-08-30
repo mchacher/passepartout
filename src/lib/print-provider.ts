@@ -122,8 +122,12 @@ export function spineWidthIn(cover: CoverSpec, paper: PaperFamily, pages: number
   return pts[pts.length - 1].width;
 }
 
-/** The next acceptable page count at or above `pages`, per the provider's multiple. */
+/**
+ * The next page count the printer accepts at or above `pages`: its multiple, and never fewer
+ * than its minimum. Honouring the multiple alone let a short album export at a count the
+ * printer refuses outright, with only a warning in the panel to say so.
+ */
 export function roundUpPageCount(rule: PageCountRule, pages: number): number {
   const m = Math.max(1, rule.multipleOf);
-  return Math.ceil(pages / m) * m;
+  return Math.ceil(Math.max(pages, rule.min) / m) * m;
 }
