@@ -3,7 +3,7 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
-## v0.11.2 - 2026-08-30
+## v0.12.0 - 2026-08-30
 
 Cover text that stays out of the picture.
 
