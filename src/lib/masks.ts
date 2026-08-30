@@ -107,3 +107,38 @@ export function maskClipValue(id: string | undefined, ctx: MaskClipCtx = {}): st
   }
   return m.clip ?? `url(#pp-mask-${m.id})`;
 }
+
+/**
+ * A mask resolved to plain geometry, in the box's own units, for a renderer that cannot use a
+ * CSS `clip-path`: the PDF export paints its photos on a canvas and clips them with a `Path2D`
+ * (issue #121). It used to read `shape.path` directly, which is undefined for the two
+ * mechanisms added later, so the clip kept nothing and a Circle or Rounded photo was exported
+ * as a fully transparent image. Going through this function instead means a new mechanism has
+ * to be answered here, and the catalog test below fails until it is.
+ */
+export type MaskGeometry =
+  | { kind: "path"; d: string } // objectBoundingBox path, to be scaled by the box
+  | { kind: "circle"; cx: number; cy: number; r: number }
+  | { kind: "roundRect"; w: number; h: number; r: number };
+
+// The canvas equivalent of a raw CSS clip value. One entry per `clip` mask in the catalog.
+const CSS_GEOMETRY: Record<string, (w: number, h: number) => MaskGeometry> = {
+  "circle(closest-side)": (w, h) => ({ kind: "circle", cx: w / 2, cy: h / 2, r: Math.min(w, h) / 2 }),
+};
+
+/**
+ * The geometry of a mask for a box of `w` x `h`, or undefined when there is nothing to clip:
+ * an absent or unknown id, a box with no size yet, or a CSS clip nobody has translated. A
+ * renderer must then draw the plain photo. Never clipping is the safe failure here; clipping
+ * with an empty path removes the photo altogether, which is the bug this replaces.
+ */
+export function maskGeometry(id: string | undefined, ctx: MaskClipCtx = {}): MaskGeometry | undefined {
+  const m = maskById(id);
+  if (!m) return undefined;
+  if (m.path) return { kind: "path", d: m.path };
+  const w = ctx.w ?? 0;
+  const h = ctx.h ?? 0;
+  if (w <= 0 || h <= 0) return undefined;
+  if (m.rounded) return { kind: "roundRect", w, h, r: roundedRadiusOf(ctx.radius) * Math.min(w, h) };
+  return m.clip ? CSS_GEOMETRY[m.clip]?.(w, h) : undefined;
+}

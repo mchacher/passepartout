@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { bookSizeOrDefault } from "../lib/book-sizes";
-import { effectiveRatio } from "../lib/crop";
-import { photoLayoutRatio } from "../lib/frames";
+import { exportCoverItem, exportItem } from "../lib/export-items";
 import { coverIsEmpty, effectiveSpineTitle } from "../lib/project";
 import { mmToPt, PAPERS, type PaperId } from "../lib/print";
 import { coverMediaIn, pageMediaIn, roundUpPageCount, spineWidthIn, type PaperFamily } from "../lib/print-provider";
@@ -81,9 +80,7 @@ export function ExportPanel() {
       // Notes travel with their face (spec 039), printed over whatever it holds.
       notes: cover.notes,
       layoutId: "single",
-      items: p
-        ? [{ photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), photoRatio: effectiveRatio(p.ratio, p.crop), sourceRatio: p.ratio, url: p.url, caption: "", crop: p.crop }]
-        : [],
+      items: p ? [exportCoverItem(p)] : [],
     };
   };
 
@@ -93,7 +90,7 @@ export function ExportPanel() {
       title: cover.title,
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
-      photo: p ? { photoId: p.id, ratio: effectiveRatio(p.ratio, p.crop), url: p.url, crop: p.crop } : null,
+      photo: p ? exportCoverItem(p) : null,
       notes: cover.notes,
     };
   };
@@ -124,22 +121,7 @@ export function ExportPanel() {
           items: pg.photoIds
             .map(photoById)
             .filter((p): p is Photo => p !== undefined)
-            .map((p) => ({
-              photoId: p.id,
-              ratio: fp ? p.ratio : photoLayoutRatio(p),
-              photoRatio: effectiveRatio(p.ratio, p.crop),
-              sourceRatio: p.ratio,
-              url: p.url,
-              caption: p.caption,
-              crop: fp ? undefined : p.crop,
-              mask: fp ? undefined : p.mask,
-              frame: fp ? undefined : p.frame,
-              frameColor: fp ? undefined : p.frameColor,
-              frameText: fp ? undefined : p.frameText,
-              frameWidth: fp ? undefined : p.frameWidth,
-              frameFocus: fp ? undefined : p.frameFocus,
-              rotation: fp ? undefined : p.rotation,
-            })),
+            .map((p) => exportItem(p, p.caption, fp)),
         };
       }),
       faceToPage(store.insideBackCover),

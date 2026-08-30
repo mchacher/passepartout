@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MASKS, maskById, isMask, maskClipValue, ROUNDED_SIZES, roundedRadiusOf, DEFAULT_ROUNDED_SIZE } from "./masks";
+import { MASKS, maskById, isMask, maskClipValue, maskGeometry, ROUNDED_SIZES, roundedRadiusOf, DEFAULT_ROUNDED_SIZE } from "./masks";
 
 describe("mask catalog", () => {
   it("has unique, non-empty ids and names", () => {
@@ -84,5 +84,42 @@ describe("maskClipValue", () => {
 
   it("rounded returns undefined when the box is not measured yet", () => {
     expect(maskClipValue("rounded", { radius: 0.1 })).toBeUndefined();
+  });
+});
+
+// The PDF painter cannot use a CSS clip-path: it clips a canvas with a Path2D built from this
+// geometry. It used to read `shape.path` alone, so Circle and Rounded, which have none, clipped
+// the canvas to an empty path and their photos were exported blank (issue #121).
+describe("maskGeometry", () => {
+  it("resolves EVERY catalog mask on a real box", () => {
+    for (const m of MASKS) {
+      expect(maskGeometry(m.id, { w: 400, h: 300, radius: 0.16 }), `mask ${m.id} has no canvas geometry`).toBeDefined();
+    }
+  });
+
+  it("gives a path mask its objectBoundingBox path, to be scaled by the box", () => {
+    expect(maskGeometry("oval", { w: 400, h: 300 })).toEqual({ kind: "path", d: maskById("oval")!.path });
+  });
+
+  it("gives Circle a true circle inscribed in the shorter side, whatever the ratio", () => {
+    expect(maskGeometry("circle", { w: 400, h: 300 })).toEqual({ kind: "circle", cx: 200, cy: 150, r: 150 });
+    expect(maskGeometry("circle", { w: 300, h: 400 })).toEqual({ kind: "circle", cx: 150, cy: 200, r: 150 });
+  });
+
+  it("gives Rounded a corner radius taken from the shorter side, as the editor does", () => {
+    expect(maskGeometry("rounded", { w: 400, h: 300, radius: 0.16 })).toEqual({ kind: "roundRect", w: 400, h: 300, r: 48 });
+    // The same size reads identically on a portrait photo: the shorter side drives it.
+    expect(maskGeometry("rounded", { w: 300, h: 400, radius: 0.16 })).toEqual({ kind: "roundRect", w: 300, h: 400, r: 48 });
+  });
+
+  it("falls back to the default rounded size when the photo carries none", () => {
+    const g = maskGeometry("rounded", { w: 400, h: 300 });
+    expect(g).toEqual({ kind: "roundRect", w: 400, h: 300, r: DEFAULT_ROUNDED_SIZE * 300 });
+  });
+
+  it("clips nothing for an absent, unknown, or unmeasured mask", () => {
+    expect(maskGeometry(undefined, { w: 400, h: 300 })).toBeUndefined();
+    expect(maskGeometry("no-such-mask", { w: 400, h: 300 })).toBeUndefined();
+    expect(maskGeometry("rounded", { w: 0, h: 0 })).toBeUndefined();
   });
 });
