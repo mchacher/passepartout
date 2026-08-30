@@ -101,6 +101,20 @@ export function newSpine(): Spine {
 }
 
 /**
+ * A cover face with nothing on it: no photo, no title, no subtitle, no note. Used by the export
+ * to tell a face the author deliberately left blank from one they simply never filled: an empty
+ * INSIDE cover costs a printed sheet at each end of the book, so it is not printed at all (#117).
+ */
+export function coverIsEmpty(cover: Cover): boolean {
+  return (
+    cover.photoId === null &&
+    cover.title.trim().length === 0 &&
+    cover.subtitle.trim().length === 0 &&
+    !cover.notes?.some((n) => n.text.trim().length > 0)
+  );
+}
+
+/**
  * The spine title actually shown: the spine override, else the front cover title, else
  * the album (project) name, so a named book always gets its name on the bound edge.
  */

@@ -614,16 +614,40 @@ export function blankLeaf(): ExportPageLike {
 }
 
 /**
- * A printer accepts only certain page counts (Blurb: a multiple of 2). Pad with blank leaves
- * placed just before the inside back cover, so the added sheets land at the end of the book
- * rather than in the middle of a sequence the author arranged. Letting the printer pad instead
- * appends them after the inside back cover, which is not where a book should end.
+ * An inside cover face the author never filled: no photo, no title, no subtitle, no note. It is
+ * not content, it is a face left blank, and printing it costs a sheet at each end of the book
+ * (#117). A face with anything on it, a dedication or a single photo, is content and stays.
+ */
+export function insideCoverIsEmpty(face: ExportPageLike): boolean {
+  return (
+    face.items.length === 0 &&
+    face.title.trim().length === 0 &&
+    face.subtitle.trim().length === 0 &&
+    !face.notes?.some((n) => n.text.trim().length > 0)
+  );
+}
+
+/** Drop the inside cover faces the author left entirely blank, wherever they sit. */
+export function dropEmptyInsideCovers(interior: ExportPageLike[]): ExportPageLike[] {
+  return interior.filter((leaf) => !(leaf.insideCover && insideCoverIsEmpty(leaf)));
+}
+
+/**
+ * A printer accepts only certain page counts (Blurb: a multiple of 2, and at least 20). Pad
+ * with blank leaves placed just before the inside cover faces that close the book, so the added
+ * sheets land at the end of the block rather than in the middle of a sequence the author
+ * arranged, and never after the page that closes it. Letting the printer pad instead appends
+ * them right at the end, which is not where a book should end.
  */
 export function padInterior(interior: ExportPageLike[], rule: PageCountRule): ExportPageLike[] {
   const target = roundUpPageCount(rule, interior.length);
   if (target === interior.length) return interior;
+  // The tail is however many inside cover faces trail the block: one normally, none when an
+  // empty one has been dropped, so the blanks always land before whatever closes the book.
+  let tail = interior.length;
+  while (tail > 0 && interior[tail - 1].insideCover) tail--;
   const pad = Array.from({ length: target - interior.length }, blankLeaf);
-  return [...interior.slice(0, -1), ...pad, ...interior.slice(-1)];
+  return [...interior.slice(0, tail), ...pad, ...interior.slice(tail)];
 }
 
 /** Build the interior PDF: inside front, every content page, inside back. */
@@ -649,7 +673,7 @@ export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
       notePlaces(pl.notes, { x: 0, y: 0, w: mmToPt(p.size.widthMm), h: mmToPt(p.size.heightMm) }),
     ),
   );
-  const leaves = padInterior(p.interior, providerOrDefault(p.size.provider).pageCount);
+  const leaves = padInterior(dropEmptyInsideCovers(p.interior), providerOrDefault(p.size.provider).pageCount);
   // The first leaf of the interior file is a right-hand page, so it binds on its LEFT and
   // carries its bleed on the right; the side alternates from there (spec 041).
   for (const [i, pageLike] of leaves.entries()) {

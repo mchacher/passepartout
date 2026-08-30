@@ -4,6 +4,7 @@ import {
   cleanCover,
   coverOrDefault,
   duplicateDoc,
+  coverIsEmpty,
   effectiveSpineTitle,
   hydratePhotos,
   metaOf,
@@ -185,6 +186,18 @@ describe("book size + spine migration", () => {
     expect(effectiveSpineTitle({ title: "" }, blank, "My Album")).toBe("My Album");
     expect(effectiveSpineTitle({ title: "" }, blank, "  ")).toBe("");
     expect(effectiveSpineTitle({ title: "" }, blank)).toBe(""); // albumName optional
+  });
+
+  // An inside cover face left entirely blank costs a printed sheet at each end of the book, so
+  // the export leaves it out (#117). Anything at all on it makes it content.
+  it("coverIsEmpty is true only for a face with no photo, no text and no note", () => {
+    const blank: Cover = { title: "", subtitle: "", photoId: null, whitespace: 4 };
+    expect(coverIsEmpty(blank)).toBe(true);
+    expect(coverIsEmpty({ ...blank, title: "   " })).toBe(true);
+    expect(coverIsEmpty({ ...blank, notes: [] })).toBe(true);
+    expect(coverIsEmpty({ ...blank, title: "Corse" })).toBe(false);
+    expect(coverIsEmpty({ ...blank, subtitle: "2026" })).toBe(false);
+    expect(coverIsEmpty({ ...blank, photoId: "p1" })).toBe(false);
   });
 });
 

@@ -4,7 +4,7 @@ import { useT } from "../useT";
 import { bookSizeOrDefault } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
 import { photoLayoutRatio } from "../lib/frames";
-import { effectiveSpineTitle } from "../lib/project";
+import { coverIsEmpty, effectiveSpineTitle } from "../lib/project";
 import { mmToPt, PAPERS, type PaperId } from "../lib/print";
 import { coverMediaIn, pageMediaIn, roundUpPageCount, spineWidthIn, type PaperFamily } from "../lib/print-provider";
 import { coverSpecsFor, providerOrDefault } from "../lib/print-providers";
@@ -40,7 +40,11 @@ export function ExportPanel() {
 
   const size = bookSizeOrDefault(store.bookSize);
   const provider = providerOrDefault(size.provider);
-  const leaves = store.pages.length + 2; // inside front + pages + inside back
+  // An inside cover face the author left entirely blank is not printed (#117), so it does not
+  // count towards the block either. One they put a dedication or a photo on does.
+  const insideFaces =
+    (coverIsEmpty(store.insideFrontCover) ? 0 : 1) + (coverIsEmpty(store.insideBackCover) ? 0 : 1);
+  const leaves = store.pages.length + insideFaces;
   // The printer only accepts certain page counts, so the export pads with blank leaves. Show
   // the count that will actually be printed, not the one the album happens to have.
   const interiorCount = roundUpPageCount(provider.pageCount, leaves);

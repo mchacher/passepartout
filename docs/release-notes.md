@@ -3,6 +3,22 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.11.1 - 2026-08-30
+
+Blank pages you did not ask for.
+
+- **An inside cover you left empty is no longer printed**: the first and the last sheet of the
+  book are the faces you see on opening and closing the cover. The export printed them whether
+  or not you had put anything on them, so an album that never touched them arrived at the
+  printer with a blank page at each end, and paid for them. A face carrying a photo, a title or
+  a note still prints, as content. A face with nothing on it at all is now left out. An album of
+  23 pages that used to export as 26, with three empty pages, now exports as 24 with a single
+  blank sheet, the one the printer requires to reach an even count.
+- **A short album is padded to the printer's minimum**: Blurb binds nothing under 20 pages. The
+  export rounded the page count up to an even number but ignored that floor, so a twelve page
+  album produced a file the printer refuses. The panel had been warning about it in red for a
+  while; now the file itself is right.
+
 ## v0.11.0 - 2026-08-30
 
 Albums that the printer accepts.
