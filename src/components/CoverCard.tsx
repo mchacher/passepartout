@@ -3,7 +3,7 @@ import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { F_COVER_SUBTITLE, F_COVER_TITLE, headerFontCss } from "../lib/page-header";
 import { COVER_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
-import { coverTextFieldClass } from "../lib/cover-text";
+import { coverTextFieldClasses } from "../lib/cover-text";
 import { WHITESPACE_LEVELS, type CoverFace, type CoverTextPosition, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { effectiveRatio } from "../lib/crop";
@@ -46,6 +46,9 @@ export function CoverCard({ which }: CoverCardProps) {
   const hasTitle = cover.title.trim().length > 0;
   const hasSubtitle = cover.subtitle.trim().length > 0;
   const band = coverBandCss({ hasTitle, hasSubtitle });
+  // An empty field is hidden and taken out of the flow, so the block is as tall as the text it
+  // shows and lands where the printed one lands (#119, #125).
+  const fieldClass = coverTextFieldClasses(cover.title, cover.subtitle);
   const margin = COVER_MARGIN_CSS;
   const position: CoverTextPosition = cover.textPosition ?? "top";
   const atBottom = position === "bottom";
@@ -208,20 +211,25 @@ export function CoverCard({ which }: CoverCardProps) {
               the photo and its remove control. For the same reason an EMPTY field's placeholder
               would print itself over the photo, so it only shows on hover or focus (#119). */}
           <div className="pointer-events-none absolute inset-x-0 z-10 text-center" style={textBox}>
-            <input
-              value={cover.title}
-              placeholder={t(`cover.${which}.title`)}
-              onChange={(e) => updateCover(which, { title: e.target.value })}
-              className={`pointer-events-auto w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none ${coverTextFieldClass(cover.title)}`}
-              style={{ fontSize: headerFontCss(F_COVER_TITLE, "--cover-title-scale"), color: "var(--album-ink)" }}
-            />
-            <input
-              value={cover.subtitle}
-              placeholder={t(`cover.${which}.subtitle`)}
-              onChange={(e) => updateCover(which, { subtitle: e.target.value })}
-              className={`pointer-events-auto mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none ${coverTextFieldClass(cover.subtitle)}`}
-              style={{ fontSize: headerFontCss(F_COVER_SUBTITLE, "--cover-subtitle-scale"), color: "var(--album-ink-soft)" }}
-            />
+            {/* A box that hugs the visible lines: an empty field is positioned against it
+                (see coverTextFieldClasses), so it never adds a line to the block and its
+                placeholder still lands where that line would have been (#125). */}
+            <div className="relative">
+              <input
+                value={cover.title}
+                placeholder={t(`cover.${which}.title`)}
+                onChange={(e) => updateCover(which, { title: e.target.value })}
+                className={`pointer-events-auto w-full bg-transparent text-center font-album tracking-wide text-ink placeholder:italic placeholder:text-faint focus:outline-none ${fieldClass.title}`}
+                style={{ fontSize: headerFontCss(F_COVER_TITLE, "--cover-title-scale"), color: "var(--album-ink)" }}
+              />
+              <input
+                value={cover.subtitle}
+                placeholder={t(`cover.${which}.subtitle`)}
+                onChange={(e) => updateCover(which, { subtitle: e.target.value })}
+                className={`pointer-events-auto mt-[2%] w-full bg-transparent text-center font-album placeholder:italic placeholder:text-faint focus:outline-none ${fieldClass.subtitle}`}
+                style={{ fontSize: headerFontCss(F_COVER_SUBTITLE, "--cover-subtitle-scale"), color: "var(--album-ink-soft)" }}
+              />
+            </div>
           </div>
 
           {/* Photo area: everything the band leaves, contained photo centered (or a drop hint
