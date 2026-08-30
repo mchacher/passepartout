@@ -20,6 +20,7 @@ import {
   headerGeometry,
 } from "./page-header";
 import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
+import { coverFaceAreas, coverTextTop } from "./cover-layout";
 import { resolveCells } from "./layouts";
 import { fontThemeOrDefault, type FontThemeId } from "./themes";
 import type { ShippedFontId } from "./fonts";
@@ -33,7 +34,7 @@ import {
   RULE_WEIGHT,
   noteFontSize,
 } from "./notes";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type Note, type NoteAlign, type NoteInkId, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CoverTextPosition, type CropFocus, type Note, type NoteAlign, type NoteInkId, type PageFill } from "../types";
 
 export const PT_PER_MM = 72 / 25.4;
 export const mmToPt = (mm: number) => mm * PT_PER_MM;
@@ -203,16 +204,9 @@ export interface PageGeometry {
 // by hand any more: preview == print by construction.
 const MARGIN = PAGE_MARGIN;
 
-// Cover face geometry, all fractions of the trim width and mirrored by the CSS % on
-// CoverCard / PreviewPaper. Like the interior pages, the header lives in a FIXED top
-// band and the photo fills the area below it: the band height depends only on whether a
-// title / subtitle is present, never on the font-size level, so enlarging the title no
-// longer shrinks the photo, and a cover with no subtitle gives that space back to the
-// photo at every font size. COVER_MARGIN is the side / bottom inset (and the top inset
-// when there is no text at all).
-const COVER_MARGIN = 0.06;
-const COVER_TOP_TITLE = 0.15; // reserved top band for a title alone
-const COVER_TOP_SUBTITLE = 0.2; // reserved top band for a title + subtitle
+// Cover face geometry lives in cover-layout.ts: the fixed band, the margin, and which side
+// of the photo the text sits on (spec 042). The same module is read by CoverCard and by the
+// book preview for their CSS, so the three renderers cannot drift.
 
 // Text sizes as a fraction of the trim width, mirroring the on-screen cqw-based clamps
 // (e.g. a page title is clamp(.., 3.1cqw, ..) = 3.1% of the page width). Multiplied by
@@ -362,6 +356,8 @@ export interface InsideCoverPageInput {
   subtitle: string;
   whitespace: number;
   photo?: { photoId: string; ratio: number };
+  /** Which side of the photo the text sits on (spec 042); absent = above it. */
+  textPosition?: CoverTextPosition;
   /** Cover text multipliers: an inside face is a COVER, not a page (issue 71). */
   scales: { coverTitle: number; coverSubtitle: number };
   /** Freely placed notes (spec 039). */
@@ -389,6 +385,7 @@ export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeomet
       subtitle: input.subtitle,
       whitespace: input.whitespace,
       photo: input.photo ?? null,
+      textPosition: input.textPosition,
       notes: input.notes,
     },
     trimBox,
@@ -396,15 +393,18 @@ export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeomet
     input.scales,
   );
 
-  const hasTitle = input.title.trim().length > 0;
-  const hasSubtitle = input.subtitle.trim().length > 0;
-  const margin = COVER_MARGIN * trimW;
-  const topBand = (hasSubtitle ? COVER_TOP_SUBTITLE : hasTitle ? COVER_TOP_TITLE : COVER_MARGIN) * trimW;
+  const areas = coverFaceAreas({
+    hasTitle: input.title.trim().length > 0,
+    hasSubtitle: input.subtitle.trim().length > 0,
+    position: input.textPosition,
+    w: trimW,
+    h: trimH,
+  });
   const contentBox: PtRect = {
-    x: trimBox.x + margin,
-    y: trimBox.y + topBand,
-    w: trimW - 2 * margin,
-    h: trimH - topBand - margin,
+    x: trimBox.x + areas.photo.x,
+    y: trimBox.y + areas.photo.y,
+    w: areas.photo.w,
+    h: areas.photo.h,
   };
 
   return {
@@ -445,6 +445,8 @@ export interface CoverFaceInput {
   subtitle: string;
   photo: { photoId: string; ratio: number } | null;
   whitespace: number;
+  /** Which side of the photo the text sits on (spec 042); absent = above it. */
+  textPosition?: CoverTextPosition;
   /** Freely placed notes (spec 039). */
   notes?: Note[];
 }
@@ -471,32 +473,40 @@ function coverPanel(
   trimW: number,
   scales: { coverTitle: number; coverSubtitle: number },
 ): CoverPanel {
-  const margin = COVER_MARGIN * trimW;
   const hasTitle = face.title.trim().length > 0;
   const hasSubtitle = face.subtitle.trim().length > 0;
   const centerX = trimBox.x + trimBox.w / 2;
+  // The band, the margin and the photo's area come from the one module that decides them.
+  // Their fractions are of the PAGE trim width even when the face overhangs it (spec 041).
+  const areas = coverFaceAreas({
+    hasTitle,
+    hasSubtitle,
+    position: face.textPosition,
+    w: trimBox.w,
+    h: trimBox.h,
+    unitW: trimW,
+  });
 
   const titleSize = F_COVER_TITLE * trimW * scales.coverTitle;
   const subtitleSize = F_COVER_SUBTITLE * trimW * scales.coverSubtitle;
-  const title = hasTitle
-    ? { text: face.title.trim(), cx: centerX, y: trimBox.y + margin, sizePt: titleSize }
-    : null;
+  // The subtitle keeps its offset under the title, so the block is one line or two. At the top
+  // it hangs one margin below the edge; at the bottom its last line lands one margin above the
+  // opposite edge (spec 042).
+  const subtitleOffset = titleSize * 1.4;
+  const blockH = hasSubtitle ? subtitleOffset + subtitleSize * 1.4 : titleSize * 1.4;
+  const textTop = trimBox.y + coverTextTop(areas, trimBox.h, blockH);
+  const title = hasTitle ? { text: face.title.trim(), cx: centerX, y: textTop, sizePt: titleSize } : null;
   const subtitle = hasSubtitle
-    ? { text: face.subtitle.trim(), cx: centerX, y: trimBox.y + margin + titleSize * 1.4, sizePt: subtitleSize }
+    ? { text: face.subtitle.trim(), cx: centerX, y: textTop + subtitleOffset, sizePt: subtitleSize }
     : null;
 
   let photo: PhotoBox | null = null;
   if (face.photo) {
-    // The header sits in a FIXED top band (like the interior pages): its height depends
-    // only on whether a title / subtitle is present, not on the font size. The photo
-    // fills the area below, so enlarging the title never shrinks it and a subtitle-less
-    // cover gives that band back to the photo.
-    const topBand = (hasSubtitle ? COVER_TOP_SUBTITLE : hasTitle ? COVER_TOP_TITLE : COVER_MARGIN) * trimW;
     const area: PtRect = {
-      x: trimBox.x + margin,
-      y: trimBox.y + topBand,
-      w: trimBox.w - 2 * margin,
-      h: trimBox.h - topBand - margin,
+      x: trimBox.x + areas.photo.x,
+      y: trimBox.y + areas.photo.y,
+      w: areas.photo.w,
+      h: areas.photo.h,
     };
     const { cells } = computeLayout([{ ratio: face.photo.ratio }], area.w, area.h, resolveCells("single", 1), {
       density: whitespaceToDensity(face.whitespace),

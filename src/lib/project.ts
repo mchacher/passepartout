@@ -133,6 +133,9 @@ export function coverOrDefault(cover: Cover | undefined | null): Cover {
   // the declared `string | null`.
   if (!cover) return newCover();
   const out: Cover = { ...newCover(), ...cover, photoId: cover.photoId ?? null };
+  // Where the text sits (spec 042): absent on every face saved before the choice existed, and
+  // coerced rather than trusted, like the notes below.
+  if (out.textPosition !== "bottom") delete out.textPosition;
   // Notes (spec 039) are coerced rather than trusted: an unknown font or size falls back to
   // the default and the note is kept, a malformed entry is dropped.
   const notes = coerceNotes(cover.notes);

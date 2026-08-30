@@ -20,7 +20,7 @@ Most album software starts from fixed template slots and forces each photo to fi
 - **Assumed whitespace**: eight whitespace levels per page tune how much white surrounds the photos, from a full-region fill to airy.
 - **Projects that persist**: your work is saved locally in the browser and survives a refresh; keep several named albums and switch between them (new, rename, duplicate, delete).
 - **Backup and transfer**: export a whole album as a single self-contained bundle file (a `.zip` with the project and every photo at full resolution), then import it to back it up or move it to another Passepartout instance. Import always creates a new, independent project.
-- **Complete booklet covers**: a front cover, its inside, the pages, the inside back, and the back cover, each with a title, a subtitle, and an optional photo (contained, never cropped).
+- **Complete booklet covers**: a front cover, its inside, the pages, the inside back, and the back cover, each with a title, a subtitle, and an optional photo (contained, never cropped). Put the title above the photo or under it, face by face.
 - **Free text**: a title per page and a caption under each photo.
 - **Chronological by default**: photos order themselves by EXIF capture time (falling back to file date).
 - **Book sizes**: pick a real Blurb print size (Small/Large Square, Portrait 8x10, Landscape 10x8, Large Landscape); the page adopts that exact ratio so the preview matches the printed book.

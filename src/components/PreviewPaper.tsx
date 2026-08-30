@@ -17,11 +17,12 @@ import {
   headerGeometry,
 } from "../lib/page-header";
 import { SIZE_SCALE } from "../lib/text-sizes";
+import { COVER_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
 import { useAlbum } from "../store";
 import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect,
-  type Note, type PageFill } from "../types";
+  type CoverTextPosition, type Note, type PageFill } from "../types";
 import { NoteLayer } from "./NoteLayer";
 
 // A read-only, faithful render of one book leaf (a page or a cover face) at an exact
@@ -77,6 +78,8 @@ interface CoverPreviewProps {
   subtitle: string;
   whitespace: number;
   photo: PreviewPhoto | null;
+  /** Which side of the photo the text sits on (spec 042); absent = above it. */
+  textPosition?: CoverTextPosition;
 }
 
 export type PreviewPaperProps = PagePreviewProps | CoverPreviewProps;
@@ -225,12 +228,31 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
 // mirrors CoverCard exactly (same flex flow and 9% paddings) and measures the photo band
 // with a ResizeObserver, so the contained photo matches the editor to the pixel rather
 // than relying on an analytic header-height estimate.
-function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps & { w: number; h: number }) {
+function CoverLeaf({ title, subtitle, whitespace, photo, textPosition, h }: CoverPreviewProps & { w: number; h: number }) {
   const hasTitle = title.trim().length > 0;
   const hasSubtitle = subtitle.trim().length > 0;
-  // The header sits in a fixed top band (mirrors CoverCard and print.ts): the photo fills
-  // below it, so title size never shrinks the photo and a subtitle-less cover is larger.
-  const photoTop = hasSubtitle ? "20cqw" : hasTitle ? "15cqw" : "6cqw";
+  // The header sits in a fixed band, above the photo or under it (spec 042). Band and margin
+  // come from cover-layout.ts, the module CoverCard and print.ts read, so the preview cannot
+  // drift from either.
+  const band = coverBandCss({ hasTitle, hasSubtitle });
+  const margin = COVER_MARGIN_CSS;
+  const atBottom = textPosition === "bottom";
+  const textBox = {
+    top: atBottom ? undefined : 0,
+    bottom: atBottom ? 0 : undefined,
+    paddingLeft: margin,
+    paddingRight: margin,
+    paddingTop: atBottom ? undefined : margin,
+    paddingBottom: atBottom ? margin : undefined,
+  };
+  const photoBox = {
+    top: atBottom ? 0 : band,
+    bottom: atBottom ? band : 0,
+    paddingLeft: margin,
+    paddingRight: margin,
+    paddingTop: atBottom ? margin : undefined,
+    paddingBottom: atBottom ? undefined : margin,
+  };
   const boxRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
 
@@ -251,7 +273,7 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
     const c = cells[0];
     setBox(c ? { w: c.w, h: c.h } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo?.id, photo?.ratio, photo?.crop, photo?.frame, photo?.frameWidth, photo?.mask, whitespace, h]);
+  }, [photo?.id, photo?.ratio, photo?.crop, photo?.frame, photo?.frameWidth, photo?.mask, whitespace, h, band, atBottom]);
 
   useLayoutEffect(() => {
     measure();
@@ -264,7 +286,7 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
 
   return (
     <div className="relative h-full w-full">
-      <div className="absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
+      <div className="absolute inset-x-0 z-10 text-center" style={textBox}>
         {hasTitle && (
           <div
             className="font-album tracking-wide"
@@ -285,8 +307,8 @@ function CoverLeaf({ title, subtitle, whitespace, photo, h }: CoverPreviewProps 
 
       <div
         ref={boxRef}
-        className="absolute inset-x-0 bottom-0 flex items-center justify-center px-[6cqw] pb-[6cqw]"
-        style={{ top: photoTop }}
+        className="absolute inset-x-0 flex items-center justify-center"
+        style={photoBox}
       >
         {photo && box &&
           (photo.frame ? (

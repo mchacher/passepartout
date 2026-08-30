@@ -58,7 +58,8 @@ opt-in exceptions are a page's **Fill** mode (spec 012) and the per-photo **crop
   coexist. See the persistence section in [architecture.md](architecture.md).
 - **Cover**: the four faces of the booklet cover (front, inside front, inside back,
   back), each a title + subtitle + an optional photo dragged from the library
-  (contained, never cropped). They render front, inside front, pages, inside back, back.
+  (contained, never cropped). The text sits in a fixed band above the photo or under it,
+  per face (spec 042). They render front, inside front, pages, inside back, back.
 
 All state and every mutation live in the Zustand store (`src/store.ts`). Components
 never mutate state directly; they call store actions. The store persists the active

@@ -77,6 +77,7 @@ export function ExportPanel() {
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
       insideCover: true,
+      textPosition: cover.textPosition,
       // Notes travel with their face (spec 039), printed over whatever it holds.
       notes: cover.notes,
       layoutId: "single",
@@ -91,6 +92,7 @@ export function ExportPanel() {
       subtitle: cover.subtitle,
       whitespace: cover.whitespace,
       photo: p ? exportCoverItem(p) : null,
+      textPosition: cover.textPosition,
       notes: cover.notes,
     };
   };

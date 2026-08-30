@@ -167,6 +167,9 @@ const en: Record<string, string> = {
   "cover.back.title": "Closing note",
   "cover.back.subtitle": "Optional",
   "cover.dragHint": "Drag a photo here, or leave it text-only.",
+  "cover.textPosition": "Title position",
+  "cover.textPosition.top": "Title above the photo",
+  "cover.textPosition.bottom": "Title under the photo",
   "cover.dropHint": "Drag a photo here (optional)",
   "cover.removePhoto": "Remove cover photo",
 
@@ -581,6 +584,9 @@ const fr: Record<string, string> = {
   "cover.back.title": "Note de fin",
   "cover.back.subtitle": "Optionnel",
   "cover.dragHint": "Glissez une photo ici, ou conservez uniquement le texte.",
+  "cover.textPosition": "Position du titre",
+  "cover.textPosition.top": "Titre au-dessus de la photo",
+  "cover.textPosition.bottom": "Titre sous la photo",
   "cover.dropHint": "Glissez une photo ici (optionnel)",
   "cover.removePhoto": "Retirer la photo de couverture",
 

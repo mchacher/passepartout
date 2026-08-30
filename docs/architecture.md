@@ -45,6 +45,7 @@ src/
 │   ├── exif.ts         # Best-effort EXIF DateTimeOriginal reader
 │   ├── preview.ts      # PURE book-preview helpers: booklet leaf order, spread pairing, fit-to-stage sizing
 │   ├── fit.ts          # PURE cover-crop geometry (coverSourceRect) for full-page Fill photos
+│   ├── cover-layout.ts # PURE cover face band + photo area, text above or below (spec 042)
 │   ├── grid-edit.ts    # PURE move/resize/restack helpers for free placement (spec 013 Phase B)
 │   ├── crop.ts         # PURE photo-crop geometry: effectiveRatio, crop-rect edit, cropImgBox (spec 015)
 │   ├── notes.ts        # PURE note geometry + line breaker (spec 039): sizes, wrapLines, clamp, snap, ink
@@ -151,10 +152,13 @@ Three hard boundaries:
   object `url` is never persisted: `serializeProject` strips it and `hydratePhotos`
   re-attaches a fresh one from the blob.
 - **Cover** (`Cover` in `src/types.ts`): one booklet cover face = `title` + `subtitle`
-  + an optional `photoId` (a library photo, contained never cropped) + `whitespace`. A
+  + an optional `photoId` (a library photo, contained never cropped) + `whitespace` +
+  `textPosition` (spec 042: the text band above the photo, the default, or under it). A
   cover sheet has **four faces** (`CoverFace`): `front`, `insideFront`, `insideBack`,
-  `back`. `coverOrDefault` keeps pre-cover documents loadable; `cleanCover` nulls a
-  `photoId` whose photo is gone.
+  `back`. `coverOrDefault` keeps pre-cover documents loadable and coerces the position;
+  `cleanCover` nulls a `photoId` whose photo is gone. The band and the photo's area are
+  computed once in `src/lib/cover-layout.ts`, read by the editor, the book preview and
+  `print.ts`, so the three cannot drift.
 - **Album theme** (`src/lib/themes.ts`): two project-level choices, `fontTheme` and
   `colorTheme`, each an id into a small curated catalog (like the layout catalog). A
   `FontTheme` names a family from the SHIPPED catalog (`src/lib/fonts.ts`, spec 040) rather

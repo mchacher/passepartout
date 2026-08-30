@@ -7,6 +7,12 @@ be published (the release workflow refuses to publish without it - spec 028).
 
 Cover text that stays out of the picture.
 
+- **A cover title can sit under the photo**: the title and the subtitle of a cover face were
+  always drawn above the picture. Each of the four faces now chooses, from a control next to the
+  whitespace slider: the text band above the photo, as before, or the same band mirrored under
+  it. The band keeps its height either way, so nothing about the photo changes but the space it
+  is given, and the editor, the book preview and the exported PDF agree. Albums made before this
+  open exactly as they were.
 - **Photo effects reach the printed book**: a photo given the Circle or the Rounded shape was
   exported as an empty rectangle, so the page reached the printer blank where the album showed a
   picture. Two of the four shapes are drawn through a mechanism the export understood; the other

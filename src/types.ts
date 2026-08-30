@@ -112,6 +112,12 @@ export interface AlbumPage {
   notes?: Note[];
 }
 
+// Where a cover face draws its title and subtitle (spec 042): in the band above the photo,
+// which is the default and what every album made before the choice existed uses, or in the
+// same band mirrored under it. It moves the text and the photo's area, never the photo's
+// framing.
+export type CoverTextPosition = "top" | "bottom";
+
 // A booklet cover face: text plus one optional photo chosen from the library. The
 // photo is contained (never cropped), like everything else. A book cover is a folded
 // sheet with four faces (outside + inside, front and back); each is a Cover.
@@ -120,6 +126,9 @@ export interface Cover {
   subtitle: string;
   photoId: string | null; // references a library Photo, or null for a text-only cover
   whitespace: number; // whitespace level 1 .. WHITESPACE_LEVELS for the cover photo
+  // Which side of the photo the title and subtitle sit on (spec 042). Absent = "top", the
+  // original layout; every project saved before the choice existed reads as "top".
+  textPosition?: CoverTextPosition;
   // Freely placed text notes (spec 039), exactly as on an interior page.
   notes?: Note[];
 }

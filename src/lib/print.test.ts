@@ -596,3 +596,100 @@ describe("notes in print (spec 039)", () => {
     expect(g.front.notes[0].cx).toBeCloseTo(g.front.trimBox.x + 0.25 * trimW, 6);
   });
 });
+
+// Spec 042: the text band can sit under the photo instead of above it. The two layouts are
+// exact mirrors, and the "top" one must still produce the geometry it produced before the
+// choice existed.
+describe("cover text position (spec 042)", () => {
+  const inside = (over: Partial<Parameters<typeof insideCoverPageGeometry>[0]> = {}) =>
+    insideCoverPageGeometry({
+      size,
+      title: "Corse",
+      subtitle: "2026",
+      whitespace: 4,
+      photo: { photoId: "a", ratio: 1.5 },
+      scales: { coverTitle: 1, coverSubtitle: 1 },
+      ...over,
+    });
+
+  const wrap = (textPosition?: "top" | "bottom") =>
+    coverWrapGeometry({
+      size,
+      cover: softcover,
+      spineWidthPt: mmToPt(10),
+      front: { title: "Corse", subtitle: "2026", whitespace: 4, photo: { photoId: "a", ratio: 1.5 }, textPosition },
+      back: { title: "", subtitle: "", whitespace: 4, photo: null },
+      spineTitle: "",
+      spineSubtitle: "",
+      scales: { coverTitle: 1, coverSubtitle: 1 },
+    });
+
+  it("leaves the default layout exactly as it was", () => {
+    const legacy = inside();
+    const explicit = inside({ textPosition: "top" });
+    expect(explicit.contentBox).toEqual(legacy.contentBox);
+    expect(explicit.title).toEqual(legacy.title);
+    expect(explicit.subtitle).toEqual(legacy.subtitle);
+    expect(explicit.photos[0]).toEqual(legacy.photos[0]);
+    // And that layout is the one the band has always described.
+    expect(legacy.contentBox.y - legacy.trimBox.y).toBeCloseTo(0.2 * trimW, 6);
+    expect(legacy.title!.y - legacy.trimBox.y).toBeCloseTo(0.06 * trimW, 6);
+  });
+
+  it("puts the photo above the text, from the top margin down to the band", () => {
+    const g = inside({ textPosition: "bottom" });
+    const margin = 0.06 * trimW;
+    const band = 0.2 * trimW;
+    expect(g.contentBox.y - g.trimBox.y).toBeCloseTo(margin, 6);
+    expect(g.contentBox.h).toBeCloseTo(trimH - band - margin, 6);
+    // The whole text block is below the photo area, inside the band, and the subtitle last.
+    expect(g.title!.y).toBeGreaterThan(g.contentBox.y + g.contentBox.h);
+    expect(g.subtitle!.y).toBeGreaterThan(g.title!.y);
+    expect(g.subtitle!.y + g.subtitle!.sizePt * 1.4).toBeCloseTo(g.trimBox.y + trimH - margin, 6);
+  });
+
+  it("keeps the same band and the same photo area, only mirrored", () => {
+    const top = inside({ textPosition: "top" });
+    const bottom = inside({ textPosition: "bottom" });
+    expect(bottom.contentBox.w).toBeCloseTo(top.contentBox.w, 6);
+    expect(bottom.contentBox.h).toBeCloseTo(top.contentBox.h, 6);
+    expect(bottom.photos[0].w).toBeCloseTo(top.photos[0].w, 6);
+    expect(bottom.photos[0].h).toBeCloseTo(top.photos[0].h, 6);
+    expect(bottom.title!.sizePt).toBeCloseTo(top.title!.sizePt, 6);
+  });
+
+  it("keeps the photo's ratio and contains it when the text is at the bottom", () => {
+    for (const ratio of [2.4, 1.5, 0.66]) {
+      const g = inside({ textPosition: "bottom", photo: { photoId: "a", ratio } });
+      const photo = g.photos[0];
+      expect(photo.w / photo.h).toBeCloseTo(ratio, 6); // RATIO: never distorted
+      expect(photo.x).toBeGreaterThanOrEqual(g.contentBox.x - 1e-6); // FIT: never overflowing
+      expect(photo.y).toBeGreaterThanOrEqual(g.contentBox.y - 1e-6);
+      expect(photo.x + photo.w).toBeLessThanOrEqual(g.contentBox.x + g.contentBox.w + 1e-6);
+      expect(photo.y + photo.h).toBeLessThanOrEqual(g.contentBox.y + g.contentBox.h + 1e-6);
+    }
+  });
+
+  it("renders a face with no text identically in both positions", () => {
+    const bare = { title: "", subtitle: "" };
+    const top = inside({ ...bare, textPosition: "top" });
+    const bottom = inside({ ...bare, textPosition: "bottom" });
+    expect(bottom.contentBox).toEqual(top.contentBox);
+    expect(bottom.photos[0]).toEqual(top.photos[0]);
+  });
+
+  it("mirrors an outside cover face on the wrap the same way", () => {
+    const top = wrap("top").front;
+    const bottom = wrap("bottom").front;
+    const margin = 0.06 * trimW;
+    // The photo is centered in its area, so it starts at or below the top margin, never above.
+    expect(bottom.photo!.y - bottom.trimBox.y).toBeGreaterThanOrEqual(margin - 1e-6);
+    expect(bottom.photo!.w / bottom.photo!.h).toBeCloseTo(1.5, 6);
+    expect(bottom.photo!.h).toBeCloseTo(top.photo!.h, 6);
+    expect(bottom.title!.y).toBeGreaterThan(bottom.photo!.y + bottom.photo!.h);
+    expect(top.title!.y).toBeLessThan(top.photo!.y);
+    // The back face, left at the default, is untouched by the front's choice.
+    expect(wrap("bottom").back.photo).toBeNull();
+  });
+});
+
