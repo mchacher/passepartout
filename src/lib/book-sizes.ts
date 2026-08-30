@@ -4,13 +4,13 @@
 // supported print provider (Blurb first), so the on-screen page ratio equals the
 // printed page: what you see is what prints.
 //
-// Since spec 041 the trims come from `blurb-specs.ts`, which holds what Blurb's own
-// specification calculator returns. They used to be the rounded marketing names ("Standard
+// Since spec 041 the trims come from the print provider (`provider-blurb.ts`), which holds
+// what Blurb's own specification calculator returns. They used to be the rounded marketing names ("Standard
 // Landscape 10x8" as a literal 10 x 8 in trim), which is one of the reasons Blurb rejected
 // every PDF we exported (issue #114): that book really trims at 9.5 x 8.0 in. The name a
 // user picks from is still Blurb's name; the geometry underneath is the real one.
 
-import { PAGE_SPECS } from "./blurb-specs";
+import { BLURB } from "./provider-blurb";
 import type { PageFormat } from "../types";
 
 export type BookProvider = "blurb";
@@ -40,8 +40,8 @@ export interface BookSize {
 // real trim from the spec calculator, converted from inches.
 const IN_TO_MM = 25.4;
 const trim = (id: BookSizeId) => ({
-  widthMm: PAGE_SPECS[id].trimIn.w * IN_TO_MM,
-  heightMm: PAGE_SPECS[id].trimIn.h * IN_TO_MM,
+  widthMm: BLURB.pages[id].trimIn.w * IN_TO_MM,
+  heightMm: BLURB.pages[id].trimIn.h * IN_TO_MM,
 });
 
 export const BOOK_SIZES: BookSize[] = [

@@ -1,4 +1,4 @@
-# 041 - Real Blurb print specifications
+# 041 - Print provider specifications
 
 ## Context
 
@@ -12,11 +12,20 @@ The numbers Blurb actually wants come from its own specification calculator, per
 cover type, paper and page count. Blurb says so explicitly: use the calculator, do not derive
 bleed from the trim yourself. This spec replaces our derived arithmetic with that table.
 
+It also generalises it. The roadmap has always had CEWE and Saal Digital on it, and printers
+disagree on things that look universal: which edges take the bleed, what a "10x8 book" trims
+at, what a cover even is, how many pages are allowed and in what multiples. So the table is not
+"the Blurb constants", it is a **print provider model**, and Blurb is its first entry. A second
+printer is a new data file, not a refactor.
+
 ## Goals
 
-- A `src/lib/blurb-specs.ts` catalog holding, per book size, the **real trim**, the page bleed
-  rule and the safe insets; and per (size, cover type) the cover trim, bleed, flaps and spine.
-  Pure data plus pure accessors, unit tested against the values the calculator returns.
+- A `src/lib/print-provider.ts` model: what an album has to satisfy to be accepted by a
+  printer, expressed as data. Per book size the **real trim**, the bleed and which edges take
+  it, and the safe insets; per (size, cover construction) the overhang, bleed, flaps and spine;
+  and per provider the page count rule and the target resolution. Pure, with pure accessors.
+- `src/lib/provider-blurb.ts`: Blurb's numbers, harvested from its calculator, and
+  `src/lib/print-providers.ts`, the registry a `BookSize.provider` resolves against.
 - `BOOK_SIZES` trims sourced from that catalog, so the on-screen page ratio finally equals the
   printed page (the promise of spec 008).
 - An interior PDF whose page size is `trim + 0.125 in` wide and `trim + 0.25 in` tall, with the
@@ -44,29 +53,36 @@ photo is still contain-fit inside it at its own ratio. Nothing here lets the eng
 
 ## Requirements
 
-### Specification catalog (`src/lib/blurb-specs.ts`, pure)
+### The model (`src/lib/print-provider.ts`, pure)
 
-- `BLURB_PAGE_SPECS`: per size id, `trimIn: {w, h}`, `bleedIn` (0.125), `safeOuterIn` (0.25),
-  `safeBindingIn` (0.5 or 0.625 depending on size).
-- `BLURB_COVER_SPECS`: per (size id, cover type), `trimIn: {w, h}` for the whole wrap at a
-  reference page count, `bleedIn`, `flapIn`, and the spine table.
-- `pageMediaIn(size)` returns `{w: trim.w + bleed, h: trim.h + 2 * bleed}`. Verified equal to
-  the calculator's "Final, exported PDF should measure" for every size.
-- `coverMediaIn(size, coverType, spineIn)` likewise for the wrap.
-- The harvest script that produced the table lives in `scripts/harvest-blurb-specs.mjs`, so the
-  table can be refreshed when Blurb changes a size, and the test data is reproducible.
+- `PageSpec`: `trimIn`, `bleedIn`, `bleedEdges` (`outer-three` or `all`), `safeOuterIn`,
+  `safeBindingIn`.
+- `CoverSpec`: `id`, `labelKey`, `overhangIn`, `bleedIn`, `flapIn`, and `spineIn` sampled by
+  page count per paper family.
+- `PrintProvider`: `pageCount` (`multipleOf`, `min`, `max`), `dpi`, the page table and the
+  cover table, plus the `specUrl` a reader can check the numbers against.
+- `pageMediaIn(spec)` adds the bleed to the edges that take one: with `outer-three` that is one
+  bleed horizontally and two vertically. Verified equal to the calculator's "Final, exported
+  PDF should measure" for every size.
+- `coverMediaIn(page, cover, spineIn)` and `spineWidthIn(cover, paper, pages)` likewise for the
+  wrap, and `roundUpPageCount(rule, pages)` for the padding.
+- `scripts/harvest-blurb-specs.mjs` regenerates the Blurb tables, so they can be refreshed when
+  Blurb changes a size and the test data stays reproducible.
 
 ### Print geometry (`src/lib/print.ts`)
 
 - `interiorPageGeometry` takes a `bindingSide: "left" | "right"`. Media box from
-  `pageMediaIn`; trim box at `x = 0` when the binding edge is on the left (bleed on the right)
-  and at `x = bleed` when it is on the right. Vertical bleed unchanged, both sides.
-- `coverWrapGeometry` takes the cover type. Back and front panels sit inside the wrap at the
-  cover's own overhang, the spine panel between them, flaps outside them for a dust jacket.
+  `pageMediaIn`; with `outer-three` the trim box sits at `x = 0` when the binding edge is on
+  the left (bleed on the right) and at `x = bleed` when it is on the right. A provider that
+  bleeds all four edges gets one on each side, unchanged.
+- `coverWrapGeometry` takes the `CoverSpec`. Back and front panels sit inside the wrap at the
+  cover's own overhang, the spine panel between them, flaps outside them when there are flaps.
 
 ### Export (`src/components/ExportPanel.tsx`)
 
-- Cover type selector (softcover / dust jacket / ImageWrap), persisted with the project.
+- Cover construction selector, listing what the provider offers for that size. Panel state,
+  like the paper and the spine override already are (spec 009): it is a property of the order,
+  not of the album.
 - Interior page count shown with its parity fix applied, and the blank leaf inserted before the
   inside back cover when the count is odd.
 - The target page and cover dimensions displayed in inches, next to what we will actually emit.
@@ -83,9 +99,11 @@ photo is still contain-fit inside it at its own ratio. Nothing here lets the eng
 
 ## Edge cases
 
-- **Cover type unavailable for a size** (softcover is not offered above a certain format): the
-  selector hides it rather than emitting an invalid wrap.
+- **Cover construction unavailable for a size** (softcover is not offered above a certain
+  format, and a row we have not measured is absent too): the selector does not list it, and the
+  cover export is disabled rather than emitting a guessed wrap.
 - **Spine override**: still wins over the table, unchanged behaviour.
 - **Existing projects**: they keep their size id and pick up the corrected trim, so their pages
   re-fit. Nothing is lost; no photo is cropped.
-- **Odd page count**: a blank leaf, never a duplicated page.
+- **Odd page count**: blank leaves, never a duplicated page, and inserted before the inside
+  back cover rather than after it.

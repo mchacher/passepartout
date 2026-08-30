@@ -12,6 +12,7 @@ import {
   type PageInput,
 } from "./print";
 import { NOTE_REF_W, NOTE_SIZES } from "./notes";
+import type { CoverSpec } from "./print-provider";
 import type { Note } from "../types";
 import { FONT_THEMES } from "./themes";
 import { SHIPPED_FONTS } from "./fonts";
@@ -22,6 +23,17 @@ const trimW = mmToPt(size.widthMm);
 const trimH = mmToPt(size.heightMm);
 
 const scales = { pageTitle: 1, pageSubtitle: 1, caption: 1 };
+
+// A cover construction to place the wrap panels with. Deliberately a fixture rather than a
+// row from the Blurb table: these tests are about the geometry, the table has its own tests.
+const softcover: CoverSpec = {
+  id: "softcover",
+  labelKey: "export.coverSoftcover",
+  overhangIn: { w: 0, h: 0 },
+  bleedIn: BLEED_MM / 25.4,
+  flapIn: 0,
+  spineIn: { standard: [], premium: [] },
+};
 
 const pageInput = (items: PageInput["items"], layoutId: string, extra?: Partial<PageInput>): PageInput => ({
   size,
@@ -357,6 +369,7 @@ describe("insideCoverPageGeometry", () => {
     const inside = face();
     const wrap = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: mmToPt(10),
       front: { title: "A dedication", subtitle: "for someone", whitespace: 4, photo: null },
       back: { title: "", subtitle: "", whitespace: 4, photo: null },
@@ -384,6 +397,7 @@ describe("coverWrapGeometry", () => {
     const spine = mmToPt(8);
     const g = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: spine,
       front: face("f"),
       back: face(null),
@@ -403,6 +417,7 @@ describe("coverWrapGeometry", () => {
   it("keeps the front cover photo's ratio and emits no spine line when title-less", () => {
     const g = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: mmToPt(8),
       front: face("f"),
       back: face(null),
@@ -416,7 +431,7 @@ describe("coverWrapGeometry", () => {
   });
 
   it("keeps the cover photo size independent of the title font size (fixed top band)", () => {
-    const base = { size, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "" };
+    const base = { size, cover: softcover, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "" };
     const small = coverWrapGeometry({ ...base, front: face("f"), scales: { coverTitle: 0.85, coverSubtitle: 1 } });
     const large = coverWrapGeometry({ ...base, front: face("f"), scales: { coverTitle: 1.45, coverSubtitle: 1 } });
     // The title grows from S to XL, but the photo box does not move or shrink.
@@ -433,7 +448,7 @@ describe("coverWrapGeometry", () => {
       whitespace: 4,
     });
     for (const coverTitle of [0.85, 1, 1.45]) {
-      const base = { size, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "", scales: { coverTitle, coverSubtitle: 1 } };
+      const base = { size, cover: softcover, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "", scales: { coverTitle, coverSubtitle: 1 } };
       const withSub = coverWrapGeometry({ ...base, front: titled("2026") });
       const noSub = coverWrapGeometry({ ...base, front: titled("") });
       expect(noSub.front.photo!.h).toBeGreaterThan(withSub.front.photo!.h);
@@ -441,7 +456,7 @@ describe("coverWrapGeometry", () => {
   });
 
   it("puts the title alone, or title + subtitle, on the spine", () => {
-    const base = { size, spineWidthPt: mmToPt(10), front: face(null), back: face(null), scales: { coverTitle: 1, coverSubtitle: 1 } };
+    const base = { size, cover: softcover, spineWidthPt: mmToPt(10), front: face(null), back: face(null), scales: { coverTitle: 1, coverSubtitle: 1 } };
     const titleOnly = coverWrapGeometry({ ...base, spineTitle: "Solio", spineSubtitle: "" });
     expect(titleOnly.spineLines.map((l) => l.text)).toEqual(["Solio"]);
 
@@ -565,6 +580,7 @@ describe("notes in print (spec 039)", () => {
     const face = (notes: Note[]) => ({ title: "", subtitle: "", photo: null, whitespace: 4, notes });
     const g = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: 20,
       front: face([note({ id: "nf" })]),
       back: face([note({ id: "nb" })]),

@@ -16,6 +16,8 @@ import { coverSourceRect } from "./fit";
 import { maskById } from "./masks";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "./frames";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
+import { roundUpPageCount, type CoverSpec, type PageCountRule } from "./print-provider";
+import { providerOrDefault } from "./print-providers";
 import {
   coverWrapGeometry,
   albumFontFamily,
@@ -612,13 +614,16 @@ export function blankLeaf(): ExportPageLike {
 }
 
 /**
- * Blurb's page count must be a multiple of 2. Pad with one blank leaf placed just before the
- * inside back cover, so the added sheet lands at the end of the book rather than in the middle
- * of a sequence the author arranged.
+ * A printer accepts only certain page counts (Blurb: a multiple of 2). Pad with blank leaves
+ * placed just before the inside back cover, so the added sheets land at the end of the book
+ * rather than in the middle of a sequence the author arranged. Letting the printer pad instead
+ * appends them after the inside back cover, which is not where a book should end.
  */
-export function evenInterior(interior: ExportPageLike[]): ExportPageLike[] {
-  if (interior.length % 2 === 0) return interior;
-  return [...interior.slice(0, -1), blankLeaf(), ...interior.slice(-1)];
+export function padInterior(interior: ExportPageLike[], rule: PageCountRule): ExportPageLike[] {
+  const target = roundUpPageCount(rule, interior.length);
+  if (target === interior.length) return interior;
+  const pad = Array.from({ length: target - interior.length }, blankLeaf);
+  return [...interior.slice(0, -1), ...pad, ...interior.slice(-1)];
 }
 
 /** Build the interior PDF: inside front, every content page, inside back. */
@@ -644,10 +649,7 @@ export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
       notePlaces(pl.notes, { x: 0, y: 0, w: mmToPt(p.size.widthMm), h: mmToPt(p.size.heightMm) }),
     ),
   );
-  // Blurb refuses an odd page count ("submit an even number of pages"), and pads the file
-  // itself if you insist, which shifts every spread after the padding. Add the blank leaf
-  // ourselves, before the inside back cover, so the book ends where the author meant it to.
-  const leaves = evenInterior(p.interior);
+  const leaves = padInterior(p.interior, providerOrDefault(p.size.provider).pageCount);
   // The first leaf of the interior file is a right-hand page, so it binds on its LEFT and
   // carries its bleed on the right; the side alternates from there (spec 041).
   for (const [i, pageLike] of leaves.entries()) {
@@ -657,7 +659,7 @@ export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
 }
 
 /** Build the cover-wrap PDF: back (left) + spine + front (right), with bleed. */
-export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number): Promise<Uint8Array> {
+export async function buildCoverWrapPdf(p: ExportProject, cover: CoverSpec, spineWidthPt: number): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const faces = new Map<string, Face>();
@@ -675,6 +677,7 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
 
   const g = coverWrapGeometry({
     size: p.size,
+    cover,
     spineWidthPt,
     front: toFace(p.front),
     back: toFace(p.back),

@@ -5,7 +5,10 @@ import { bookSizeOrDefault } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
 import { photoLayoutRatio } from "../lib/frames";
 import { effectiveSpineTitle } from "../lib/project";
-import { estimateSpineMm, mmToPt, PAPERS, type PaperId } from "../lib/print";
+import { mmToPt, PAPERS, type PaperId } from "../lib/print";
+import { coverMediaIn, pageMediaIn, roundUpPageCount, spineWidthIn, type PaperFamily } from "../lib/print-provider";
+import { coverSpecsFor, providerOrDefault } from "../lib/print-providers";
+import { pageSpec } from "../lib/print";
 import {
   buildCoverWrapPdf,
   buildInteriorPdf,
@@ -15,25 +18,48 @@ import {
 } from "../lib/pdf-export";
 import type { Cover, Photo } from "../types";
 
-// The export panel: pick a paper, review the spine estimate (overridable), and download
-// the Blurb-ready cover-wrap and interior PDFs. Assembles the pure ExportProject from
-// the store at click time and hands it to the pdf-lib builder.
+// The export panel: pick a cover construction and a paper, review the spine (overridable) and
+// download the Blurb-ready cover-wrap and interior PDFs. It also states the dimensions Blurb's
+// preflight will demand, so a mismatch shows up here rather than after an upload (issue #114).
+// Assembles the pure ExportProject from the store at click time and hands it to the pdf-lib
+// builder.
+
+const MM_PER_IN = 25.4;
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
 export function ExportPanel() {
   const store = useAlbum();
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [paper, setPaper] = useState<PaperId>("standard");
+  // The provider's default construction; ImageWrap for Blurb, the most ordered photo book.
+  const [coverType, setCoverType] = useState<string>("imagewrap");
   const [spineOverride, setSpineOverride] = useState("");
   const [spineContent, setSpineContent] = useState<"title" | "titleSubtitle">("title");
   const [busy, setBusy] = useState<null | "cover" | "interior">(null);
   const [failed, setFailed] = useState(false);
 
   const size = bookSizeOrDefault(store.bookSize);
-  const interiorCount = store.pages.length + 2; // inside front + pages + inside back
-  const estimate = estimateSpineMm(interiorCount, paper);
+  const provider = providerOrDefault(size.provider);
+  const leaves = store.pages.length + 2; // inside front + pages + inside back
+  // The printer only accepts certain page counts, so the export pads with blank leaves. Show
+  // the count that will actually be printed, not the one the album happens to have.
+  const interiorCount = roundUpPageCount(provider.pageCount, leaves);
+  const oddPadded = interiorCount !== leaves;
+  const tooFewPages = interiorCount < provider.pageCount.min;
+
+  const covers = coverSpecsFor(size.provider, size.id);
+  const coverSpec = covers.find((c) => c.id === coverType) ?? covers[0];
+  const paperFamily: PaperFamily = paper === "standard" ? "standard" : "premium";
+  const specSpineMm = coverSpec ? spineWidthIn(coverSpec, paperFamily, interiorCount) * MM_PER_IN : 0;
   // Accept a comma decimal separator (e.g. "8,5") as well as a dot.
-  const spineMm = spineOverride.trim() ? Number(spineOverride.replace(",", ".")) : estimate;
+  const spineMm = spineOverride.trim() ? Number(spineOverride.replace(",", ".")) : specSpineMm;
   const validSpine = Number.isFinite(spineMm) && spineMm >= 0;
+
+  // What Blurb's preflight will compare the files against. Showing it means a mismatch is
+  // visible here rather than after an upload (issue #114).
+  const targetPage = pageMediaIn(pageSpec(size));
+  const targetCover = coverSpec ? coverMediaIn(pageSpec(size), coverSpec, spineMm / MM_PER_IN) : null;
+  const inches = (d: { w: number; h: number }) => `${round3(d.w)} x ${round3(d.h)} in`;
 
   const photoById = (id: string | null): Photo | undefined =>
     id ? store.photos.find((p) => p.id === id) : undefined;
@@ -148,7 +174,12 @@ export function ExportPanel() {
   };
 
   const exportInterior = () => run("interior", async () => buildInteriorPdf(assemble()));
-  const exportCover = () => run("cover", async () => buildCoverWrapPdf(assemble(), mmToPt(spineMm)));
+  const exportCover = () =>
+    run("cover", async () => {
+      // The button is disabled without a spec; this keeps the builder honest anyway.
+      if (!coverSpec) throw new Error("no Blurb cover specification for this size and cover type");
+      return buildCoverWrapPdf(assemble(), coverSpec, mmToPt(spineMm));
+    });
 
   return (
     <div className="relative">
@@ -177,6 +208,27 @@ export function ExportPanel() {
               <span className="text-muted">{t("export.interiorPages")}</span>
               <span className="font-mono text-ink">{interiorCount}</span>
             </div>
+            {oddPadded && <p className="pb-1 text-[10.5px] leading-snug text-faint">{t("export.blankLeaf")}</p>}
+            {tooFewPages && (
+              <p role="alert" className="pb-1 text-[10.5px] leading-snug text-[#c0392b]">
+                {t("export.tooFewPages")}
+              </p>
+            )}
+
+            <label className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
+              <span className="text-muted">{t("export.coverType")}</span>
+              <select
+                value={coverSpec?.id ?? ""}
+                onChange={(e) => setCoverType(e.target.value)}
+                className="rounded-md border border-line bg-surface-2 px-2 py-1 text-[12.5px] text-ink focus:border-accent focus:outline-none"
+              >
+                {covers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {t(c.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <label className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
               <span className="text-muted">{t("export.paper")}</span>
@@ -198,12 +250,25 @@ export function ExportPanel() {
               <input
                 inputMode="decimal"
                 value={spineOverride}
-                placeholder={estimate.toFixed(1)}
+                placeholder={specSpineMm.toFixed(1)}
                 onChange={(e) => setSpineOverride(e.target.value)}
                 className="w-24 rounded-md border border-line bg-surface-2 px-2 py-1 text-right font-mono text-[12.5px] text-ink focus:border-accent focus:outline-none"
               />
             </label>
             <p className="pb-1 pt-0.5 text-[10.5px] leading-snug text-faint">{t("export.spineHint")}</p>
+
+            <div className="mt-1 border-t border-line pt-1.5">
+              <div className="flex items-center justify-between py-0.5 text-[11.5px]">
+                <span className="text-muted">{t("export.targetPage")}</span>
+                <span className="font-mono text-ink">{inches(targetPage)}</span>
+              </div>
+              {targetCover && (
+                <div className="flex items-center justify-between py-0.5 text-[11.5px]">
+                  <span className="text-muted">{t("export.targetCover")}</span>
+                  <span className="font-mono text-ink">{inches(targetCover)}</span>
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
               <span className="text-muted">{t("export.onSpine")}</span>
@@ -229,7 +294,7 @@ export function ExportPanel() {
             <div className="mt-1.5 flex gap-2">
               <button
                 onClick={exportCover}
-                disabled={busy !== null || !validSpine}
+                disabled={busy !== null || !validSpine || !coverSpec}
                 className="flex-1 rounded-md border border-line-strong bg-surface-2 px-2 py-1.5 text-[12px] text-ink hover:bg-surface disabled:opacity-50"
               >
                 {busy === "cover" ? t("export.building") : t("export.coverWrap")}

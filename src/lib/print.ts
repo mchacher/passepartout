@@ -8,8 +8,9 @@
 // The painter flips y for pdf-lib's bottom-left origin. All lengths are PDF points
 // (1 pt = 1/72 inch).
 
-import { BLEED_MM, type BookSize } from "./book-sizes";
-import { PAGE_SPECS, type CoverType } from "./blurb-specs";
+import type { BookSize } from "./book-sizes";
+import { coverMediaIn, pageMediaIn, type CoverSpec, type PageSpec } from "./print-provider";
+import { pageSpecOf } from "./print-providers";
 import {
   F_COVER_SUBTITLE,
   F_COVER_TITLE,
@@ -166,11 +167,23 @@ export type BindingSide = "left" | "right";
 export function pageBoxes(size: BookSize, bindingSide: BindingSide): { mediaBox: PtRect; trimBox: PtRect } {
   const trimW = mmToPt(size.widthMm);
   const trimH = mmToPt(size.heightMm);
-  const bleed = inToPt(PAGE_SPECS[size.id].bleedIn);
-  // One bleed horizontally (the outside edge), two vertically (top and bottom).
-  const mediaBox: PtRect = { x: 0, y: 0, w: trimW + bleed, h: trimH + 2 * bleed };
-  const trimBox: PtRect = { x: bindingSide === "left" ? 0 : bleed, y: bleed, w: trimW, h: trimH };
+  const spec = pageSpec(size);
+  const media = pageMediaIn(spec);
+  const bleed = inToPt(spec.bleedIn);
+  const mediaBox: PtRect = { x: 0, y: 0, w: inToPt(media.w), h: inToPt(media.h) };
+  // The horizontal bleed belongs on the OUTSIDE edge, so the trim sits flush against the
+  // binding one. With a provider that bleeds all four edges there is one on each side.
+  const gutterBleed = spec.bleedEdges === "all" ? bleed : 0;
+  const outerLeft = bindingSide === "right" ? bleed : gutterBleed;
+  const trimBox: PtRect = { x: outerLeft, y: bleed, w: trimW, h: trimH };
   return { mediaBox, trimBox };
+}
+
+/** The provider's page specification for a size. Every catalog size has one. */
+export function pageSpec(size: BookSize): PageSpec {
+  const spec = pageSpecOf(size.provider, size.id);
+  if (!spec) throw new Error(`no ${size.provider} page specification for ${size.id}`);
+  return spec;
 }
 
 export interface PageGeometry {
@@ -438,6 +451,8 @@ export interface CoverFaceInput {
 
 export interface CoverWrapInput {
   size: BookSize;
+  /** The construction being printed: it decides the overhang, the bleed and the flaps. */
+  cover: CoverSpec;
   spineWidthPt: number;
   front: CoverFaceInput;
   back: CoverFaceInput;
@@ -501,30 +516,45 @@ function coverPanel(
   return { trimBox, photo, title, subtitle, notes: notePlaces(face.notes, trimBox) };
 }
 
-/** Geometry for the cover wrap: back (left) + spine + front (right), with bleed. */
+/**
+ * Geometry for the cover wrap: back (left) + spine + front (right), with bleed.
+ *
+ * Unlike a page, a cover bleeds on all four sides, and its faces are not always the size of a
+ * page: an ImageWrap hardcover overhangs its block on every edge, a dust jacket carries a flap
+ * at each end, a softcover trims flush (spec 041). The wrap laid flat, left to right, is
+ * [flap] [back] [spine] [front] [flap].
+ */
 export function coverWrapGeometry(input: CoverWrapInput): CoverGeometry {
-  const trimW = mmToPt(input.size.widthMm);
-  const trimH = mmToPt(input.size.heightMm);
-  const bleed = mmToPt(BLEED_MM);
+  const pageTrimW = mmToPt(input.size.widthMm);
+  const pageTrimH = mmToPt(input.size.heightMm);
+  const spec = input.cover;
+  const bleed = inToPt(spec.bleedIn);
+  const flap = inToPt(spec.flapIn);
   const spine = input.spineWidthPt;
 
-  const wrapW = 2 * trimW + spine;
-  const mediaBox: PtRect = { x: 0, y: 0, w: wrapW + 2 * bleed, h: trimH + 2 * bleed };
+  const faceW = pageTrimW + inToPt(spec.overhangIn.w);
+  const faceH = pageTrimH + 2 * inToPt(spec.overhangIn.h);
+  const media = coverMediaIn(pageSpec(input.size), spec, spine / 72);
+  const mediaBox: PtRect = { x: 0, y: 0, w: inToPt(media.w), h: inToPt(media.h) };
 
-  const backBox: PtRect = { x: bleed, y: bleed, w: trimW, h: trimH };
-  const spineBox: PtRect = { x: bleed + trimW, y: bleed, w: spine, h: trimH };
-  const frontBox: PtRect = { x: bleed + trimW + spine, y: bleed, w: trimW, h: trimH };
+  const backX = bleed + flap;
+  const backBox: PtRect = { x: backX, y: bleed, w: faceW, h: faceH };
+  const spineBox: PtRect = { x: backX + faceW, y: bleed, w: spine, h: faceH };
+  const frontBox: PtRect = { x: backX + faceW + spine, y: bleed, w: faceW, h: faceH };
 
-  const back = coverPanel(input.back, backBox, trimW, input.scales);
-  const front = coverPanel(input.front, frontBox, trimW, input.scales);
+  // Text keeps sizing off the PAGE trim width, not the face: that is the fraction the editor
+  // and the book preview render from, so the printed cover reads like the previewed one even
+  // when the face overhangs the block.
+  const back = coverPanel(input.back, backBox, pageTrimW, input.scales);
+  const front = coverPanel(input.front, frontBox, pageTrimW, input.scales);
 
   // Spine text runs along the spine length (rotated); each line's cap height must fit
   // within the spine width. With a subtitle the width is shared by two parallel lines.
   const title = input.spineTitle.trim();
   const subtitle = input.spineSubtitle.trim();
   const cy = spineBox.y + spineBox.h / 2;
-  const titleCap = F_COVER_TITLE * trimW * input.scales.coverTitle;
-  const subtitleCap = F_COVER_SUBTITLE * trimW * input.scales.coverSubtitle;
+  const titleCap = F_COVER_TITLE * pageTrimW * input.scales.coverTitle;
+  const subtitleCap = F_COVER_SUBTITLE * pageTrimW * input.scales.coverSubtitle;
   const spineLines: TextPlace[] = [];
   if (title && subtitle) {
     spineLines.push({ text: title, cx: spineBox.x + spineBox.w * 0.34, y: cy, sizePt: Math.min(spine * 0.42, titleCap) });
