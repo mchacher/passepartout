@@ -13,7 +13,7 @@ import { type BookSize } from "./book-sizes";
 import { colorThemeOrDefault, type ColorThemeId, type FontThemeId } from "./themes";
 import { type TextSizes } from "./text-sizes";
 import { coverSourceRect } from "./fit";
-import { maskById } from "./masks";
+import { maskGeometry } from "./masks";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "./frames";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
 import { roundUpPageCount, type CoverSpec, type PageCountRule } from "./print-provider";
@@ -36,6 +36,28 @@ import {
 
 const PRINT_DPI = 300;
 
+/** One photo placed on a page or a cover face, with every decoration the editor can put on it. */
+export interface ExportItem {
+  photoId: string;
+  // `ratio` is the LAYOUT ratio (the frame's outer ratio when framed); `photoRatio` is the
+  // photo's effective ratio (Border contain) and `sourceRatio` its native ratio (Polaroid).
+  ratio: number;
+  photoRatio: number;
+  sourceRatio: number;
+  url: string;
+  caption: string;
+  crop?: CropRect;
+  mask?: string;
+  /** Rounded-corner size, a fraction of the shorter side (spec 034). */
+  maskRadius?: number;
+  frame?: string;
+  frameColor?: string;
+  frameText?: string;
+  frameWidth?: number;
+  frameFocus?: CropFocus;
+  rotation?: number;
+}
+
 export interface ExportPageLike {
   title: string;
   subtitle: string;
@@ -49,24 +71,7 @@ export interface ExportPageLike {
   /** Freely placed notes on this page or inside cover face (spec 039). */
   notes?: Note[];
   layoutId: string;
-  items: {
-    photoId: string;
-    // `ratio` is the LAYOUT ratio (the frame's outer ratio when framed); `photoRatio` is the
-    // photo's effective ratio (Border contain) and `sourceRatio` its native ratio (Polaroid).
-    ratio: number;
-    photoRatio: number;
-    sourceRatio: number;
-    url: string;
-    caption: string;
-    crop?: CropRect;
-    mask?: string;
-    frame?: string;
-    frameColor?: string;
-    frameText?: string;
-    frameWidth?: number;
-    frameFocus?: CropFocus;
-    rotation?: number;
-  }[];
+  items: ExportItem[];
   /** Full-page mode for a single-photo page (spec 012). */
   fullPage?: PageFill;
   /** Crop focus for `cover` full-page mode. */
@@ -79,7 +84,12 @@ export interface ExportCoverFace {
   title: string;
   subtitle: string;
   whitespace: number;
-  photo: { photoId: string; ratio: number; url: string; crop?: CropRect } | null;
+  /**
+   * The single photo of the face, carrying its decorations like any other placed photo. It used
+   * to be a reduced shape (photoId, ratio, url, crop), which is how a cover face came to print
+   * without its mask, its frame or its tilt while the editor showed all three (issue #121).
+   */
+  photo: ExportItem | null;
   /** Freely placed notes on this face (spec 039). */
   notes?: Note[];
 }
@@ -135,7 +145,7 @@ async function photoJpegBytes(
   boxHpt: number,
   cover?: { focus: CropFocus },
   crop?: CropRect,
-  mask?: string,
+  mask?: MaskSpec,
 ): Promise<{ bytes: Uint8Array; png: boolean } | null> {
   let img: HTMLImageElement;
   try {
@@ -152,12 +162,21 @@ async function photoJpegBytes(
   if (!ctx) return null;
   const nw = img.naturalWidth;
   const nh = img.naturalHeight;
-  // Decorative mask (spec 018): clip the canvas to the shape (scaled from its normalized
-  // objectBoundingBox path to pixels) before drawing, so the area outside is transparent.
-  const shape = mask ? maskById(mask) : undefined;
+  // Decorative mask (spec 018): clip the canvas to the shape before drawing, so the area
+  // outside is transparent. The geometry comes from the catalog (masks.ts), which answers for
+  // all three clip mechanisms; a shape it cannot resolve leaves the photo unclipped rather
+  // than clipping it away, which is what used to happen to Circle and Rounded (issue #121).
+  const shape = maskGeometry(mask?.id, { w: pxW, h: pxH, radius: mask?.radius });
   if (shape) {
     const p = new Path2D();
-    p.addPath(new Path2D(shape.path), new DOMMatrix([pxW, 0, 0, pxH, 0, 0]));
+    if (shape.kind === "path") {
+      // A normalized objectBoundingBox path, scaled from 0..1 to the canvas.
+      p.addPath(new Path2D(shape.d), new DOMMatrix([pxW, 0, 0, pxH, 0, 0]));
+    } else if (shape.kind === "circle") {
+      p.arc(shape.cx, shape.cy, shape.r, 0, Math.PI * 2);
+    } else {
+      p.roundRect(0, 0, shape.w, shape.h, shape.r);
+    }
     ctx.clip(p);
   }
   if (cover) {
@@ -193,8 +212,8 @@ interface Ctx {
   mediaH: number;
   font: Face;
   palette: Palette;
-  // Handwriting font for a frame's note (spec 019); absent on the cover wrap (no frames),
-  // and absent too if its file could not be read, which must not stop the rest of the book.
+  // Handwriting font for a frame's note (spec 019); absent if its file could not be read,
+  // which must not stop the rest of the book.
   hand?: Face;
 }
 
@@ -205,6 +224,21 @@ interface RotSpec {
   cx: number;
   cy: number;
 }
+
+// A photo's mask and, for the rounded rectangle, the corner size it was given (spec 034). The
+// radius travelled nowhere before, so every rounded photo would have printed at the default
+// size even once the clip itself worked (issue #121).
+interface MaskSpec {
+  id?: string;
+  radius?: number;
+}
+
+const maskOf = (item?: { mask?: string; maskRadius?: number }): MaskSpec | undefined =>
+  item?.mask ? { id: item.mask, radius: item.maskRadius } : undefined;
+
+/** The tilt of a photo drawn in `box` (spec 020), about the box center. */
+const rotOf = (item: { rotation?: number } | undefined, box: PhotoBox): RotSpec | undefined =>
+  item?.rotation ? { deg: item.rotation, cx: box.x + box.w / 2, cy: box.y + box.h / 2 } : undefined;
 
 // The pdf bottom-left anchor + rotate for a top-left box, rotated about `rot`'s center.
 function placeRotated(x: number, y: number, h: number, mediaH: number, rot?: RotSpec) {
@@ -253,13 +287,14 @@ async function drawFramedPhoto(
     frameFocus?: CropFocus;
     crop?: CropRect;
     mask?: string;
+    maskRadius?: number;
     rotation?: number;
   },
 ) {
   // The whole unit tilts about the outer box center (spec 020).
-  const rot: RotSpec | undefined = item.rotation ? { deg: item.rotation, cx: box.x + box.w / 2, cy: box.y + box.h / 2 } : undefined;
+  const rot = rotOf(item, box);
   const style = frameById(item.frame);
-  if (!style) return drawPhoto(ctx, box, url, item.crop, item.mask, rot);
+  if (!style) return drawPhoto(ctx, box, url, item.crop, maskOf(item), rot);
   const color = frameColorOf(item.frameColor, style.defaultColor);
   // Fill the mat rectangle (flip y to pdf's bottom-left origin). No rounded corners.
   const mat = hexToRgb(color.value);
@@ -269,13 +304,13 @@ async function drawFramedPhoto(
   if (style.square) {
     // Polaroid: fill the square window with a pixel-square region of the source at the focus.
     const sq = squareCrop(item.sourceRatio, item.frameFocus ?? DEFAULT_CROP_FOCUS);
-    await drawPhoto(ctx, { photoId: box.photoId, x: box.x + inner.x, y: box.y + inner.y, w: inner.w, h: inner.h }, url, sq, item.mask, rot);
+    await drawPhoto(ctx, { photoId: box.photoId, x: box.x + inner.x, y: box.y + inner.y, w: inner.w, h: inner.h }, url, sq, maskOf(item), rot);
   } else {
     // Border: contain the photo (its effective ratio) inside the inner area, centered.
     const r = item.photoRatio;
     const pw = inner.w / inner.h > r ? inner.h * r : inner.w;
     const ph = inner.w / inner.h > r ? inner.h : inner.w / r;
-    await drawPhoto(ctx, { photoId: box.photoId, x: box.x + inner.x + (inner.w - pw) / 2, y: box.y + inner.y + (inner.h - ph) / 2, w: pw, h: ph }, url, item.crop, item.mask, rot);
+    await drawPhoto(ctx, { photoId: box.photoId, x: box.x + inner.x + (inner.w - pw) / 2, y: box.y + inner.y + (inner.h - ph) / 2, w: pw, h: ph }, url, item.crop, maskOf(item), rot);
   }
   // Handwritten note in the bottom band.
   const note = supportedText((item.frameText ?? "").trim(), ctx.hand?.has ?? (() => false));
@@ -338,7 +373,7 @@ function drawCenteredText(ctx: Ctx, place: TextPlace, color: [number, number, nu
   }
 }
 
-async function drawPhoto(ctx: Ctx, box: PhotoBox, url: string, crop?: CropRect, mask?: string, rot?: RotSpec) {
+async function drawPhoto(ctx: Ctx, box: PhotoBox, url: string, crop?: CropRect, mask?: MaskSpec, rot?: RotSpec) {
   const res = await photoJpegBytes(url, box.w, box.h, box.cover ? { focus: box.focus ?? DEFAULT_CROP_FOCUS } : undefined, crop, mask);
   if (!res) return; // missing/undecodable: leave the whitespace
   const img = res.png ? await ctx.page.doc.embedPng(res.bytes) : await ctx.page.doc.embedJpg(res.bytes);
@@ -592,8 +627,7 @@ async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | unde
       // Decorative frame (spec 019): mat + inset photo + note, drawn inside the box.
       await drawFramedPhoto(ctx, box, url, item);
     } else {
-      const rot = item?.rotation ? { deg: item.rotation, cx: box.x + box.w / 2, cy: box.y + box.h / 2 } : undefined;
-      await drawPhoto(ctx, box, url, item?.crop, item?.mask, rot);
+      await drawPhoto(ctx, box, url, item?.crop, maskOf(item), rotOf(item, box));
     }
   }
   if (g.title) drawCenteredText(ctx, g.title, palette.ink);
@@ -689,6 +723,8 @@ export async function buildCoverWrapPdf(p: ExportProject, cover: CoverSpec, spin
   const faces = new Map<string, Face>();
   const font = await embedFace(doc, faces, albumFontFamily(p.fontTheme));
   if (!font) throw new ExportError(`album font "${albumFontFamily(p.fontTheme)}" could not be read`);
+  // A framed cover photo can carry a handwritten note, exactly like one on a page (spec 019).
+  const hand = await embedFace(doc, faces, "caveat");
   const palette = paletteOf(p.colorTheme);
 
   const toFace = (f: ExportCoverFace): CoverFaceInput => ({
@@ -712,7 +748,7 @@ export async function buildCoverWrapPdf(p: ExportProject, cover: CoverSpec, spin
 
   const page = doc.addPage([g.mediaBox.w, g.mediaBox.h]);
   page.setBleedBox(0, 0, g.mediaBox.w, g.mediaBox.h);
-  const ctx: Ctx = { page, mediaH: g.mediaBox.h, font, palette };
+  const ctx: Ctx = { page, mediaH: g.mediaBox.h, font, palette, hand };
   fillPaper(ctx, g.mediaBox);
 
   const noteFaces = await embedNoteFaces(doc, faces, [...g.back.notes, ...g.front.notes]);
@@ -722,7 +758,11 @@ export async function buildCoverWrapPdf(p: ExportProject, cover: CoverSpec, spin
     [g.back, p.back.photo],
     [g.front, p.front.photo],
   ] as const) {
-    if (panel.photo && face?.url) await drawPhoto(ctx, panel.photo, face.url, face.crop);
+    if (panel.photo && face?.url) {
+      // A cover photo is a placed photo like any other: mask, frame and tilt all print (#121).
+      if (face.frame) await drawFramedPhoto(ctx, panel.photo, face.url, face);
+      else await drawPhoto(ctx, panel.photo, face.url, face.crop, maskOf(face), rotOf(face, panel.photo));
+    }
     if (panel.title) drawCenteredText(ctx, panel.title, palette.ink);
     if (panel.subtitle) drawCenteredText(ctx, panel.subtitle, palette.inkSoft);
     drawNotes(ctx, panel.notes, noteFaces, inks);

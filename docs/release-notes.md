@@ -7,6 +7,14 @@ be published (the release workflow refuses to publish without it - spec 028).
 
 Cover text that stays out of the picture.
 
+- **Photo effects reach the printed book**: a photo given the Circle or the Rounded shape was
+  exported as an empty rectangle, so the page reached the printer blank where the album showed a
+  picture. Two of the four shapes are drawn through a mechanism the export understood; the other
+  two arrived later through mechanisms it did not, and a clip it cannot build removes everything
+  rather than nothing. The corner size you chose never travelled to the file either, and a cover
+  face sent none of its decorations at all: a mask, a frame or a tilt that the editor showed on
+  the front, the back or an inside cover simply did not print. All of it prints now, and a shape
+  the export cannot build leaves the photo whole instead of erasing it.
 - **A cover field left empty no longer writes on the photo**: a cover's title and subtitle are
   typed straight on the sheet, and the grey hint standing in for an empty one ("Subtitle or
   date") was drawn wherever that empty line fell. On a cover carrying a title and a photo, that
