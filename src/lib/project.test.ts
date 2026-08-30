@@ -292,6 +292,32 @@ describe("covers", () => {
     expect(coverOrDefault(partial)).toEqual({ ...newCover(), title: "Hi" });
   });
 
+  // Spec 042: where the text sits is per face, and absent on everything saved before it.
+  it("coverOrDefault leaves a face saved before the text choice at the default", () => {
+    const legacy = { title: "Hi", subtitle: "", photoId: null, whitespace: 4 } as Cover;
+    expect(coverOrDefault(legacy).textPosition).toBeUndefined();
+  });
+
+  it("coverOrDefault keeps a bottom position and coerces anything else away", () => {
+    const face = (textPosition: unknown): Cover =>
+      ({ title: "Hi", subtitle: "", photoId: null, whitespace: 4, textPosition }) as Cover;
+    expect(coverOrDefault(face("bottom")).textPosition).toBe("bottom");
+    expect(coverOrDefault(face("sideways")).textPosition).toBeUndefined();
+    expect(coverOrDefault(face("sideways")).title).toBe("Hi"); // the rest of the face is kept
+    expect(coverOrDefault(face(null)).textPosition).toBeUndefined();
+  });
+
+  it("a face keeps its own text position through a round trip and a duplicate", () => {
+    const s0 = state();
+    s0.frontCover = { ...s0.frontCover, textPosition: "bottom" };
+    const doc = serializeProject(s0, 2000);
+    expect(doc.frontCover.textPosition).toBe("bottom");
+    expect(doc.backCover.textPosition).toBeUndefined(); // each face is on its own
+    const dup = duplicateDoc(doc, { id: "p2", name: "copy", now: 3000, photoIdMap: new Map() });
+    expect(dup.frontCover.textPosition).toBe("bottom");
+    expect(dup.backCover.textPosition).toBeUndefined();
+  });
+
   it("cleanCover nulls a photoId whose photo is gone, keeping text", () => {
     const cover: Cover = { title: "T", subtitle: "S", photoId: "gone", whitespace: 4 };
     const cleaned = cleanCover(cover, new Set(["a", "b"]));

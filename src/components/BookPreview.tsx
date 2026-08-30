@@ -177,6 +177,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
           subtitle={cover.subtitle}
           whitespace={cover.whitespace}
           photo={coverPreviewPhoto(cover)}
+          textPosition={cover.textPosition}
           notes={cover.notes}
         />
       );
@@ -239,6 +240,7 @@ export function BookPreview({ open, onClose }: BookPreviewProps) {
         subtitle={cover.subtitle}
         whitespace={cover.whitespace}
         photo={coverPreviewPhoto(cover)}
+        textPosition={cover.textPosition}
         notes={cover.notes}
       />
     );

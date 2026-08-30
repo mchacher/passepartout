@@ -2,8 +2,9 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { F_COVER_SUBTITLE, F_COVER_TITLE, headerFontCss } from "../lib/page-header";
+import { COVER_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
 import { coverTextFieldClass } from "../lib/cover-text";
-import { WHITESPACE_LEVELS, type CoverFace, type Photo } from "../types";
+import { WHITESPACE_LEVELS, type CoverFace, type CoverTextPosition, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
 import { effectiveRatio } from "../lib/crop";
 import { photoLayoutRatio } from "../lib/frames";
@@ -37,13 +38,34 @@ export function CoverCard({ which }: CoverCardProps) {
     ? photos.find((p) => p.id === cover.photoId)
     : undefined;
 
-  // The header lives in a FIXED top band (mirrors the interior pages and print.ts): its
-  // height depends only on whether a title / subtitle is present, not on the font size.
-  // So enlarging the title never shrinks the photo, and a subtitle-less cover gives that
-  // band back to the photo. Values (in cqw = % of the cover width) mirror print.ts.
+  // The header lives in a FIXED band whose height depends only on whether a title / subtitle
+  // is present, never on the font size: enlarging the title never shrinks the photo, and a
+  // subtitle-less cover gives that band back to it. The band sits above the photo or under it
+  // (spec 042). Both the band and the margin come from cover-layout.ts, the same module the
+  // printed geometry reads, in cqw (a % of the cover's own width).
   const hasTitle = cover.title.trim().length > 0;
   const hasSubtitle = cover.subtitle.trim().length > 0;
-  const photoTop = hasSubtitle ? "20cqw" : hasTitle ? "15cqw" : "6cqw";
+  const band = coverBandCss({ hasTitle, hasSubtitle });
+  const margin = COVER_MARGIN_CSS;
+  const position: CoverTextPosition = cover.textPosition ?? "top";
+  const atBottom = position === "bottom";
+  // The text band and the photo area, each anchored to its own edge.
+  const textBox = {
+    top: atBottom ? undefined : 0,
+    bottom: atBottom ? 0 : undefined,
+    paddingLeft: margin,
+    paddingRight: margin,
+    paddingTop: atBottom ? undefined : margin,
+    paddingBottom: atBottom ? margin : undefined,
+  };
+  const photoBox = {
+    top: atBottom ? 0 : band,
+    bottom: atBottom ? band : 0,
+    paddingLeft: margin,
+    paddingRight: margin,
+    paddingTop: atBottom ? margin : undefined,
+    paddingBottom: atBottom ? undefined : margin,
+  };
 
   const boxRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -84,7 +106,7 @@ export function CoverCard({ which }: CoverCardProps) {
     const cell = res.cells[0];
     setSize(cell ? { w: cell.w, h: cell.h } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photo?.id, photo?.ratio, photo?.crop, photo?.frame, photo?.frameWidth, photo?.mask, cover.whitespace, aspect]);
+  }, [photo?.id, photo?.ratio, photo?.crop, photo?.frame, photo?.frameWidth, photo?.mask, cover.whitespace, aspect, band, atBottom]);
 
   useLayoutEffect(() => {
     measure();
@@ -111,6 +133,25 @@ export function CoverCard({ which }: CoverCardProps) {
           target={{ kind: "cover", face: which }}
           notes={cover.notes}
         />
+        {/* Which side of the photo the title and subtitle sit on (spec 042). */}
+        <div className="flex items-center gap-0.5 rounded-md border border-line bg-surface p-0.5" role="group" aria-label={t("cover.textPosition")}>
+          {(["top", "bottom"] as const).map((side) => (
+            <button
+              key={side}
+              onClick={() => updateCover(which, { textPosition: side })}
+              aria-pressed={position === side}
+              title={t(`cover.textPosition.${side}`)}
+              className={`flex h-6 w-7 items-center justify-center rounded ${
+                position === side ? "bg-accent text-white" : "text-muted hover:text-ink"
+              }`}
+            >
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                <rect x="3" y="4" width="18" height="16" rx="1.5" />
+                <path d={side === "top" ? "M7 8.5h10" : "M7 15.5h10"} />
+              </svg>
+            </button>
+          ))}
+        </div>
         <label
           className="flex items-center gap-2 text-[11px] text-muted"
           title={t("page.whitespaceTitle", { n: cover.whitespace, total: WHITESPACE_LEVELS })}
@@ -166,7 +207,7 @@ export function CoverCard({ which }: CoverCardProps) {
               and only the two text rows take hits (#96) - otherwise it stole the hover from
               the photo and its remove control. For the same reason an EMPTY field's placeholder
               would print itself over the photo, so it only shows on hover or focus (#119). */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-[6cqw] pt-[6cqw] text-center">
+          <div className="pointer-events-none absolute inset-x-0 z-10 text-center" style={textBox}>
             <input
               value={cover.title}
               placeholder={t(`cover.${which}.title`)}
@@ -183,12 +224,13 @@ export function CoverCard({ which }: CoverCardProps) {
             />
           </div>
 
-          {/* Photo area: fills below the fixed top band, contained photo centered (or a drop
-              hint when empty). Its top follows the band; sides and bottom inset by 6cqw. */}
+          {/* Photo area: everything the band leaves, contained photo centered (or a drop hint
+              when empty). It fills from the band to the opposite margin, whichever side the
+              band is on (spec 042). */}
           <div
             ref={boxRef}
-            className="absolute inset-x-0 bottom-0 flex items-center justify-center px-[6cqw] pb-[6cqw]"
-            style={{ top: photoTop }}
+            className="absolute inset-x-0 flex items-center justify-center"
+            style={photoBox}
           >
             {photo && size ? (
               <CoverPhoto photo={photo} w={size.w} h={size.h} onRemove={() => updateCover(which, { photoId: null })} />

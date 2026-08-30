@@ -15,7 +15,7 @@ import { type TextSizes } from "./text-sizes";
 import { coverSourceRect } from "./fit";
 import { maskGeometry } from "./masks";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "./frames";
-import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
+import { DEFAULT_CROP_FOCUS, type CellRect, type CoverTextPosition, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
 import { roundUpPageCount, type CoverSpec, type PageCountRule } from "./print-provider";
 import { providerOrDefault } from "./print-providers";
 import {
@@ -68,6 +68,8 @@ export interface ExportPageLike {
    * editor and the book preview draw it, instead of as an ordinary interior page.
    */
   insideCover?: boolean;
+  /** For an inside cover face: which side of the photo its text sits on (spec 042). */
+  textPosition?: CoverTextPosition;
   /** Freely placed notes on this page or inside cover face (spec 039). */
   notes?: Note[];
   layoutId: string;
@@ -90,6 +92,8 @@ export interface ExportCoverFace {
    * without its mask, its frame or its tilt while the editor showed all three (issue #121).
    */
   photo: ExportItem | null;
+  /** Which side of the photo the title and subtitle sit on (spec 042). */
+  textPosition?: CoverTextPosition;
   /** Freely placed notes on this face (spec 039). */
   notes?: Note[];
 }
@@ -587,6 +591,7 @@ async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | unde
         subtitle: pageLike.subtitle,
         whitespace: pageLike.whitespace,
         photo: first ? { photoId: first.photoId, ratio: first.ratio } : undefined,
+        textPosition: pageLike.textPosition,
         scales: {
           coverTitle: sizeScale(p.textSizes.coverTitle),
           coverSubtitle: sizeScale(p.textSizes.coverSubtitle),
@@ -732,6 +737,7 @@ export async function buildCoverWrapPdf(p: ExportProject, cover: CoverSpec, spin
     subtitle: f.subtitle,
     whitespace: f.whitespace,
     photo: f.photo ? { photoId: f.photo.photoId, ratio: f.photo.ratio } : null,
+    textPosition: f.textPosition,
     notes: f.notes,
   });
 
