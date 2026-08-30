@@ -2,7 +2,7 @@
   "name": "passepartout-server",
   "private": true,
   "type": "module",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Server-backed data for Passepartout (spec 024): projects + image blobs behind a single password.",
   "scripts": {
     "dev": "tsx watch src/index.ts",
