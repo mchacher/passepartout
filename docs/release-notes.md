@@ -3,6 +3,17 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.11.2 - 2026-08-30
+
+Cover text that stays out of the picture.
+
+- **A cover field left empty no longer writes on the photo**: a cover's title and subtitle are
+  typed straight on the sheet, and the grey hint standing in for an empty one ("Subtitle or
+  date") was drawn wherever that empty line fell. On a cover carrying a title and a photo, that
+  is right across the top of the photo. The hint now waits: it shows when the pointer is over
+  the cover face, or when you tab into the field, so a cover at rest shows only what the printed
+  cover will show. The layout, the book preview and the exported PDF are unchanged.
+
 ## v0.11.1 - 2026-08-30
 
 Blank pages you did not ask for.
