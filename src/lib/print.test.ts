@@ -12,6 +12,7 @@ import {
   type PageInput,
 } from "./print";
 import { NOTE_REF_W, NOTE_SIZES } from "./notes";
+import type { CoverSpec } from "./print-provider";
 import type { Note } from "../types";
 import { FONT_THEMES } from "./themes";
 import { SHIPPED_FONTS } from "./fonts";
@@ -22,6 +23,17 @@ const trimW = mmToPt(size.widthMm);
 const trimH = mmToPt(size.heightMm);
 
 const scales = { pageTitle: 1, pageSubtitle: 1, caption: 1 };
+
+// A cover construction to place the wrap panels with. Deliberately a fixture rather than a
+// row from the Blurb table: these tests are about the geometry, the table has its own tests.
+const softcover: CoverSpec = {
+  id: "softcover",
+  labelKey: "export.coverSoftcover",
+  overhangIn: { w: 0, h: 0 },
+  bleedIn: BLEED_MM / 25.4,
+  flapIn: 0,
+  spineIn: { standard: [], premium: [] },
+};
 
 const pageInput = (items: PageInput["items"], layoutId: string, extra?: Partial<PageInput>): PageInput => ({
   size,
@@ -35,13 +47,25 @@ const pageInput = (items: PageInput["items"], layoutId: string, extra?: Partial<
 });
 
 describe("interiorPageGeometry", () => {
-  it("makes the media box the trim plus bleed on every side", () => {
+  // Blurb's page bleed is asymmetric: top, bottom and outside edge only, never the gutter
+  // (spec 041). So the media box is one bleed wider than the trim, not two, and which side
+  // carries it depends on whether the sheet is a recto or a verso.
+  it("adds one bleed horizontally and two vertically", () => {
     const g = interiorPageGeometry(pageInput([], "single"));
-    expect(g.mediaBox.w).toBeCloseTo(trimW + 2 * bleedPt, 5);
+    expect(g.mediaBox.w).toBeCloseTo(trimW + bleedPt, 5);
     expect(g.mediaBox.h).toBeCloseTo(trimH + 2 * bleedPt, 5);
-    expect(g.trimBox).toMatchObject({ x: bleedPt, y: bleedPt });
     expect(g.trimBox.w).toBeCloseTo(trimW, 5);
     expect(g.trimBox.h).toBeCloseTo(trimH, 5);
+  });
+
+  it("puts the bleed on the outside edge, whichever side that is", () => {
+    // A right-hand page binds on its left: trim flush left, bleed on the right.
+    const recto = interiorPageGeometry(pageInput([], "single", { bindingSide: "left" }));
+    expect(recto.trimBox).toMatchObject({ x: 0, y: bleedPt });
+    // A left-hand page binds on its right: bleed on the left, trim pushed across.
+    const verso = interiorPageGeometry(pageInput([], "single", { bindingSide: "right" }));
+    expect(verso.trimBox).toMatchObject({ x: bleedPt, y: bleedPt });
+    expect(verso.mediaBox.w).toBeCloseTo(recto.mediaBox.w, 5);
   });
 
   it("keeps the content box strictly inside the trim box", () => {
@@ -293,9 +317,9 @@ describe("insideCoverPageGeometry", () => {
 
   it("is a page-sized sheet with bleed, like every other interior page", () => {
     const g = face();
-    expect(g.mediaBox.w).toBeCloseTo(trimW + 2 * bleedPt, 5);
+    expect(g.mediaBox.w).toBeCloseTo(trimW + bleedPt, 5);
     expect(g.mediaBox.h).toBeCloseTo(trimH + 2 * bleedPt, 5);
-    expect(g.trimBox).toMatchObject({ x: bleedPt, y: bleedPt });
+    expect(g.trimBox).toMatchObject({ x: 0, y: bleedPt });
   });
 
   it("draws the text at the COVER fractions, not the page ones", () => {
@@ -345,6 +369,7 @@ describe("insideCoverPageGeometry", () => {
     const inside = face();
     const wrap = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: mmToPt(10),
       front: { title: "A dedication", subtitle: "for someone", whitespace: 4, photo: null },
       back: { title: "", subtitle: "", whitespace: 4, photo: null },
@@ -372,6 +397,7 @@ describe("coverWrapGeometry", () => {
     const spine = mmToPt(8);
     const g = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: spine,
       front: face("f"),
       back: face(null),
@@ -391,6 +417,7 @@ describe("coverWrapGeometry", () => {
   it("keeps the front cover photo's ratio and emits no spine line when title-less", () => {
     const g = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: mmToPt(8),
       front: face("f"),
       back: face(null),
@@ -404,7 +431,7 @@ describe("coverWrapGeometry", () => {
   });
 
   it("keeps the cover photo size independent of the title font size (fixed top band)", () => {
-    const base = { size, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "" };
+    const base = { size, cover: softcover, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "" };
     const small = coverWrapGeometry({ ...base, front: face("f"), scales: { coverTitle: 0.85, coverSubtitle: 1 } });
     const large = coverWrapGeometry({ ...base, front: face("f"), scales: { coverTitle: 1.45, coverSubtitle: 1 } });
     // The title grows from S to XL, but the photo box does not move or shrink.
@@ -421,7 +448,7 @@ describe("coverWrapGeometry", () => {
       whitespace: 4,
     });
     for (const coverTitle of [0.85, 1, 1.45]) {
-      const base = { size, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "", scales: { coverTitle, coverSubtitle: 1 } };
+      const base = { size, cover: softcover, spineWidthPt: mmToPt(8), back: face(null), spineTitle: "", spineSubtitle: "", scales: { coverTitle, coverSubtitle: 1 } };
       const withSub = coverWrapGeometry({ ...base, front: titled("2026") });
       const noSub = coverWrapGeometry({ ...base, front: titled("") });
       expect(noSub.front.photo!.h).toBeGreaterThan(withSub.front.photo!.h);
@@ -429,7 +456,7 @@ describe("coverWrapGeometry", () => {
   });
 
   it("puts the title alone, or title + subtitle, on the spine", () => {
-    const base = { size, spineWidthPt: mmToPt(10), front: face(null), back: face(null), scales: { coverTitle: 1, coverSubtitle: 1 } };
+    const base = { size, cover: softcover, spineWidthPt: mmToPt(10), front: face(null), back: face(null), scales: { coverTitle: 1, coverSubtitle: 1 } };
     const titleOnly = coverWrapGeometry({ ...base, spineTitle: "Solio", spineSubtitle: "" });
     expect(titleOnly.spineLines.map((l) => l.text)).toEqual(["Solio"]);
 
@@ -493,7 +520,7 @@ describe("notes in print (spec 039)", () => {
     );
     expect(g.notes).toHaveLength(1);
     const n = g.notes[0];
-    expect(n.cx).toBeCloseTo(bleedPt + 0.25 * trimW, 6);
+    expect(n.cx).toBeCloseTo(g.trimBox.x + 0.25 * trimW, 6);
     expect(n.cy).toBeCloseTo(bleedPt + 0.75 * trimH, 6);
     expect(n.w).toBeCloseTo(0.4 * trimW, 6);
     expect(n.sizePt).toBeCloseTo(NOTE_SIZES.md * trimW, 6);
@@ -546,13 +573,14 @@ describe("notes in print (spec 039)", () => {
       notes: [note()],
     });
     expect(g.notes).toHaveLength(1);
-    expect(g.notes[0].cx).toBeCloseTo(bleedPt + 0.25 * trimW, 6);
+    expect(g.notes[0].cx).toBeCloseTo(g.trimBox.x + 0.25 * trimW, 6);
   });
 
   it("places a note on each outside cover face of the wrap, in its own panel", () => {
     const face = (notes: Note[]) => ({ title: "", subtitle: "", photo: null, whitespace: 4, notes });
     const g = coverWrapGeometry({
       size,
+      cover: softcover,
       spineWidthPt: 20,
       front: face([note({ id: "nf" })]),
       back: face([note({ id: "nb" })]),

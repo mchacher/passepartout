@@ -23,10 +23,21 @@ describe("book-sizes catalog", () => {
     expect(BOOK_SIZES.some((s) => s.id === DEFAULT_BOOK_SIZE)).toBe(true);
   });
 
-  it("computes the ratio of each orientation", () => {
-    expect(ratioOf(bookSizeOrDefault("blurb-square-7"))).toBeCloseTo(1, 6);
+  // The ratios come from Blurb's REAL trims, not its marketing names (spec 041): a "7x7
+  // Small Square" is really 6.75 x 6.625 in, so it is not quite square, and a "10x8" is
+  // 9.5 x 8.0 in. Asserting 1 and 1.25 here is what let issue #114 ship.
+  it("computes the ratio of each size from its real trim", () => {
+    expect(ratioOf(bookSizeOrDefault("blurb-square-7"))).toBeCloseTo(6.75 / 6.625, 6);
     expect(ratioOf(bookSizeOrDefault("blurb-portrait-8x10"))).toBeCloseTo(0.8, 6);
-    expect(ratioOf(bookSizeOrDefault("blurb-landscape-10x8"))).toBeCloseTo(1.25, 6);
+    expect(ratioOf(bookSizeOrDefault("blurb-landscape-10x8"))).toBeCloseTo(9.5 / 8, 6);
+  });
+
+  it("uses the trims Blurb's spec calculator reports, in millimetres", () => {
+    const mm = (inches: number) => inches * 25.4;
+    expect(bookSizeOrDefault("blurb-landscape-10x8").widthMm).toBeCloseTo(mm(9.5), 6);
+    expect(bookSizeOrDefault("blurb-landscape-10x8").heightMm).toBeCloseTo(mm(8), 6);
+    expect(bookSizeOrDefault("blurb-portrait-8x10").widthMm).toBeCloseTo(mm(8), 6);
+    expect(bookSizeOrDefault("blurb-square-12").widthMm).toBeCloseTo(mm(11.75), 6);
   });
 });
 

@@ -16,11 +16,14 @@ import { coverSourceRect } from "./fit";
 import { maskById } from "./masks";
 import { frameById, frameColorOf, frameInner, squareCrop, borderWidthOf } from "./frames";
 import { DEFAULT_CROP_FOCUS, type CellRect, type CropFocus, type CropRect, type Note, type PageFill } from "../types";
+import { roundUpPageCount, type CoverSpec, type PageCountRule } from "./print-provider";
+import { providerOrDefault } from "./print-providers";
 import {
   coverWrapGeometry,
   albumFontFamily,
   insideCoverPageGeometry,
   interiorPageGeometry,
+  type BindingSide,
   type CoverFaceInput,
   mmToPt,
   notePlaces,
@@ -539,11 +542,12 @@ function fillPaper(ctx: Ctx, rect: PtRect) {
   });
 }
 
-async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | undefined, palette: Palette, p: ExportProject, pageLike: ExportPageLike, noteFaces: Map<string, Face>) {
+async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | undefined, palette: Palette, p: ExportProject, pageLike: ExportPageLike, noteFaces: Map<string, Face>, bindingSide: BindingSide) {
   const first = pageLike.items[0];
   const g: PageGeometry = pageLike.insideCover
     ? insideCoverPageGeometry({
         size: p.size,
+        bindingSide,
         title: pageLike.title,
         subtitle: pageLike.subtitle,
         whitespace: pageLike.whitespace,
@@ -556,6 +560,7 @@ async function paintInteriorPage(doc: PDFDocument, font: Face, hand: Face | unde
       })
     : interiorPageGeometry({
         size: p.size,
+        bindingSide,
         items: pageLike.items.map((i) => ({ photoId: i.photoId, ratio: i.ratio, caption: i.caption, rotation: i.rotation })),
         layoutId: pageLike.layoutId,
         whitespace: pageLike.whitespace,
@@ -603,6 +608,24 @@ function sizeScale(level: "sm" | "md" | "lg" | "xl"): number {
   return level === "sm" ? 0.85 : level === "lg" ? 1.2 : level === "xl" ? 1.45 : 1;
 }
 
+/** A page with nothing on it: the leaf that pads an odd interior to an even count. */
+export function blankLeaf(): ExportPageLike {
+  return { title: "", subtitle: "", whitespace: 4, layoutId: "single", items: [] };
+}
+
+/**
+ * A printer accepts only certain page counts (Blurb: a multiple of 2). Pad with blank leaves
+ * placed just before the inside back cover, so the added sheets land at the end of the book
+ * rather than in the middle of a sequence the author arranged. Letting the printer pad instead
+ * appends them after the inside back cover, which is not where a book should end.
+ */
+export function padInterior(interior: ExportPageLike[], rule: PageCountRule): ExportPageLike[] {
+  const target = roundUpPageCount(rule, interior.length);
+  if (target === interior.length) return interior;
+  const pad = Array.from({ length: target - interior.length }, blankLeaf);
+  return [...interior.slice(0, -1), ...pad, ...interior.slice(-1)];
+}
+
 /** Build the interior PDF: inside front, every content page, inside back. */
 export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -626,14 +649,17 @@ export async function buildInteriorPdf(p: ExportProject): Promise<Uint8Array> {
       notePlaces(pl.notes, { x: 0, y: 0, w: mmToPt(p.size.widthMm), h: mmToPt(p.size.heightMm) }),
     ),
   );
-  for (const pageLike of p.interior) {
-    await paintInteriorPage(doc, font, hand, palette, p, pageLike, noteFaces);
+  const leaves = padInterior(p.interior, providerOrDefault(p.size.provider).pageCount);
+  // The first leaf of the interior file is a right-hand page, so it binds on its LEFT and
+  // carries its bleed on the right; the side alternates from there (spec 041).
+  for (const [i, pageLike] of leaves.entries()) {
+    await paintInteriorPage(doc, font, hand, palette, p, pageLike, noteFaces, i % 2 === 0 ? "left" : "right");
   }
   return doc.save();
 }
 
 /** Build the cover-wrap PDF: back (left) + spine + front (right), with bleed. */
-export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number): Promise<Uint8Array> {
+export async function buildCoverWrapPdf(p: ExportProject, cover: CoverSpec, spineWidthPt: number): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const faces = new Map<string, Face>();
@@ -651,6 +677,7 @@ export async function buildCoverWrapPdf(p: ExportProject, spineWidthPt: number):
 
   const g = coverWrapGeometry({
     size: p.size,
+    cover,
     spineWidthPt,
     front: toFace(p.front),
     back: toFace(p.back),
