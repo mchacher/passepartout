@@ -13,6 +13,9 @@ import {
   F_PAGE_SUBTITLE,
   F_COVER_TITLE,
   F_COVER_SUBTITLE,
+  F_CAPTION,
+  F_CAPTION_GAP,
+  pageFracCss,
 } from "./page-header";
 
 const SCALES = { sm: 0.85, md: 1, lg: 1.2, xl: 1.45 } as const;
@@ -192,6 +195,31 @@ describe("headerGeometry on the screen path", () => {
       HEADER_TOP + LINE * F_PAGE_TITLE + GAP_FRAC * F_PAGE_SUBTITLE + LINE * F_PAGE_SUBTITLE + CLEARANCE;
     for (const w of [300, 500, 776, 1079, 1600]) {
       expect(screen(w).band / w, `page ${w}px`).toBeCloseTo(expected, 8);
+    }
+  });
+});
+
+// Issue #128: a caption was the last album text sized in fixed pixels on screen (10.5px) while
+// print used a fraction of the page. The two only agreed at one page width, so the book
+// preview, which renders a page small, drew captions well over half again too big.
+describe("caption size", () => {
+  it("is the same fraction of the page as print uses", () => {
+    expect(F_CAPTION).toBe(0.018);
+    expect(F_CAPTION_GAP).toBe(0.01);
+  });
+
+  it("reads as a container-query length the DOM can apply", () => {
+    expect(headerFontCss(F_CAPTION, "--caption-scale")).toBe("calc(1.8cqw * var(--caption-scale))");
+    expect(pageFracCss(F_CAPTION_GAP)).toBe("1cqw");
+  });
+
+  it("scales with the page, not with the pixel: a page twice as wide gets a caption twice as big", () => {
+    expect(headerFontSize(F_CAPTION, 2 * W, 1)).toBeCloseTo(2 * headerFontSize(F_CAPTION, W, 1), 10);
+  });
+
+  it("keeps the size levels as plain multipliers", () => {
+    for (const [, scale] of Object.entries(SCALES)) {
+      expect(headerFontSize(F_CAPTION, W, scale)).toBeCloseTo(F_CAPTION * W * scale, 10);
     }
   });
 });

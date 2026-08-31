@@ -2,8 +2,10 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
-import { computeLayout, drawOrder, gridRegions, whitespaceToDensity } from "../lib/layout";
+import { computeLayout, drawOrder, gridRegions, PAGE_V_ALIGN, whitespaceToDensity } from "../lib/layout";
 import {
+  F_CAPTION,
+  F_CAPTION_GAP,
   F_PAGE_SUBTITLE,
   F_PAGE_TITLE,
   HEADER_TOP,
@@ -12,6 +14,7 @@ import {
   headerFontCss,
   headerFontSize,
   headerGeometry,
+  pageFracCss,
 } from "../lib/page-header";
 import { SIZE_SCALE } from "../lib/text-sizes";
 import { resolveCells, slotCount, GRID_COLS, GRID_ROWS } from "../lib/layouts";
@@ -144,7 +147,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper(
     .map((p) => `${p.frame ?? "-"},${p.frameColor ?? "-"},${p.frameText ?? "-"},${p.frameWidth ?? "-"},${p.frameFocus ? `${p.frameFocus.x}:${p.frameFocus.y}` : "-"},${p.rotation ?? "-"}`)
     .join("|");
   const placed = useMemo(
-    () => computeLayout(engineItems, box.w, box.h, gridCells, { density }).cells,
+    () => computeLayout(engineItems, box.w, box.h, gridCells, { density, vAlign: PAGE_V_ALIGN }).cells,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey, maskKey, frameKey],
   );
@@ -535,8 +538,8 @@ function Cell({ photo, w, h, slot, onActivate, onRemove, onCaption }: CellProps)
       {/* Tilt group (spec 020, #5): the photo and its caption rotate together about the photo
           center, so the caption follows the tilt instead of staying level below it. */}
       <div
-        className="flex flex-col items-center gap-[5px]"
-        style={{ transform: photo.rotation ? `rotate(${photo.rotation}deg)` : undefined, transformOrigin: `center ${h / 2}px` }}
+        className="flex flex-col items-center"
+        style={{ gap: pageFracCss(F_CAPTION_GAP), transform: photo.rotation ? `rotate(${photo.rotation}deg)` : undefined, transformOrigin: `center ${h / 2}px` }}
       >
         {/* The photo, and only the photo, opens free placement on click (spec 038): the
             caption below it and the remove button above it keep their own behaviour. A drag
@@ -560,7 +563,7 @@ function Cell({ photo, w, h, slot, onActivate, onRemove, onCaption }: CellProps)
         <div
           ref={capRef}
           className="caption min-h-[14px] max-w-full break-words rounded-[3px] px-[3px] py-px text-center font-album leading-tight outline-none"
-          style={{ width: `${w}px`, fontSize: "calc(10.5px * var(--caption-scale))", color: "var(--album-ink-soft)" }}
+          style={{ width: `${w}px`, fontSize: headerFontCss(F_CAPTION, "--caption-scale"), color: "var(--album-ink-soft)" }}
           contentEditable
           suppressContentEditableWarning
           spellCheck={false}

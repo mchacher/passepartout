@@ -45,7 +45,26 @@ export interface LayoutResult<T extends LayoutItem> {
 export interface LayoutOptions {
   /** 0 = maximum whitespace (small photos), 100 = minimal whitespace. */
   density: number;
+  /**
+   * How the leftover HEIGHT of a region is split above the photo, 0 .. 1. Defaults to 0.5,
+   * dead centre; a page passes PAGE_V_ALIGN. A cell carrying its own `ay` (free placement,
+   * spec 035) ignores it: that cell has already been positioned by the user.
+   */
+  vAlign?: number;
 }
+
+/**
+ * The vertical placement of a photo inside its region on a PAGE: 40% of the leftover white
+ * above it, 60% below (issue #129). Centring a wide photo in a tall region splits the slack
+ * evenly, and the half that lands under the title reads as belonging to the title, which
+ * strands it high on the page. Books have always answered this by seating a block slightly
+ * above the geometric centre. Nothing about the photo changes: this divides whitespace that
+ * already existed, so the ratio and the size are untouched.
+ *
+ * Covers keep the plain centre. A cover's text can sit UNDER its photo (spec 042), where
+ * lifting the photo would widen the very gap the composition is closing.
+ */
+export const PAGE_V_ALIGN = 0.4;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -116,6 +135,7 @@ export function computeLayout<T extends LayoutItem>(
   }
 
   const density = clamp(opts.density, 0, 100);
+  const vAlign = clamp(opts.vAlign ?? 0.5, 0, 1);
   // Fill fraction: how much of its region the photo occupies. Higher density = more
   // fill (less white). At the top end the photo fills its region's constraining
   // dimension (fill = 1); it is never scaled above the contain fit, so the ratio is
@@ -136,7 +156,7 @@ export function computeLayout<T extends LayoutItem>(
     // Position the photo in the region by the cell's anchor (default centered). It always
     // fits (boxW <= r.w, boxH <= r.h), so the anchor only shifts it within the whitespace.
     const ax = clamp(cells[i].ax ?? 0.5, 0, 1);
-    const ay = clamp(cells[i].ay ?? 0.5, 0, 1);
+    const ay = clamp(cells[i].ay ?? vAlign, 0, 1);
     placed.push({
       item,
       rx: r.x,

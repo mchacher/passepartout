@@ -34,6 +34,15 @@ export const F_PAGE_SUBTITLE = 0.022;
 export const F_COVER_TITLE = 0.05;
 export const F_COVER_SUBTITLE = 0.026;
 
+/**
+ * Photo caption font size, as a fraction of the page WIDTH (on screen: 1.8cqw), and the gap
+ * between a photo and its caption, likewise. Captions were the last album text still sized in
+ * fixed pixels on screen while print used this fraction, so the editor and the book preview
+ * disagreed with the PDF by whatever ratio the page happened to be rendered at (issue #128).
+ */
+export const F_CAPTION = 0.018;
+export const F_CAPTION_GAP = 0.01;
+
 /** Page margin (sides, bottom, and the whole inset of a page with no text), fraction of width. */
 export const PAGE_MARGIN = 0.05;
 
@@ -131,8 +140,13 @@ export function headerFontSize(fracW: number, pageW: number, scale: number): num
  * drift. Container-query units, so it tracks the page element rather than the viewport.
  */
 export function headerFontCss(fracW: number, scaleVar: string): string {
-  // Round the percentage: 0.022 * 100 is 2.1999999999999997 in binary floating point, and a
-  // stylesheet should read 2.2cqw.
-  const cqw = Number((fracW * 100).toFixed(4));
-  return `calc(${cqw}cqw * var(${scaleVar}))`;
+  return `calc(${pageFracCss(fracW)} * var(${scaleVar}))`;
+}
+
+/**
+ * A page-width fraction as a container-query length. Rounded, because 0.022 * 100 is
+ * 2.1999999999999997 in binary floating point and a stylesheet should read 2.2cqw.
+ */
+export function pageFracCss(fracW: number): string {
+  return `${Number((fracW * 100).toFixed(4))}cqw`;
 }

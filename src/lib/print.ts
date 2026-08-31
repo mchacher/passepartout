@@ -14,12 +14,14 @@ import { pageSpecOf } from "./print-providers";
 import {
   F_COVER_SUBTITLE,
   F_COVER_TITLE,
+  F_CAPTION,
+  F_CAPTION_GAP,
   F_PAGE_SUBTITLE,
   F_PAGE_TITLE,
   PAGE_MARGIN,
   headerGeometry,
 } from "./page-header";
-import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
+import { computeLayout, drawOrder, PAGE_V_ALIGN, whitespaceToDensity } from "./layout";
 import { coverFaceAreas, coverTextTop } from "./cover-layout";
 import { resolveCells } from "./layouts";
 import { fontThemeOrDefault, type FontThemeId } from "./themes";
@@ -208,11 +210,9 @@ const MARGIN = PAGE_MARGIN;
 // of the photo the text sits on (spec 042). The same module is read by CoverCard and by the
 // book preview for their CSS, so the three renderers cannot drift.
 
-// Text sizes as a fraction of the trim width, mirroring the on-screen cqw-based clamps
-// (e.g. a page title is clamp(.., 3.1cqw, ..) = 3.1% of the page width). Multiplied by
-// the project's text-size scale. The two page fractions live in page-header.ts, which also
-// derives the band they sit in.
-const F_CAPTION = 0.018;
+// Text sizes are fractions of the trim width, multiplied by the project's text-size scale.
+// Every one of them lives in page-header.ts, which also derives the band they sit in, so the
+// DOM renderers read the same constants through their cqw helpers.
 
 export interface PageInput {
   size: BookSize;
@@ -306,7 +306,7 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     contentBox.w,
     contentBox.h,
     gridCells,
-    { density: whitespaceToDensity(input.whitespace) },
+    { density: whitespaceToDensity(input.whitespace), vAlign: PAGE_V_ALIGN },
   );
 
   const photos: PhotoBox[] = [];
@@ -328,7 +328,7 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
       captions.push({
         text: caption,
         cx: x + c.w / 2,
-        y: y + c.h + 0.01 * trimW,
+        y: y + c.h + F_CAPTION_GAP * trimW,
         sizePt: F_CAPTION * trimW * input.scales.caption,
         rot: deg ? { deg, cx0: x + c.w / 2, cy0: y + c.h / 2 } : undefined,
       });
