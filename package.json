@@ -1,7 +1,7 @@
 {
   "name": "passepartout",
   "private": true,
-  "version": "0.12.1",
+  "version": "0.13.0",
   "type": "module",
   "description": "Local-first photo album layout tool that keeps your photos' original framing.",
   "scripts": {
