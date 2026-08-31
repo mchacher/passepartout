@@ -7,6 +7,8 @@ import { photoLayoutRatio } from "../lib/frames";
 import {
   F_COVER_SUBTITLE,
   F_COVER_TITLE,
+  F_CAPTION,
+  F_CAPTION_GAP,
   F_PAGE_SUBTITLE,
   F_PAGE_TITLE,
   HEADER_TOP,
@@ -15,6 +17,7 @@ import {
   headerFontCss,
   headerFontSize,
   headerGeometry,
+  pageFracCss,
 } from "../lib/page-header";
 import { SIZE_SCALE } from "../lib/text-sizes";
 import { COVER_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
@@ -192,8 +195,9 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
                 style={{ left: cell.rx, top: cell.ry, width: cell.rw, height: cell.rh }}
               >
                 <div
-                  className="absolute flex flex-col items-center gap-[5px]"
+                  className="absolute flex flex-col items-center"
                   style={{
+                    gap: pageFracCss(F_CAPTION_GAP),
                     left: cell.ox,
                     top: cell.oy,
                     width: cell.w,
@@ -209,7 +213,7 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
                   {photo.caption.trim().length > 0 && (
                     <div
                       className="max-w-full break-words text-center font-album leading-tight"
-                      style={{ width: `${cell.w}px`, fontSize: "calc(10.5px * var(--caption-scale))", color: "var(--album-ink-soft)" }}
+                      style={{ width: `${cell.w}px`, fontSize: headerFontCss(F_CAPTION, "--caption-scale"), color: "var(--album-ink-soft)" }}
                     >
                       {photo.caption.trim()}
                     </div>

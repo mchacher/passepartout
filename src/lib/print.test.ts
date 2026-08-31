@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { bookSizeOrDefault, BLEED_MM } from "./book-sizes";
-import { CLEARANCE, F_PAGE_SUBTITLE, F_PAGE_TITLE, LINE, PAGE_MARGIN, halfLeading, headerGeometry } from "./page-header";
+import { CLEARANCE, F_CAPTION, F_CAPTION_GAP, F_PAGE_SUBTITLE, F_PAGE_TITLE, LINE, PAGE_MARGIN, halfLeading, headerFontSize, headerGeometry } from "./page-header";
 import {
   coverWrapGeometry,
   insideCoverPageGeometry,
@@ -197,6 +197,16 @@ describe("interiorPageGeometry", () => {
     expect(p.w / p.h).toBeCloseTo(4, 6);
     expect(p.w).toBeLessThanOrEqual(g.contentBox.w + 1e-6);
     expect(p.h).toBeLessThanOrEqual(g.contentBox.h + 1e-6);
+  });
+
+  // Issue #128: the caption's size and its gap under the photo are the shared page-width
+  // fractions, so the editor and the book preview can render the same numbers in cqw.
+  it("sizes a caption and its gap from the shared page fractions", () => {
+    const g = interiorPageGeometry(pageInput([{ photoId: "a", ratio: 1.5, caption: "cap" }], "single"));
+    const trimW = g.trimBox.w;
+    expect(g.captions[0].sizePt).toBeCloseTo(headerFontSize(F_CAPTION, trimW, 1), 10);
+    const photo = g.photos[0];
+    expect(g.captions[0].y - (photo.y + photo.h)).toBeCloseTo(F_CAPTION_GAP * trimW, 10);
   });
 
   // Issue #129: the printed page seats its photo above the geometric centre, and the cover
