@@ -3,6 +3,39 @@
 Newest first. Each release has a `## vX.Y.Z` section; adding one is required before a tag can
 be published (the release workflow refuses to publish without it - spec 028).
 
+## v0.13.0 - 2026-08-31
+
+Covers and pages that breathe.
+
+- **A cover keeps more white beside its picture**: the side margins of a cover face were 6% of
+  the page, 14.5 mm on a landscape 10x8, so a photo filling the rest arrived from the printer
+  pressed against the board edges instead of mounted in a passepartout. They are now 9%, on the
+  four faces, in the editor, the book preview and the exported file alike. The margin above and
+  below, the text band heights and the title's own inset are unchanged, so a cover keeps its
+  proportions and no photo is ever cropped to fit: a picture that no longer spans the full width
+  is simply drawn a little smaller.
+- **A printed hardcover no longer leans toward the spine**: a hardcover folds into a groove next
+  to its spine, and whatever is printed close to that joint curves into it. The board also
+  overhangs the pages on its outside edge only, which the export used to share between both
+  sides. Front and back covers now compose in the part of the face that stays flat, so the
+  picture and the title step away from the binding, each in its own direction. The file itself
+  is exactly the size the printer asks for, and a softcover, which does not fold that way, is
+  untouched. Blurb does not publish the width of that joint, so the value we use is the standard
+  quarter inch of a hardcover hinge until it can be measured on a real cover template.
+- **A page's title no longer floats above its photo**: a photo wider than it is tall does not use
+  the full height of the page, and the leftover white was split evenly above and below it. The
+  half landing under the title read as belonging to the title, which left it stranded and made
+  the page look bottom heavy. That white is now shared the way books have always shared it, a
+  little less above the picture than below, so the title sits closer to what it names. Nothing
+  about the photo changes: same size, same framing, only the white around it moves. Covers keep
+  their exact centring, since a cover title can sit under the photo.
+- **A caption is the same size everywhere**: a photo caption was drawn at a fixed size on screen
+  while the printed one was a proportion of the page, so the two only agreed by accident. In the
+  book preview, where a page is drawn small, captions came out two thirds too big; in the editor
+  they were too small, which was most painful in the handwritten style. A caption is now the same
+  proportion of the page in the editor, in the preview and in the PDF, and so is the space
+  between a photo and its caption.
+
 ## v0.12.1 - 2026-08-30
 
 - **A cover title set under the photo no longer touches it**: with the text band moved under the
