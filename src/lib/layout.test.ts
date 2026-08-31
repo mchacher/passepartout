@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeLayout,
   drawOrder,
+  PAGE_V_ALIGN,
   whitespaceToDensity,
   type LayoutItem,
   type PlacedCell,
@@ -277,5 +278,66 @@ describe("autoCells fallback", () => {
     expect(ratioOf(placed[0].w, placed[0].h)).toBeCloseTo(4, 6);
     expect(placed[0].w).toBeLessThanOrEqual(placed[0].rw + EPS);
     expect(placed[0].h).toBeLessThanOrEqual(placed[0].rh + EPS);
+  });
+});
+
+// Issue #129: a wide photo in a tall region left half its leftover white under the page title,
+// which stranded the title high above the picture. A page now seats its photos slightly above
+// the geometric centre. This only divides whitespace that already existed.
+describe("vertical alignment of the leftover space", () => {
+  const wide = [item(16 / 9)];
+  const region = { w: 800, h: 600 };
+  const place = (vAlign?: number) =>
+    computeLayout(wide, region.w, region.h, cellsOf("single"), { density: 100, vAlign }).cells[0];
+
+  it("centres by default, exactly as before", () => {
+    const c = place();
+    expect(c.oy).toBeCloseTo((c.rh - c.h) / 2, 10);
+    expect(c.ox).toBeCloseTo((c.rw - c.w) / 2, 10);
+  });
+
+  it("seats a page's photo above centre, 40 percent of the white above it", () => {
+    const c = place(PAGE_V_ALIGN);
+    expect(PAGE_V_ALIGN).toBe(0.4);
+    expect(c.oy).toBeCloseTo((c.rh - c.h) * PAGE_V_ALIGN, 10);
+    expect(c.oy).toBeLessThan((c.rh - c.h) / 2);
+  });
+
+  it("never touches the horizontal axis", () => {
+    expect(place(PAGE_V_ALIGN).ox).toBeCloseTo(place().ox, 10);
+  });
+
+  it("changes nothing about the photo itself", () => {
+    const centred = place();
+    const lifted = place(PAGE_V_ALIGN);
+    expect(lifted.w).toBeCloseTo(centred.w, 10);
+    expect(lifted.h).toBeCloseTo(centred.h, 10);
+    expect(ratioOf(lifted.w, lifted.h)).toBeCloseTo(16 / 9, 10);
+  });
+
+  it("leaves a photo that fills its region's height where it is", () => {
+    const tall = computeLayout([item(0.5)], 400, 600, cellsOf("single"), {
+      density: 100,
+      vAlign: PAGE_V_ALIGN,
+    }).cells[0];
+    expect(tall.rh - tall.h).toBeCloseTo(0, 6);
+    expect(tall.oy).toBeCloseTo(0, 6);
+  });
+
+  it("keeps the photo inside its region at either end of the range", () => {
+    for (const v of [0, 0.4, 1, -3, 7]) {
+      const c = place(v);
+      expect(c.oy).toBeGreaterThanOrEqual(0);
+      expect(c.oy + c.h).toBeLessThanOrEqual(c.rh + 1e-9);
+    }
+  });
+
+  it("yields to a cell that carries its own anchor (free placement, spec 035)", () => {
+    const anchored: CellRect[] = cellsOf("single").map((c) => ({ ...c, ay: 0.9 }));
+    const c = computeLayout(wide, region.w, region.h, anchored, {
+      density: 100,
+      vAlign: PAGE_V_ALIGN,
+    }).cells[0];
+    expect(c.oy).toBeCloseTo((c.rh - c.h) * 0.9, 10);
   });
 });

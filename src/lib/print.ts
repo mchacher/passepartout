@@ -21,7 +21,7 @@ import {
   PAGE_MARGIN,
   headerGeometry,
 } from "./page-header";
-import { computeLayout, drawOrder, whitespaceToDensity } from "./layout";
+import { computeLayout, drawOrder, PAGE_V_ALIGN, whitespaceToDensity } from "./layout";
 import { coverFaceAreas, coverTextTop } from "./cover-layout";
 import { resolveCells } from "./layouts";
 import { fontThemeOrDefault, type FontThemeId } from "./themes";
@@ -306,7 +306,7 @@ export function interiorPageGeometry(input: PageInput): PageGeometry {
     contentBox.w,
     contentBox.h,
     gridCells,
-    { density: whitespaceToDensity(input.whitespace) },
+    { density: whitespaceToDensity(input.whitespace), vAlign: PAGE_V_ALIGN },
   );
 
   const photos: PhotoBox[] = [];

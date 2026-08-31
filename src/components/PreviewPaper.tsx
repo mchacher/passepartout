@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { computeLayout, drawOrder, whitespaceToDensity } from "../lib/layout";
+import { computeLayout, drawOrder, PAGE_V_ALIGN, whitespaceToDensity } from "../lib/layout";
 import { resolveCells } from "../lib/layouts";
 import { bookSizeOrDefault, ratioOf, type BookSizeId } from "../lib/book-sizes";
 import { effectiveRatio } from "../lib/crop";
@@ -145,7 +145,7 @@ function PageLeaf({ title, subtitle, layoutId, whitespace, photos, fullPage, foc
     contentW,
     contentH,
     gridCells,
-    { density: whitespaceToDensity(whitespace) },
+    { density: whitespaceToDensity(whitespace), vAlign: PAGE_V_ALIGN },
   );
   const order = drawOrder(gridCells);
 

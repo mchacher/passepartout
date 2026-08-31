@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffec
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { DEFAULT_CROP_FOCUS, type AlbumPage, type CellRect, type PageFill, type Photo } from "../types";
-import { computeLayout, drawOrder, gridRegions, whitespaceToDensity } from "../lib/layout";
+import { computeLayout, drawOrder, gridRegions, PAGE_V_ALIGN, whitespaceToDensity } from "../lib/layout";
 import {
   F_CAPTION,
   F_CAPTION_GAP,
@@ -147,7 +147,7 @@ export const Paper = forwardRef<PaperHandle, PaperProps>(function Paper(
     .map((p) => `${p.frame ?? "-"},${p.frameColor ?? "-"},${p.frameText ?? "-"},${p.frameWidth ?? "-"},${p.frameFocus ? `${p.frameFocus.x}:${p.frameFocus.y}` : "-"},${p.rotation ?? "-"}`)
     .join("|");
   const placed = useMemo(
-    () => computeLayout(engineItems, box.w, box.h, gridCells, { density }).cells,
+    () => computeLayout(engineItems, box.w, box.h, gridCells, { density, vAlign: PAGE_V_ALIGN }).cells,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [box.w, box.h, density, page.photoIds.join(","), gridKey, cropKey, maskKey, frameKey],
   );
