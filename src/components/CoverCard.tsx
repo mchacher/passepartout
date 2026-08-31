@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useAlbum } from "../store";
 import { useT } from "../useT";
 import { F_COVER_SUBTITLE, F_COVER_TITLE, headerFontCss } from "../lib/page-header";
-import { COVER_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
+import { COVER_MARGIN_CSS, COVER_SIDE_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
 import { coverTextFieldClasses } from "../lib/cover-text";
 import { WHITESPACE_LEVELS, type CoverFace, type CoverTextPosition, type Photo } from "../types";
 import { computeLayout, whitespaceToDensity } from "../lib/layout";
@@ -64,8 +64,8 @@ export function CoverCard({ which }: CoverCardProps) {
   const photoBox = {
     top: atBottom ? 0 : band,
     bottom: atBottom ? band : 0,
-    paddingLeft: margin,
-    paddingRight: margin,
+    paddingLeft: COVER_SIDE_MARGIN_CSS,
+    paddingRight: COVER_SIDE_MARGIN_CSS,
     paddingTop: atBottom ? margin : undefined,
     paddingBottom: atBottom ? undefined : margin,
   };

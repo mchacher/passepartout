@@ -42,6 +42,10 @@ const imagewrap = (over: { w: number; h: number }, spine: CoverSpec["spineIn"]):
   overhangIn: over,
   bleedIn: 0.306,
   flapIn: 0,
+  // Blurb's calculator does not publish the hinge, so this is the standard quarter inch a
+  // hardcover joint takes, not a harvested number. Measure it off Blurb's cover template and
+  // fold it into the table with the rows issue #116 still owes us.
+  hingeIn: 0.25,
   spineIn: spine,
 });
 

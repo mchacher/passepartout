@@ -56,6 +56,14 @@ export interface CoverSpec {
   /** Flap width, from the trim edge to the fold. Zero when the cover has no flaps. */
   flapIn: number;
   /**
+   * How much of a face is lost to the joint next to the spine (issue #127). A hardcover folds
+   * into a hinge groove there, so whatever is printed close to the spine curves into it and
+   * reads as if the composition leaned toward the binding. The wrap is unchanged; the content
+   * inside each outside face steps away from the spine by half of this. Zero for a
+   * construction that trims flush and does not fold that way.
+   */
+  hingeIn: number;
+  /**
    * Spine width by interior page count, per paper family. Sampled points, interpolated in
    * between: a spine is piecewise linear in the page count, so a point every octave is enough.
    */

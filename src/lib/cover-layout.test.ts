@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   COVER_MARGIN,
+  COVER_SIDE_MARGIN,
   COVER_TOP_SUBTITLE,
   COVER_TOP_TITLE,
   coverBandCss,
@@ -12,7 +13,8 @@ import {
 // A landscape face, in whatever unit the caller works in.
 const W = 1000;
 const H = 800;
-const M = COVER_MARGIN * W; // 60
+const M = COVER_MARGIN * W; // 60, the outer (top / bottom) margin and the text inset
+const SM = COVER_SIDE_MARGIN * W; // 90, the wider side margin (issue #127)
 
 describe("coverBandFrac", () => {
   it("reserves one band per text case, never depending on the font size", () => {
@@ -34,7 +36,7 @@ describe("coverFaceAreas", () => {
   it("keeps the original layout when the text sits at the top", () => {
     const a = coverFaceAreas({ hasTitle: true, hasSubtitle: true, position: "top", w: W, h: H });
     expect(a.band).toBe(COVER_TOP_SUBTITLE * W); // 200
-    expect(a.photo).toEqual({ x: M, y: 200, w: W - 2 * M, h: H - 200 - M });
+    expect(a.photo).toEqual({ x: SM, y: 200, w: W - 2 * SM, h: H - 200 - M });
     expect(a.text).toEqual({ anchor: "top", inset: M });
   });
 
@@ -47,7 +49,7 @@ describe("coverFaceAreas", () => {
   it("mirrors the band under the photo when the text sits at the bottom", () => {
     const a = coverFaceAreas({ hasTitle: true, hasSubtitle: true, position: "bottom", w: W, h: H });
     expect(a.band).toBe(COVER_TOP_SUBTITLE * W);
-    expect(a.photo).toEqual({ x: M, y: M, w: W - 2 * M, h: H - 200 - M });
+    expect(a.photo).toEqual({ x: SM, y: M, w: W - 2 * SM, h: H - 200 - M });
     expect(a.text).toEqual({ anchor: "bottom", inset: M });
   });
 
@@ -95,8 +97,30 @@ describe("a printed face that overhangs its block (spec 041)", () => {
     const a = coverFaceAreas({ hasTitle: true, hasSubtitle: false, position: "bottom", w: faceW, h: H, unitW: W });
     expect(a.margin).toBe(M); // the page's margin, not the face's
     expect(a.band).toBe(COVER_TOP_TITLE * W);
-    expect(a.photo.w).toBe(faceW - 2 * M); // the box still spans the whole face
+    expect(a.sideMargin).toBe(SM); // the page's side margin, not the face's
+    expect(a.photo.w).toBe(faceW - 2 * SM); // the box still spans the whole face
     expect(a.photo.y).toBe(M);
   });
 });
 
+// Issue #127: a 6% side margin left a printed cover photo pressed against the board edges.
+// The sides are the only edges that moved.
+describe("the side margin", () => {
+  it("is wider than the outer one, and leaves the rest of the composition alone", () => {
+    expect(COVER_SIDE_MARGIN).toBe(0.09);
+    expect(COVER_SIDE_MARGIN).toBeGreaterThan(COVER_MARGIN);
+    const a = coverFaceAreas({ hasTitle: true, hasSubtitle: false, position: "top", w: W, h: H });
+    expect(a.margin).toBe(M);
+    expect(a.text.inset).toBe(M);
+    expect(a.band).toBe(COVER_TOP_TITLE * W);
+    expect(H - (a.photo.y + a.photo.h)).toBe(M);
+  });
+
+  it("insets the photo area equally on the left and the right, in both positions", () => {
+    for (const position of ["top", "bottom"] as const) {
+      const a = coverFaceAreas({ hasTitle: true, hasSubtitle: true, position, w: W, h: H });
+      expect(a.photo.x).toBe(SM);
+      expect(W - (a.photo.x + a.photo.w)).toBe(SM);
+    }
+  });
+});

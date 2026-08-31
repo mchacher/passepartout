@@ -15,8 +15,15 @@
 
 import type { CoverTextPosition } from "../types";
 
-/** Side and bottom inset, and the whole inset of a face carrying no text at all. */
+/** Outer (top / bottom) inset, the text inset, and the band of a face carrying no text at all. */
 export const COVER_MARGIN = 0.06;
+/**
+ * Side inset, wider than the outer one (issue #127). A 6% side margin on a Blurb 10x8 is
+ * 14.5 mm, and a photo filling the rest reads as pushed against the board edges rather than
+ * mounted in a passepartout. The sides are the only edges that change: the band heights, the
+ * outer margin and the text inset are untouched, so a cover keeps its proportions.
+ */
+export const COVER_SIDE_MARGIN = 0.09;
 /** Band reserved for a title alone. */
 export const COVER_TOP_TITLE = 0.15;
 /** Band reserved for a title and a subtitle. */
@@ -37,8 +44,9 @@ export function coverBandCss(input: CoverTextInput): string {
   return `${Number((coverBandFrac(input) * 100).toFixed(4))}cqw`;
 }
 
-/** The margin as a container-query length. */
+/** The margins as container-query lengths. */
 export const COVER_MARGIN_CSS = `${COVER_MARGIN * 100}cqw`;
+export const COVER_SIDE_MARGIN_CSS = `${COVER_SIDE_MARGIN * 100}cqw`;
 
 export interface CoverAreasInput extends CoverTextInput {
   /** Absent (a face saved before spec 042) means "top". */
@@ -58,8 +66,10 @@ export interface CoverAreasInput extends CoverTextInput {
 export interface CoverAreas {
   /** The text band, in the caller's unit. */
   band: number;
-  /** The side / outer margin, in the caller's unit. */
+  /** The outer (top / bottom) margin, and the inset the text block hangs at. */
   margin: number;
+  /** The side margin, wider than the outer one. */
+  sideMargin: number;
   /** The area the photo is contained in, relative to the face's top-left corner. */
   photo: { x: number; y: number; w: number; h: number };
   /** Which edge the text block is anchored to, and how far it sits from it. */
@@ -81,15 +91,17 @@ export interface CoverAreas {
 export function coverFaceAreas({ hasTitle, hasSubtitle, position, w, h, unitW }: CoverAreasInput): CoverAreas {
   const unit = unitW ?? w;
   const margin = COVER_MARGIN * unit;
+  const sideMargin = COVER_SIDE_MARGIN * unit;
   const band = coverBandFrac({ hasTitle, hasSubtitle }) * unit;
   const bottom = position === "bottom";
   return {
     band,
     margin,
+    sideMargin,
     photo: {
-      x: margin,
+      x: sideMargin,
       y: bottom ? margin : band,
-      w: w - 2 * margin,
+      w: w - 2 * sideMargin,
       h: h - band - margin,
     },
     text: { anchor: bottom ? "bottom" : "top", inset: margin },

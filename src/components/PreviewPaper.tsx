@@ -17,7 +17,7 @@ import {
   headerGeometry,
 } from "../lib/page-header";
 import { SIZE_SCALE } from "../lib/text-sizes";
-import { COVER_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
+import { COVER_MARGIN_CSS, COVER_SIDE_MARGIN_CSS, coverBandCss } from "../lib/cover-layout";
 import { useAlbum } from "../store";
 import { CroppedImg } from "./CroppedImg";
 import { FramedPhoto } from "./FramedPhoto";
@@ -248,8 +248,8 @@ function CoverLeaf({ title, subtitle, whitespace, photo, textPosition, h }: Cove
   const photoBox = {
     top: atBottom ? 0 : band,
     bottom: atBottom ? band : 0,
-    paddingLeft: margin,
-    paddingRight: margin,
+    paddingLeft: COVER_SIDE_MARGIN_CSS,
+    paddingRight: COVER_SIDE_MARGIN_CSS,
     paddingTop: atBottom ? margin : undefined,
     paddingBottom: atBottom ? undefined : margin,
   };

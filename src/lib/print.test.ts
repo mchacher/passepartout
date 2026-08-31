@@ -32,6 +32,7 @@ const softcover: CoverSpec = {
   overhangIn: { w: 0, h: 0 },
   bleedIn: BLEED_MM / 25.4,
   flapIn: 0,
+  hingeIn: 0,
   spineIn: { standard: [], premium: [] },
 };
 
@@ -592,8 +593,8 @@ describe("notes in print (spec 039)", () => {
     expect(g.front.notes).toHaveLength(1);
     // Each is placed inside its own panel, so the front note sits to the right of the back one.
     expect(g.front.notes[0].cx).toBeGreaterThan(g.back.notes[0].cx);
-    expect(g.back.notes[0].cx).toBeCloseTo(g.back.trimBox.x + 0.25 * trimW, 6);
-    expect(g.front.notes[0].cx).toBeCloseTo(g.front.trimBox.x + 0.25 * trimW, 6);
+    expect(g.back.notes[0].cx).toBeCloseTo(g.back.contentBox.x + 0.25 * trimW, 6);
+    expect(g.front.notes[0].cx).toBeCloseTo(g.front.contentBox.x + 0.25 * trimW, 6);
   });
 });
 
@@ -693,3 +694,64 @@ describe("cover text position (spec 042)", () => {
   });
 });
 
+// Issue #127: a hardcover folds into a joint next to the spine, so an outside face lays its
+// content out in the part of itself that stays flat, and the composition steps outward.
+describe("the hinge next to the spine", () => {
+  const hinged: CoverSpec = { ...softcover, id: "imagewrap", hingeIn: 0.25 };
+  const hingePt = 0.25 * 72;
+  const face = (photoId: string | null) => ({
+    title: "Corse",
+    subtitle: "",
+    photo: photoId ? { photoId, ratio: 1.5 } : null,
+    whitespace: 4,
+  });
+  const wrap = (cover: CoverSpec) =>
+    coverWrapGeometry({
+      size,
+      cover,
+      spineWidthPt: mmToPt(8),
+      front: face("f"),
+      back: face("b"),
+      spineTitle: "Corse",
+      spineSubtitle: "",
+      scales: { coverTitle: 1, coverSubtitle: 1 },
+    });
+
+  it("moves each outside face's composition away from the spine, in mirror", () => {
+    const flat = wrap(softcover);
+    const g = wrap(hinged);
+    // The front's spine edge is on its left, the back's on its right. The composition is
+    // centred in the flat part of the face, so its CENTRE moves by half the hinge; the photo
+    // also gets that much less width to fill, so it is a little smaller.
+    const centre = (p: { x: number; w: number }) => p.x + p.w / 2;
+    expect(centre(g.front.photo!) - centre(flat.front.photo!)).toBeCloseTo(hingePt / 2, 6);
+    expect(centre(g.back.photo!) - centre(flat.back.photo!)).toBeCloseTo(-hingePt / 2, 6);
+    expect(g.front.photo!.w).toBeLessThan(flat.front.photo!.w);
+    expect(g.front.title!.cx - flat.front.title!.cx).toBeCloseTo(hingePt / 2, 6);
+    expect(g.back.title!.cx - flat.back.title!.cx).toBeCloseTo(-hingePt / 2, 6);
+  });
+
+  it("leaves the wrap, the spine and the faces themselves exactly where they were", () => {
+    const flat = wrap(softcover);
+    const g = wrap(hinged);
+    expect(g.mediaBox).toEqual(flat.mediaBox);
+    expect(g.spineBox).toEqual(flat.spineBox);
+    expect(g.front.trimBox).toEqual(flat.front.trimBox);
+    expect(g.back.trimBox).toEqual(flat.back.trimBox);
+    expect(g.spineLines).toEqual(flat.spineLines);
+  });
+
+  it("keeps every photo contained and at its exact ratio", () => {
+    const g = wrap(hinged);
+    for (const panel of [g.front, g.back]) {
+      const p = panel.photo!;
+      expect(p.w / p.h).toBeCloseTo(1.5, 10);
+      expect(p.x).toBeGreaterThanOrEqual(panel.contentBox.x);
+      expect(p.x + p.w).toBeLessThanOrEqual(panel.contentBox.x + panel.contentBox.w + 1e-6);
+    }
+  });
+
+  it("changes nothing for a construction that does not fold that way", () => {
+    expect(wrap({ ...softcover, hingeIn: 0 })).toEqual(wrap(softcover));
+  });
+});

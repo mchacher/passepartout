@@ -65,6 +65,7 @@ describe("Blurb cover specifications", () => {
       overhangIn: over,
       bleedIn: 0.125,
       flapIn: flap,
+      hingeIn: 0,
       spineIn: { standard: [], premium: [] },
     });
     // Mini Square softcover at 20 pages, and the same book as a dust jacket, both from the
@@ -82,6 +83,7 @@ describe("spineWidthIn", () => {
     overhangIn: { w: 0, h: 0 },
     bleedIn: 0.125,
     flapIn: 0,
+    hingeIn: 0,
     spineIn: { standard: [{ pages: 20, width: 0.1 }, { pages: 80, width: 0.4 }], premium: [] },
   };
 

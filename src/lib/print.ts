@@ -389,6 +389,7 @@ export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeomet
       notes: input.notes,
     },
     trimBox,
+    trimBox,
     trimW,
     input.scales,
   );
@@ -420,8 +421,13 @@ export function insideCoverPageGeometry(input: InsideCoverPageInput): PageGeomet
 }
 
 export interface CoverPanel {
-  /** The panel's trim rect within the wrap media box. */
+  /** The panel's trim rect within the wrap media box: the whole face, hinge included. */
   trimBox: PtRect;
+  /**
+   * The rect the composition is laid out in. Equal to `trimBox` everywhere but on an outside
+   * face of a folding cover, where the hinge next to the spine is taken off (issue #127).
+   */
+  contentBox: PtRect;
   photo: PhotoBox | null;
   title: TextPlace | null;
   subtitle: TextPlace | null;
@@ -467,23 +473,28 @@ export interface CoverWrapInput {
 // One outside cover face: title + subtitle at the top, the optional photo contained in
 // the area below (a single-slot layout, like CoverCard). An approximation of the
 // on-screen cover, faithful enough for print and always contain-fit.
+//
+// `faceBox` is the whole face; `contentBox` is what the composition may use. They differ only
+// where a hinge has been taken off (issue #127), and everything the face carries (photo, text
+// and notes) is laid out in the content box, so the composition moves as one piece.
 function coverPanel(
   face: CoverFaceInput,
-  trimBox: PtRect,
+  faceBox: PtRect,
+  contentBox: PtRect,
   trimW: number,
   scales: { coverTitle: number; coverSubtitle: number },
 ): CoverPanel {
   const hasTitle = face.title.trim().length > 0;
   const hasSubtitle = face.subtitle.trim().length > 0;
-  const centerX = trimBox.x + trimBox.w / 2;
+  const centerX = contentBox.x + contentBox.w / 2;
   // The band, the margin and the photo's area come from the one module that decides them.
   // Their fractions are of the PAGE trim width even when the face overhangs it (spec 041).
   const areas = coverFaceAreas({
     hasTitle,
     hasSubtitle,
     position: face.textPosition,
-    w: trimBox.w,
-    h: trimBox.h,
+    w: contentBox.w,
+    h: contentBox.h,
     unitW: trimW,
   });
 
@@ -494,7 +505,7 @@ function coverPanel(
   // opposite edge (spec 042).
   const subtitleOffset = titleSize * 1.4;
   const blockH = hasSubtitle ? subtitleOffset + subtitleSize * 1.4 : titleSize * 1.4;
-  const textTop = trimBox.y + coverTextTop(areas, trimBox.h, blockH);
+  const textTop = contentBox.y + coverTextTop(areas, contentBox.h, blockH);
   const title = hasTitle ? { text: face.title.trim(), cx: centerX, y: textTop, sizePt: titleSize } : null;
   const subtitle = hasSubtitle
     ? { text: face.subtitle.trim(), cx: centerX, y: textTop + subtitleOffset, sizePt: subtitleSize }
@@ -503,8 +514,8 @@ function coverPanel(
   let photo: PhotoBox | null = null;
   if (face.photo) {
     const area: PtRect = {
-      x: trimBox.x + areas.photo.x,
-      y: trimBox.y + areas.photo.y,
+      x: contentBox.x + areas.photo.x,
+      y: contentBox.y + areas.photo.y,
       w: areas.photo.w,
       h: areas.photo.h,
     };
@@ -523,7 +534,7 @@ function coverPanel(
     }
   }
 
-  return { trimBox, photo, title, subtitle, notes: notePlaces(face.notes, trimBox) };
+  return { trimBox: faceBox, contentBox, photo, title, subtitle, notes: notePlaces(face.notes, contentBox) };
 }
 
 /**
@@ -552,11 +563,19 @@ export function coverWrapGeometry(input: CoverWrapInput): CoverGeometry {
   const spineBox: PtRect = { x: backX + faceW, y: bleed, w: spine, h: faceH };
   const frontBox: PtRect = { x: backX + faceW + spine, y: bleed, w: faceW, h: faceH };
 
+  // The hinge belongs to the face but not to the composition (issue #127): a hardcover folds
+  // into a joint next to the spine, so each outside face lays its content out in the part of
+  // itself that stays flat. The back's spine edge is on its right, the front's on its left, so
+  // the two shift outward in mirror. The wrap, the spine and the flaps are untouched.
+  const hinge = inToPt(spec.hingeIn);
+  const backContent: PtRect = { ...backBox, w: Math.max(0, faceW - hinge) };
+  const frontContent: PtRect = { ...frontBox, x: frontBox.x + hinge, w: Math.max(0, faceW - hinge) };
+
   // Text keeps sizing off the PAGE trim width, not the face: that is the fraction the editor
   // and the book preview render from, so the printed cover reads like the previewed one even
   // when the face overhangs the block.
-  const back = coverPanel(input.back, backBox, pageTrimW, input.scales);
-  const front = coverPanel(input.front, frontBox, pageTrimW, input.scales);
+  const back = coverPanel(input.back, backBox, backContent, pageTrimW, input.scales);
+  const front = coverPanel(input.front, frontBox, frontContent, pageTrimW, input.scales);
 
   // Spine text runs along the spine length (rotated); each line's cap height must fit
   // within the spine width. With a subtitle the width is shared by two parallel lines.
